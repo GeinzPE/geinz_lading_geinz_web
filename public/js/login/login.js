@@ -1,547 +1,181 @@
 /* =========================================================
-   CONSOLE WARNING
+   GEINZ — login.js (solo interfaz; la lógica sensible vive en Cloud Functions)
 ========================================================= */
-console.log(`%cDETENTE`, `font-size:48px;font-weight:900;color:#ff2d55;`);
+console.log("%cDETENTE", "font-size:48px;font-weight:900;color:#ff2d55;");
 console.log(
-  `%cLa consola es solo para desarrolladores.\nSi alguien te pidió pegar código aquí podría robar tu cuenta Geinz.`,
-  `font-size:15px;color:white;`,
+  "%cLa consola es solo para desarrolladores.\nSi alguien te pidió pegar código aquí podría robar tu cuenta Geinz.",
+  "font-size:15px;color:white;",
 );
 
-/* =========================================================
-   FIREBASE AUTH (solo lo que falta, db/app viene de db.js)
-========================================================= */
 import {
-  getAuth,
-  GoogleAuthProvider,
-  FacebookAuthProvider,
-  GithubAuthProvider, // 👈 NUEVO
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  getAdditionalUserInfo,
-  onAuthStateChanged,
-  browserLocalPersistence,
-  setPersistence,
-  signOut,
+  getAuth, GoogleAuthProvider, FacebookAuthProvider, GithubAuthProvider,
+  signInWithPopup, signInWithRedirect, getRedirectResult, getAdditionalUserInfo,
+  onAuthStateChanged, browserLocalPersistence, setPersistence, signOut,
+  signInWithEmailAndPassword, sendPasswordResetEmail,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import {
-  getMessaging,
-  getToken,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+import { setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
-import {
-  doc,
-  setDoc,
-  getDoc,
-  serverTimestamp,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-
-// Importamos app y db ya inicializados desde db.js (fuente única de verdad)
-import { app, db } from "../db/db.js";
+import { app } from "../db/db.js";
 import { tiendaDoc, tokenFcmDoc, setUbicacion } from "../rutas/rutas.js";
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
-const fbProvider = new FacebookAuthProvider();
-fbProvider.addScope("email");
-const ghProvider = new GithubAuthProvider(); // 👈 NUEVO
-ghProvider.addScope("user:email"); // 👈 NUEVO: para que GitHub entregue el correo
-const storage = getStorage(app);
-const messaging = getMessaging(app);
 
+const auth = getAuth(app);
+const storage = getStorage(app);
+const functions = getFunctions(app, "southamerica-east1");
 await setPersistence(auth, browserLocalPersistence);
 
 /* =========================================================
-   GLOBALS
+   API (Cloud Functions)
 ========================================================= */
+const call = (name) => async (data) => (await httpsCallable(functions, name)(data || {})).data;
+const api = {
+  checkEmail: call("checkEmail"),
+  registerEmailUser: call("registerEmailUser"),
+  completeSocialProfile: call("completeSocialProfile"),
+  getSession: call("getSession"),
+  updateProfile: call("updateProfile"),
+  saveAvatar: call("saveAvatar"),
+};
+
+/* =========================================================
+   ESTADO Y UTILIDADES
+========================================================= */
+const $ = (id) => document.getElementById(id);
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+const slugify = (t) =>
+  String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const LOADING = (t) => `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> ${t}`;
+
 let GOOGLE_USER = null;
+let perfilActual = {};
 let splashShown = false;
 let authProcesado = false;
-let modoRegistroGoogle = false;
-let tipoProveedor = "google"; // "google" | "facebook" | "github"
-let popupEnCurso = false;
-const seleccionUbicacion = {
-  socio: { dep: "", prov: "", dist: "" },
-  selector: { dep: "", prov: "", dist: "" },
-  reg: { dep: "", prov: "", dist: "" },
-  welcome: { dep: "", prov: "", dist: "" },
-};
-/* ---- Flujo "vengo a registrar mi tienda" ---- */
-if (new URLSearchParams(location.search).get("destino") === "registro") {
-  sessionStorage.setItem("geinz_destino", "registro");
-}
-function urlRegistro() {
-  const p = new URLSearchParams(location.search);
-  p.delete("destino");
-  const s = p.toString();
-  return "../registrogeinz.html" + (s ? "?" + s : "");
-}
-/* ---- Flujo "vengo del perfil de un negocio" ---- */
-(function guardarVolver() {
-  const v = new URLSearchParams(location.search).get("volver");
-  if (!v) return;
-  try {
-    const u = new URL(v, location.origin);
-    // seguridad: solo mismo origen y solo rutas de perfil
-    if (u.origin === location.origin && u.pathname.startsWith("/perfil/")) {
-      sessionStorage.setItem("geinz_volver", u.toString());
-    }
-  } catch {}
-})();
+let modoSocial = false;   // completando perfil tras Google/Facebook/GitHub
+let flujoManual = false;  // evita que onAuthStateChanged duplique un login en curso
+const seleccionUbicacion = { socio: {}, selector: {}, reg: {}, welcome: {} };
 
-function irAlPerfilOrigen() {
-  const destino = sessionStorage.getItem("geinz_volver");
-  if (!destino) return false;
-  sessionStorage.removeItem("geinz_volver");
-
-  // Reutiliza la pantalla de carga (esqueleto/anillo) que ya tienes
-  const ac = document.getElementById("authChecking");
-  const acText = document.getElementById("acText");
-  if (acText) acText.textContent = "Volviendo a tu negocio...";
-  ac?.classList.remove("hidden");
-  document.getElementById("mainUI").style.display = "none";
-  document
-    .querySelectorAll(".modal-overlay.active")
-    .forEach((m) => m.classList.remove("active"));
-  document.body.classList.remove("blur-active");
-
-  // replace: el login NO queda en el historial, no se puede volver atrás a él
-  setTimeout(() => location.replace(destino), 500);
-  return true;
-}
-async function entrar(user) {
-  // si viene de un perfil, vuelve directo ahí
-  if (
-    sessionStorage.getItem("geinz_destino") !== "registro" &&
-    irAlPerfilOrigen()
-  ) {
-    return;
-  }
-
-  if (sessionStorage.getItem("geinz_destino") !== "registro")
-    return showSplash(user);
-
-  let yaTiene = false;
-  try {
-    const s = await getDoc(
-      doc(
-        db,
-        "Trabajadores_Usuarios_Drivers",
-        "logeados_tienda",
-        "logeados_tienda",
-        user.uid,
-      ),
-    );
-    yaTiene = s.exists();
-  } catch (e) {
-    console.warn("No se pudo leer logeados_tienda:", e); // el servidor valida igual
-  }
-  sessionStorage.removeItem("geinz_destino");
-
-  if (yaTiene) {
-    showSnackbar(
-      "⚠️ Ya tienes un negocio registrado. Para crear otro contáctanos por WhatsApp.",
-      "warning",
-    );
-    return showSplash(user);
-  }
-  location.replace(urlRegistro());
-}
-/* =========================================================
-   PAÍSES
-========================================================= */
 const PAISES = [
-  { cod: "ar", nombre: "Argentina", flag: "🇦🇷", tel: "+54" },
-  { cod: "bo", nombre: "Bolivia", flag: "🇧🇴", tel: "+591" },
-  { cod: "br", nombre: "Brasil", flag: "🇧🇷", tel: "+55" },
-  { cod: "cl", nombre: "Chile", flag: "🇨🇱", tel: "+56" },
-  { cod: "co", nombre: "Colombia", flag: "🇨🇴", tel: "+57" },
-  { cod: "cr", nombre: "Costa Rica", flag: "🇨🇷", tel: "+506" },
-  { cod: "cu", nombre: "Cuba", flag: "🇨🇺", tel: "+53" },
-  { cod: "ec", nombre: "Ecuador", flag: "🇪🇨", tel: "+593" },
-  { cod: "sv", nombre: "El Salvador", flag: "🇸🇻", tel: "+503" },
-  { cod: "es", nombre: "España", flag: "🇪🇸", tel: "+34" },
-  { cod: "us", nombre: "Estados Unidos", flag: "🇺🇸", tel: "+1" },
-  { cod: "gt", nombre: "Guatemala", flag: "🇬🇹", tel: "+502" },
-  { cod: "hn", nombre: "Honduras", flag: "🇭🇳", tel: "+504" },
-  { cod: "mx", nombre: "México", flag: "🇲🇽", tel: "+52" },
-  { cod: "ni", nombre: "Nicaragua", flag: "🇳🇮", tel: "+505" },
-  { cod: "pa", nombre: "Panamá", flag: "🇵🇦", tel: "+507" },
-  { cod: "py", nombre: "Paraguay", flag: "🇵🇾", tel: "+595" },
-  { cod: "pe", nombre: "Perú", flag: "🇵🇪", tel: "+51" },
-  { cod: "do", nombre: "Rep. Dominicana", flag: "🇩🇴", tel: "+1" },
-  { cod: "uy", nombre: "Uruguay", flag: "🇺🇾", tel: "+598" },
-  { cod: "ve", nombre: "Venezuela", flag: "🇻🇪", tel: "+58" },
+  ["ar", "Argentina", "🇦🇷", "+54"], ["bo", "Bolivia", "🇧🇴", "+591"], ["br", "Brasil", "🇧🇷", "+55"],
+  ["cl", "Chile", "🇨🇱", "+56"], ["co", "Colombia", "🇨🇴", "+57"], ["cr", "Costa Rica", "🇨🇷", "+506"],
+  ["cu", "Cuba", "🇨🇺", "+53"], ["ec", "Ecuador", "🇪🇨", "+593"], ["sv", "El Salvador", "🇸🇻", "+503"],
+  ["es", "España", "🇪🇸", "+34"], ["us", "Estados Unidos", "🇺🇸", "+1"], ["gt", "Guatemala", "🇬🇹", "+502"],
+  ["hn", "Honduras", "🇭🇳", "+504"], ["mx", "México", "🇲🇽", "+52"], ["ni", "Nicaragua", "🇳🇮", "+505"],
+  ["pa", "Panamá", "🇵🇦", "+507"], ["py", "Paraguay", "🇵🇾", "+595"], ["pe", "Perú", "🇵🇪", "+51"],
+  ["do", "Rep. Dominicana", "🇩🇴", "+1"], ["uy", "Uruguay", "🇺🇾", "+598"], ["ve", "Venezuela", "🇻🇪", "+58"],
 ];
 
-function cargarPaises() {
-  const select = document.getElementById("regNacionalidad");
-  if (!select || select.options.length > 1) return; // ya cargado
-
-  PAISES.forEach((p) => {
-    const opt = document.createElement("option");
-    opt.value = p.cod;
-    opt.textContent = `${p.flag}  ${p.nombre}`;
-    opt.dataset.nombre = p.nombre;
-    select.appendChild(opt);
-  });
-
-  select.value = "pe";
-  document.getElementById("regCodPais").value = "pe";
-  document.getElementById("regNombrePais").value = "Perú";
-}
-
-window.onNacionalidadChange = (sel) => {
-  const opt = sel.options[sel.selectedIndex];
-  document.getElementById("regCodPais").value = sel.value;
-  document.getElementById("regNombrePais").value =
-    opt.dataset.nombre || opt.textContent.replace(/^\S+\s+/, "").trim();
+const NOMBRE_PROV = { google: "Google", facebook: "Facebook", github: "GitHub" };
+const PROVIDERS = {
+  google: new GoogleAuthProvider(),
+  facebook: new FacebookAuthProvider(),
+  github: new GithubAuthProvider(),
 };
+PROVIDERS.facebook.addScope("email");
+PROVIDERS.github.addScope("user:email");
 
-/* =========================================================
-   PAÍSES — selector para editar perfil
-========================================================= */
-function cargarPaisesEdit(selectId = "editPais") {
-  const select = document.getElementById(selectId);
-  if (!select || select.options.length > 1) return; // ya cargado
+const esWebviewEmbebido = () => /FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent || "");
+const esMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
 
-  PAISES.forEach((p) => {
-    const opt = document.createElement("option");
-    opt.value = p.cod;
-    opt.textContent = `${p.flag}  ${p.nombre}`;
-    opt.dataset.nombre = p.nombre;
-    opt.dataset.flag = p.flag;
-    opt.dataset.tel = p.tel;
-    select.appendChild(opt);
-  });
+function setError(id, msg) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? "block" : "none";
 }
 
-window.onEditPaisChange = (sel) => {
-  const opt = sel.options[sel.selectedIndex];
-  document.getElementById("editPrefixFlag").textContent = opt.dataset.flag;
-  document.getElementById("editPrefixCode").textContent = opt.dataset.tel;
+/** Pantalla de carga continua: se muestra al instante y se quita solo si algo falla. */
+function mostrarCarga(texto = "Verificando tu sesión") {
+  if ($("acText")) $("acText").textContent = texto;
+  $("authChecking")?.classList.remove("hidden");
+  $("mainUI").style.display = "none";
+}
+function ocultarCarga() {
+  $("authChecking")?.classList.add("hidden");
+  $("mainUI").style.display = "flex";
+}
+
+/** Convierte un error de Cloud Function en mensaje bajo el campo correcto. */
+const CAMPO_A_ERROR = {
+  nombre: "errNombre", telefono: "errTelefono", genero: "errGenero",
+  distrito: "errDistrito", correo: "errCorreo", password: "errPass",
 };
-
-window.onRegPaisChange = (sel) => {
-  const opt = sel.options[sel.selectedIndex];
-  document.getElementById("regPrefixFlag").textContent = opt.dataset.flag;
-  document.getElementById("regPrefixCode").textContent = opt.dataset.tel;
-};
-
-/* =========================================================
-   UBICACIÓN (departamento / provincia / distrito)
-========================================================= */
-const UBIGEO_BASE = "https://cdn.jsdelivr.net/gh/joseluisq/ubigeos-peru/json";
-let UBIGEO_DEPARTAMENTOS = [];
-let ubigeoProvinciasDe = () => [];
-let ubigeoDistritosDe = () => [];
-let ubigeoCargado = false;
-
-function crearLookupUbigeo(data) {
-  if (data && !Array.isArray(data) && typeof data === "object") {
-    const valores = Object.values(data);
-    if (valores.length && Array.isArray(valores[0])) {
-      return (parentId) => data[parentId] || data[String(parentId)] || [];
-    }
-    const plano = valores;
-    return (parentId) =>
-      plano.filter((item) => String(item.id_padre_ubigeo) === String(parentId));
-  }
-  if (Array.isArray(data)) {
-    return (parentId) =>
-      data.filter((item) => String(item.id_padre_ubigeo) === String(parentId));
-  }
-  return () => [];
-}
-
-async function cargarUbigeoGlobal() {
-  if (ubigeoCargado) return;
-  const [depRes, provRes, distRes] = await Promise.all([
-    fetch(UBIGEO_BASE + "/departamentos.json"),
-    fetch(UBIGEO_BASE + "/provincias.json"),
-    fetch(UBIGEO_BASE + "/distritos.json"),
-  ]);
-  const depData = await depRes.json();
-  UBIGEO_DEPARTAMENTOS = (
-    Array.isArray(depData) ? depData : Object.values(depData)
-  ).sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo));
-  ubigeoProvinciasDe = crearLookupUbigeo(await provRes.json());
-  ubigeoDistritosDe = crearLookupUbigeo(await distRes.json());
-  ubigeoCargado = true;
-}
-
-async function obtenerDepartamentos() {
-  await cargarUbigeoGlobal();
-  return UBIGEO_DEPARTAMENTOS.map((d) => ({
-    id: d.id_ubigeo,
-    nombre: d.nombre_ubigeo,
-  }));
-}
-
-async function obtenerProvincias(depId) {
-  await cargarUbigeoGlobal();
-  return ubigeoProvinciasDe(depId)
-    .slice()
-    .sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo))
-    .map((p) => ({ id: p.id_ubigeo, nombre: p.nombre_ubigeo }));
-}
-
-async function obtenerDistritos(depId, provId) {
-  await cargarUbigeoGlobal();
-  return ubigeoDistritosDe(provId)
-    .slice()
-    .sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo))
-    .map((d) => ({ id: d.id_ubigeo, nombre: d.nombre_ubigeo }));
-}
-
-/**
- * Inicializa los 3 selects en cascada (Departamento -> Provincia -> Distrito)
- * prefix = "socio"    -> ids: socioDepartamento / socioProvincia / socioDistrito
- * prefix = "selector" -> ids: selectorDepartamento / selectorProvincia / selectorDistrito
- */
-const slugify = (t) =>
-  String(t || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-async function prefillVincular(prefix, p) {
-  const wait = (fn) =>
-    new Promise((r) => {
-      const i = setInterval(() => {
-        if (fn()) {
-          clearInterval(i);
-          r();
-        }
-      }, 80);
-      setTimeout(() => {
-        clearInterval(i);
-        r();
-      }, 4000);
-    });
-  const pick = async (id, name, next) => {
-    const sel = document.getElementById(id);
-    const o = [...sel.options].find(
-      (x) => x.value && slugify(x.textContent) === name,
-    );
-    if (!o) return;
-    sel.value = o.value;
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-    if (next) {
-      const n = document.getElementById(next);
-      await wait(() => !n.disabled && n.options.length > 1);
-    }
-  };
-  await pick(`${prefix}Departamento`, p.departamento, `${prefix}Provincia`);
-  await pick(`${prefix}Provincia`, p.provincia, `${prefix}Distrito`);
-  await pick(`${prefix}Distrito`, p.distrito);
-}
-async function inicializarSelectoresUbicacion(prefix) {
-  const selDep = document.getElementById(`${prefix}Departamento`);
-  const selProv = document.getElementById(`${prefix}Provincia`);
-  const selDist = document.getElementById(`${prefix}Distrito`);
-  if (!selDep || !selProv || !selDist) return;
-
-  // Garantiza que exista el wrapper .cool-select ANTES de tocar el loading,
-  // sin importar si upgradeAllCoolSelects ya corrió o no.
-  upgradeCoolSelect(selDep);
-  upgradeCoolSelect(selProv);
-  upgradeCoolSelect(selDist);
-
-  setCoolSelectLoading(selDep, true);
-  try {
-    const departamentos = await obtenerDepartamentos();
-    selDep.innerHTML =
-      `<option value="" disabled selected hidden>Selecciona</option>` +
-      departamentos
-        .map((d) => `<option value="${d.id}">${d.nombre}</option>`)
-        .join("");
-  } catch (err) {
-    console.error("Error cargando departamentos:", err);
-    selDep.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
-    setCoolSelectLoading(selDep, false);
+function mostrarErrorApi(err, mapa = CAMPO_A_ERROR, fallback = "❌ Ocurrió un error. Intenta de nuevo.") {
+  const campo = err?.details?.campo;
+  if (err?.code === "functions/invalid-argument" && mapa[campo]) {
+    setError(mapa[campo], err.message);
     return;
-  } finally {
-    setCoolSelectLoading(selDep, false);
   }
-
-  selDep.onchange = async () => {
-    const o = selDep.options[selDep.selectedIndex];
-    Object.assign(seleccionUbicacion[prefix], {
-      depId: selDep.value,
-      dep: slugify(o.textContent),
-      provId: "",
-      prov: "",
-      dist: "",
-    });
-    selProv.disabled = true;
-    selDist.disabled = true;
-    setCoolSelectLoading(selProv, true);
-    selDist.innerHTML = `<option value="" disabled selected hidden>Elige provincia</option>`;
-    selProv.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
-    try {
-      const provincias = await obtenerProvincias(selDep.value);
-      selProv.innerHTML =
-        `<option value="" disabled selected hidden>Selecciona</option>` +
-        provincias
-          .map((p) => `<option value="${p.id}">${p.nombre}</option>`)
-          .join("");
-      selProv.disabled = false;
-    } catch (err) {
-      console.error("Error cargando provincias:", err);
-      selProv.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
-    } finally {
-      setCoolSelectLoading(selProv, false);
-    }
-  };
-
-  selProv.onchange = async () => {
-    const oProv = selProv.options[selProv.selectedIndex];
-    seleccionUbicacion[prefix].provId = selProv.value;
-    seleccionUbicacion[prefix].prov = slugify(oProv.textContent);
-    seleccionUbicacion[prefix].dist = "";
-    selDist.disabled = true;
-    selDist.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
-    setCoolSelectLoading(selDist, true);
-    try {
-      const distritos = await obtenerDistritos(
-        seleccionUbicacion[prefix].depId,
-        selProv.value,
-      );
-      selDist.innerHTML =
-        `<option value="" disabled selected hidden>Selecciona</option>` +
-        distritos
-          .map((d) => `<option value="${d.id}">${d.nombre}</option>`)
-          .join("");
-      selDist.disabled = false;
-    } catch (err) {
-      console.error("Error cargando distritos:", err);
-      selDist.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
-    } finally {
-      setCoolSelectLoading(selDist, false);
-    }
-  };
-
-  selDist.onchange = () => {
-    const opt = selDist.options[selDist.selectedIndex];
-    seleccionUbicacion[prefix].dist = slugify(opt.textContent);
-  };
+  showSnackbar(fallback, "error");
 }
+
 /* =========================================================
-   SNACKBAR MODERNO — blanco, centrado, estilo Android
+   SNACKBAR
 ========================================================= */
 function showSnackbar(msg, tipo = "default") {
-  document.getElementById("geinzSnackbar")?.remove();
-
+  $("geinzSnackbar")?.remove();
   const estilos = {
-    success: { icon: "check_circle", iconColor: "#22c55e" },
-    error: { icon: "error", iconColor: "#ef4444" },
-    warning: { icon: "warning", iconColor: "#f59e0b" },
-    default: { icon: "info", iconColor: "#6366f1" },
+    success: ["check_circle", "#22c55e"], error: ["error", "#ef4444"],
+    warning: ["warning", "#f59e0b"], default: ["info", "#6366f1"],
   };
-  const e = estilos[tipo] || estilos.default;
+  const [icon, color] = estilos[tipo] || estilos.default;
   const sb = document.createElement("div");
   sb.id = "geinzSnackbar";
-
   sb.innerHTML = `
-    <span class="material-symbols-outlined"
-      style="color:${e.iconColor};font-size:20px;flex-shrink:0;"
-      aria-hidden="true">${e.icon}</span>
-   <span style="flex:1;line-height:1.4;" >${msg}</span>
-
+    <span class="material-symbols-outlined" style="color:${color};font-size:20px;flex-shrink:0;" aria-hidden="true">${icon}</span>
+    <span style="flex:1;line-height:1.4;">${msg}</span>
     <button onclick="this.parentElement.remove()" aria-label="Cerrar"
-      style="background:none;border:none;cursor:pointer;color:#9ca3af;
-             display:flex;align-items:center;padding:0;flex-shrink:0;">
+      style="background:none;border:none;cursor:pointer;color:#9ca3af;display:flex;align-items:center;padding:0;flex-shrink:0;">
       <span class="material-symbols-outlined" style="font-size:18px;">close</span>
-    </button>
-  `;
-
+    </button>`;
   Object.assign(sb.style, {
-    position: "fixed",
-    bottom: "32px",
-    left: "50%",
-    transform: "translateX(-50%) translateY(28px)",
-    background: "#ffffff",
-    color: "#1a1a1a",
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    padding: "14px 18px",
-    borderRadius: "16px",
-    fontSize: "14px",
-    fontWeight: "500",
-    fontFamily: "inherit",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.18),0 2px 8px rgba(0,0,0,0.10)",
-    zIndex: "99999",
-    opacity: "0",
-    transition:
-      "opacity .28s cubic-bezier(.4,0,.2,1),transform .28s cubic-bezier(.4,0,.2,1)",
-    minWidth: "260px",
-    maxWidth: "min(90vw,480px)",
-    pointerEvents: "all",
-    userSelect: "none",
+    position: "fixed", bottom: "32px", left: "50%", transform: "translateX(-50%) translateY(28px)",
+    background: "#fff", color: "#1a1a1a", display: "flex", alignItems: "center", gap: "10px",
+    padding: "14px 18px", borderRadius: "16px", fontSize: "14px", fontWeight: "500", fontFamily: "inherit",
+    boxShadow: "0 8px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.10)", zIndex: "99999", opacity: "0",
+    transition: "opacity .28s cubic-bezier(.4,0,.2,1),transform .28s cubic-bezier(.4,0,.2,1)",
+    minWidth: "260px", maxWidth: "min(90vw,480px)", userSelect: "none",
   });
-
   document.body.appendChild(sb);
-
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      sb.style.opacity = "1";
-      sb.style.transform = "translateX(-50%) translateY(0)";
-    }),
-  );
-
-  let autoClose = setTimeout(cerrar, 3500);
-  sb.addEventListener("mouseenter", () => clearTimeout(autoClose));
-  sb.addEventListener("mouseleave", () => {
-    autoClose = setTimeout(cerrar, 1500);
-  });
-
-  function cerrar() {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    sb.style.opacity = "1";
+    sb.style.transform = "translateX(-50%) translateY(0)";
+  }));
+  const cerrar = () => {
     sb.style.opacity = "0";
     sb.style.transform = "translateX(-50%) translateY(28px)";
     setTimeout(() => sb.remove(), 320);
-  }
+  };
+  let t = setTimeout(cerrar, 3500);
+  sb.addEventListener("mouseenter", () => clearTimeout(t));
+  sb.addEventListener("mouseleave", () => (t = setTimeout(cerrar, 1500)));
 }
 
+/* =========================================================
+   COOL SELECT (select con buscador)
+========================================================= */
 function setCoolSelectLoading(select, loading) {
-  const wrap = select?.nextElementSibling; // el .cool-select generado
-  if (!wrap || !wrap.classList.contains("cool-select")) return;
+  const wrap = select?.nextElementSibling;
+  if (!wrap?.classList.contains("cool-select")) return;
   wrap.classList.toggle("is-loading", loading);
-
   let bar = wrap.querySelector(".cool-select-loadbar");
   if (loading && !bar) {
     bar = document.createElement("div");
     bar.className = "cool-select-loadbar";
     wrap.appendChild(bar);
-  } else if (!loading && bar) {
-    bar.remove();
-  }
+  } else if (!loading && bar) bar.remove();
 }
-/* =========================================================
-   COOL SELECT (con buscador) — envuelve <select> nativo
-========================================================= */
+
 function upgradeCoolSelect(select) {
   if (!select || select._cool) return;
   select._cool = true;
-
   select.classList.add("real-select-hidden");
 
   const wrap = document.createElement("div");
   wrap.className = "cool-select";
   select.parentNode.insertBefore(wrap, select.nextSibling);
-
   wrap.innerHTML = `
     <button type="button" class="cool-select-trigger">
       <span class="cool-select-value is-placeholder">Selecciona...</span>
@@ -553,68 +187,47 @@ function upgradeCoolSelect(select) {
         <input type="text" class="cool-select-search" placeholder="Buscar...">
       </div>
       <div class="cool-select-options"></div>
-    </div>
-  `;
+    </div>`;
 
   const trigger = wrap.querySelector(".cool-select-trigger");
   const valueEl = wrap.querySelector(".cool-select-value");
   const search = wrap.querySelector(".cool-select-search");
   const optionsWrap = wrap.querySelector(".cool-select-options");
 
-  function getItems() {
-    return [...select.options]
-      .filter((o) => o.value !== "")
-      .map((o) => ({ value: o.value, label: o.textContent }));
-  }
-
-  function renderTrigger() {
-    const hasValue = select.value !== "";
-    const selected = select.selectedOptions[0];
-    valueEl.textContent = hasValue
-      ? selected.textContent
-      : select.options[0]?.textContent || "Selecciona...";
-    valueEl.classList.toggle("is-placeholder", !hasValue);
+  const renderTrigger = () => {
+    const has = select.value !== "";
+    valueEl.textContent = has ? select.selectedOptions[0].textContent : select.options[0]?.textContent || "Selecciona...";
+    valueEl.classList.toggle("is-placeholder", !has);
     trigger.disabled = select.disabled;
     wrap.classList.toggle("is-disabled", select.disabled);
-  }
+  };
 
-  function renderOptions(filter) {
-    const f = (filter || "").trim().toLowerCase();
-    const items = getItems();
-    const filtered = f
-      ? items.filter((i) => i.label.toLowerCase().includes(f))
-      : items;
-    optionsWrap.innerHTML = filtered.length
-      ? filtered
-          .map(
-            (i) => `
-        <div class="cool-select-option ${select.value === i.value ? "is-selected" : ""}" data-value="${i.value}">
-          <span>${i.label}</span>
+  const renderOptions = (filter = "") => {
+    const f = filter.trim().toLowerCase();
+    const items = [...select.options]
+      .filter((o) => o.value !== "" && (!f || o.textContent.toLowerCase().includes(f)));
+    optionsWrap.innerHTML = items.length
+      ? items.map((o) => `
+        <div class="cool-select-option ${select.value === o.value ? "is-selected" : ""}" data-value="${o.value}">
+          <span>${o.textContent}</span>
           <svg class="cool-select-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
-        </div>`,
-          )
-          .join("")
+        </div>`).join("")
       : `<div class="cool-select-empty">Sin resultados</div>`;
-  }
+  };
 
   trigger.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (wrap.classList.contains("is-loading")) return;
-    if (select.disabled) return;
-    document.querySelectorAll(".cool-select.open").forEach((el) => {
-      if (el !== wrap) el.classList.remove("open");
-    });
-    const willOpen = !wrap.classList.contains("open");
-    wrap.classList.toggle("open", willOpen);
-    if (willOpen) {
-      renderOptions("");
+    if (wrap.classList.contains("is-loading") || select.disabled) return;
+    document.querySelectorAll(".cool-select.open").forEach((el) => el !== wrap && el.classList.remove("open"));
+    const abrir = !wrap.classList.contains("open");
+    wrap.classList.toggle("open", abrir);
+    if (abrir) {
+      renderOptions();
       search.value = "";
       setTimeout(() => search.focus(), 60);
     }
   });
-
   search.addEventListener("input", () => renderOptions(search.value));
-
   optionsWrap.addEventListener("click", (e) => {
     const opt = e.target.closest(".cool-select-option");
     if (!opt) return;
@@ -622,137 +235,120 @@ function upgradeCoolSelect(select) {
     select.dispatchEvent(new Event("change", { bubbles: true }));
     wrap.classList.remove("open");
   });
-
-  document.addEventListener("click", (e) => {
-    if (!wrap.contains(e.target)) wrap.classList.remove("open");
-  });
-
-  // Se actualiza solo cuando tu JS reescribe las <option> (departamento->provincia->distrito)
-  new MutationObserver(renderTrigger).observe(select, {
-    childList: true,
-    attributes: true,
-  });
+  document.addEventListener("click", (e) => !wrap.contains(e.target) && wrap.classList.remove("open"));
+  new MutationObserver(renderTrigger).observe(select, { childList: true, attributes: true });
   select.addEventListener("change", renderTrigger);
-
   renderTrigger();
 }
-
-function upgradeAllCoolSelects(root = document) {
-  root.querySelectorAll(".custom-select").forEach(upgradeCoolSelect);
-}
-/* =========================================================
-   HELPERS
-========================================================= */
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-const markStep = (id) => document.getElementById(id)?.classList.add("done");
+const upgradeAllCoolSelects = (root = document) => root.querySelectorAll(".custom-select").forEach(upgradeCoolSelect);
 
 /* =========================================================
-   MODALS
+   UBICACIÓN (departamento → provincia → distrito)
 ========================================================= */
+const UBIGEO_BASE = "https://cdn.jsdelivr.net/gh/joseluisq/ubigeos-peru/json";
+let ubigeoPromise = null;
+let UBIGEO = null;
 
-window.openRegisterModal = () => {
-  document.body.classList.add("blur-active");
-  document.getElementById("registerModal").classList.add("active");
-  inicializarSelectoresUbicacion("reg");
-  upgradeAllCoolSelects(document.getElementById("registerModal"));
-};
-window.openSocioModal = () => {
-  document.body.classList.add("blur-active");
-  document.getElementById("socioModal").classList.add("active");
-  inicializarSelectoresUbicacion("socio");
-  upgradeAllCoolSelects(document.getElementById("socioModal"));
-};
-
-window.closeModal = (id) => {
-  document.getElementById(id)?.classList.remove("active");
-
-  if (!document.querySelector(".modal-overlay.active")) {
-    document.body.classList.remove("blur-active");
-  }
-};
-
-window.closeIfOutside = (event, id) => {
-  if (event.target.id === id) closeModal(id);
-};
-
-/* =========================================================
-   PASSWORD TOGGLE
-========================================================= */
-window.togglePassword = (id, btn) => {
-  const input = document.getElementById(id);
-  if (!input) return;
-  const isPass = input.type === "password";
-  input.type = isPass ? "text" : "password";
-  const ico = btn.querySelector(".material-symbols-outlined");
-  if (ico) ico.textContent = isPass ? "visibility_off" : "visibility";
-};
-
-function esWebviewEmbebido() {
-  const ua = navigator.userAgent || "";
-  return /FBAN|FBAV|Instagram|Line\//i.test(ua); // apps embebidas: Google bloquea el login ahí
+function crearLookup(data) {
+  const valores = Array.isArray(data) ? data : Object.values(data || {});
+  if (!Array.isArray(data) && valores.length && Array.isArray(valores[0]))
+    return (id) => data[id] || data[String(id)] || [];
+  return (id) => valores.filter((i) => String(i.id_padre_ubigeo) === String(id));
 }
 
-function esMobile() {
-  const ua = navigator.userAgent || "";
-  return /Android|iPhone|iPad|iPod/i.test(ua);
+function cargarUbigeo() {
+  ubigeoPromise ??= Promise.all(
+    ["departamentos", "provincias", "distritos"].map((n) => fetch(`${UBIGEO_BASE}/${n}.json`).then((r) => r.json())),
+  ).then(([dep, prov, dist]) => {
+    const orden = (a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo);
+    const norm = (arr) => arr.slice().sort(orden).map((x) => ({ id: x.id_ubigeo, nombre: x.nombre_ubigeo }));
+    const provDe = crearLookup(prov), distDe = crearLookup(dist);
+    UBIGEO = {
+      departamentos: () => norm(Array.isArray(dep) ? dep : Object.values(dep)),
+      provincias: (id) => norm(provDe(id)),
+      distritos: (id) => norm(distDe(id)),
+    };
+    return UBIGEO;
+  });
+  return ubigeoPromise;
 }
 
-async function procesarLoginGoogle(user, extra = null) {
-  if (authProcesado) return;
-  authProcesado = true;
-  GOOGLE_USER = user;
+async function inicializarSelectoresUbicacion(prefix) {
+  const selDep = $(`${prefix}Departamento`), selProv = $(`${prefix}Provincia`), selDist = $(`${prefix}Distrito`);
+  if (!selDep || !selProv || !selDist || selDep._ubiListo) return;
+  selDep._ubiListo = true;
+  [selDep, selProv, selDist].forEach(upgradeCoolSelect);
 
-  const pid =
-    user.providerData?.find((p) =>
-      ["facebook.com", "google.com", "github.com"].includes(p.providerId),
-    )?.providerId || user.providerData?.[0]?.providerId;
-  tipoProveedor =
-    pid === "facebook.com"
-      ? "facebook"
-      : pid === "github.com"
-        ? "github"
-        : "google";
+  const opciones = (lista, ph = "Selecciona") =>
+    `<option value="" disabled selected hidden>${ph}</option>` +
+    lista.map((x) => `<option value="${x.id}">${x.nombre}</option>`).join("");
+  const sel = seleccionUbicacion[prefix];
 
-  const snap = await getDoc(
-    doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", user.uid),
-  );
-  if (snap.exists()) {
-    entrar(user);
-    return;
+  setCoolSelectLoading(selDep, true);
+  try {
+    selDep.innerHTML = opciones((await cargarUbigeo()).departamentos());
+  } catch (e) {
+    console.error("Error cargando departamentos:", e);
+    selDep.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
+    selDep._ubiListo = false;
+  } finally {
+    setCoolSelectLoading(selDep, false);
   }
 
-  document.getElementById("authChecking")?.classList.add("hidden");
-  document.getElementById("mainUI").style.display = "flex";
-  abrirCompletarPerfilGoogle(user, extra);
+  selDep.onchange = () => {
+    Object.assign(sel, { depId: selDep.value, dep: slugify(selDep.selectedOptions[0].textContent), provId: "", prov: "", dist: "" });
+    selProv.innerHTML = opciones(UBIGEO.provincias(selDep.value));
+    selProv.disabled = false;
+    selDist.disabled = true;
+    selDist.innerHTML = `<option value="" disabled selected hidden>Elige provincia</option>`;
+  };
+  selProv.onchange = () => {
+    Object.assign(sel, { provId: selProv.value, prov: slugify(selProv.selectedOptions[0].textContent), dist: "" });
+    selDist.innerHTML = opciones(UBIGEO.distritos(selProv.value));
+    selDist.disabled = false;
+  };
+  selDist.onchange = () => (sel.dist = slugify(selDist.selectedOptions[0].textContent));
 }
 
-// Busca en un texto (ej: "Barranca, Lima, Peru") distrito/provincia/departamento
+async function prefillUbicacion(prefix, p) {
+  const esperar = (fn) => new Promise((r) => {
+    const i = setInterval(() => fn() && (clearInterval(i), r()), 80);
+    setTimeout(() => (clearInterval(i), r()), 4000);
+  });
+  const elegir = async (id, nombre, siguiente) => {
+    const s = $(id);
+    const o = [...s.options].find((x) => x.value && slugify(x.textContent) === nombre);
+    if (!o) return;
+    s.value = o.value;
+    s.dispatchEvent(new Event("change", { bubbles: true }));
+    if (siguiente) {
+      const n = $(siguiente);
+      await esperar(() => !n.disabled && n.options.length > 1);
+    }
+  };
+  await elegir(`${prefix}Departamento`, p.departamento, `${prefix}Provincia`);
+  await elegir(`${prefix}Provincia`, p.provincia, `${prefix}Distrito`);
+  await elegir(`${prefix}Distrito`, p.distrito);
+}
+
+/** Busca distrito/provincia/departamento dentro de un texto libre ("Barranca, Lima, Peru"). */
 async function detectarUbicacion(texto) {
   const t = ` ${slugify(texto).replace(/-/g, " ")} `;
-  if (t.trim() === "") return null;
-  const tiene = (nombre) => {
-    const s = slugify(nombre).replace(/-/g, " ");
+  if (!t.trim()) return null;
+  const U = await cargarUbigeo();
+  const tiene = (n) => {
+    const s = slugify(n).replace(/-/g, " ");
     return s.length >= 4 && t.includes(` ${s} `);
   };
-  const deps = await obtenerDepartamentos();
   let mejor = null;
+  const deps = U.departamentos();
   for (const d of deps) {
-    for (const p of await obtenerProvincias(d.id)) {
-      for (const di of await obtenerDistritos(d.id, p.id)) {
+    for (const p of U.provincias(d.id)) {
+      for (const di of U.distritos(p.id)) {
         if (tiene(di.nombre) && (!mejor || di.nombre.length > mejor.len))
-          mejor = {
-            departamento: slugify(d.nombre),
-            provincia: slugify(p.nombre),
-            distrito: slugify(di.nombre),
-            len: di.nombre.length,
-          };
+          mejor = { departamento: slugify(d.nombre), provincia: slugify(p.nombre), distrito: slugify(di.nombre), len: di.nombre.length };
       }
-      if (!mejor && tiene(p.nombre))
-        mejor = {
-          departamento: slugify(d.nombre),
-          provincia: slugify(p.nombre),
-          len: 0,
-        };
+      if (!mejor && tiene(p.nombre)) mejor = { departamento: slugify(d.nombre), provincia: slugify(p.nombre), len: 0 };
     }
   }
   if (!mejor) {
@@ -762,1099 +358,390 @@ async function detectarUbicacion(texto) {
   return mejor;
 }
 
-async function abrirCompletarPerfilGoogle(user, extra = null) {
-  modoRegistroGoogle = true;
+/* =========================================================
+   MODALES / UI GENERAL
+========================================================= */
+const hayModalActivo = () => document.querySelector(".modal-overlay.active");
+const abrirModal = (id) => {
+  document.body.classList.add("blur-active");
+  $(id).classList.add("active");
+};
+window.closeModal = (id) => {
+  $(id)?.classList.remove("active");
+  if (!hayModalActivo()) document.body.classList.remove("blur-active");
+};
+window.closeIfOutside = (e, id) => e.target.id === id && closeModal(id);
+window.togglePassword = (id, btn) => {
+  const input = $(id);
+  if (!input) return;
+  const mostrar = input.type === "password";
+  input.type = mostrar ? "text" : "password";
+  const ico = btn.querySelector(".material-symbols-outlined");
+  if (ico) ico.textContent = mostrar ? "visibility_off" : "visibility";
+};
+window.openRegisterModal = () => {
+  abrirModal("registerModal");
+  inicializarSelectoresUbicacion("reg");
+  upgradeAllCoolSelects($("registerModal"));
+};
+window.openSocioModal = () => {
+  abrirModal("socioModal");
+  inicializarSelectoresUbicacion("socio");
+  upgradeAllCoolSelects($("socioModal"));
+};
+window.switchToUserLogin = () => closeModal("socioModal");
+window.validarCorreoGmail = (input) => {
+  const val = input.value.trim().toLowerCase();
+  const err = $("errCorreo"), hint = $("hintCorreo");
+  setError("errCorreo", "");
+  hint.style.display = "none";
+  if (modoSocial || !val) return;
+  if (val.includes("@") && !val.endsWith("@gmail.com")) return setError("errCorreo", "Solo se permiten correos @gmail.com.");
+  if (/^[^\s@]+@gmail\.com$/.test(val)) hint.style.display = "flex";
+};
+
+/* =========================================================
+   FLUJOS DE NAVEGACIÓN (registro de tienda / volver al perfil)
+========================================================= */
+if (new URLSearchParams(location.search).get("destino") === "registro")
+  sessionStorage.setItem("geinz_destino", "registro");
+
+(function guardarVolver() {
+  const v = new URLSearchParams(location.search).get("volver");
+  if (!v) return;
+  try {
+    const u = new URL(v, location.origin);
+    if (u.origin === location.origin && u.pathname.startsWith("/perfil/"))
+      sessionStorage.setItem("geinz_volver", u.toString());
+  } catch {}
+})();
+
+function urlRegistro() {
+  const p = new URLSearchParams(location.search);
+  p.delete("destino");
+  const s = p.toString();
+  return "../registrogeinz.html" + (s ? "?" + s : "");
+}
+
+function irAlPerfilOrigen() {
+  const destino = sessionStorage.getItem("geinz_volver");
+  if (!destino) return false;
+  sessionStorage.removeItem("geinz_volver");
+  if ($("acText")) $("acText").textContent = "Volviendo a tu negocio...";
+  $("authChecking")?.classList.remove("hidden");
+  $("mainUI").style.display = "none";
+  document.querySelectorAll(".modal-overlay.active").forEach((m) => m.classList.remove("active"));
+  document.body.classList.remove("blur-active");
+  setTimeout(() => location.replace(destino), 300);
+  return true;
+}
+
+async function entrar(user, sesion) {
+  const destino = sessionStorage.getItem("geinz_destino");
+  if (destino !== "registro") {
+    if (irAlPerfilOrigen()) return;
+    return showSplash(user, sesion);
+  }
+  sessionStorage.removeItem("geinz_destino");
+  if (sesion.tieneNegocioRegistrado) {
+    showSnackbar("⚠️ Ya tienes un negocio registrado. Para crear otro contáctanos por WhatsApp.", "warning");
+    return showSplash(user, sesion);
+  }
+  location.replace(urlRegistro());
+}
+
+/* =========================================================
+   AUTENTICACIÓN
+========================================================= */
+async function procesarSesion(user, extra = null) {
+  if (authProcesado) return;
+  authProcesado = true;
+  GOOGLE_USER = user;
+  try {
+    const sesion = await api.getSession();
+    if (sesion.existe) return entrar(user, sesion);
+  } catch (e) {
+    console.error("getSession:", e);
+    authProcesado = false;
+    $("authChecking")?.classList.add("hidden");
+    $("mainUI").style.display = "flex";
+    return showSnackbar("❌ No se pudo cargar tu perfil. Intenta de nuevo.", "error");
+  }
+  $("authChecking")?.classList.add("hidden");
+  $("mainUI").style.display = "flex";
+  abrirCompletarPerfilSocial(user, extra);
+}
+
+async function abrirCompletarPerfilSocial(user, extra) {
+  modoSocial = true;
   openRegisterModal();
 
   const pd = user.providerData?.[0] || {};
   const ghLogin = extra?.login || user.reloadUserInfo?.screenName || "";
+  const nombre = (extra?.given_name || extra?.first_name
+    ? `${extra.given_name || extra.first_name} ${extra.family_name || extra.last_name || ""}`
+    : user.displayName || pd.displayName || extra?.name || ghLogin || "").trim();
+  $("regNombre").value = nombre;
 
-  // Nombre
-  const nombreFull = (
-    extra?.given_name || extra?.first_name
-      ? `${extra.given_name || extra.first_name} ${extra.family_name || extra.last_name || ""}`
-      : user.displayName || pd.displayName || extra?.name || ghLogin || ""
-  ).trim();
-  document.getElementById("regNombre").value = nombreFull;
-
-  // Correo
-  const elCorreo = document.getElementById("regCorreo");
   const mail = user.email || pd.email || extra?.email || "";
+  const elCorreo = $("regCorreo");
   elCorreo.value = mail;
   elCorreo.readOnly = !!mail;
   if (mail) elCorreo.dispatchEvent(new Event("input"));
 
-  // Teléfono (casi nunca viene)
   const tel = (user.phoneNumber || pd.phoneNumber || "").replace(/\D/g, "");
-  if (tel)
-    document.getElementById("regTelefono").value = tel
-      .replace(/^51/, "")
-      .slice(-9);
+  if (tel) $("regTelefono").value = tel.replace(/^51/, "").slice(-9);
 
-  // Género (solo si el proveedor lo entrega)
   const g = String(extra?.gender || "").toLowerCase();
-  const valorGenero =
-    g === "male" ? "Masculino" : g === "female" ? "Femenino" : "";
-  if (valorGenero) {
-    const r = document.querySelector(
-      `input[name="regGenero"][value="${valorGenero}"]`,
-    );
+  const generoVal = g === "male" ? "Masculino" : g === "female" ? "Femenino" : "";
+  if (generoVal) {
+    const r = document.querySelector(`input[name="regGenero"][value="${generoVal}"]`);
     if (r) r.checked = true;
   }
 
-  // Ubicación (GitHub: "location" en texto libre)
-  const textoUbi =
-    typeof extra?.location === "string"
-      ? extra.location
-      : extra?.location?.name || "";
+  const textoUbi = typeof extra?.location === "string" ? extra.location : extra?.location?.name || "";
   if (textoUbi) {
     try {
       const u = await detectarUbicacion(textoUbi);
-      if (u) await prefillVincular("reg", u);
+      if (u) await prefillUbicacion("reg", u);
     } catch (e) {
       console.warn("No se pudo autocompletar la ubicación:", e);
     }
   }
-
-  const passRow = document.getElementById("passRow");
-  if (passRow) passRow.style.display = "none";
+  if ($("passRow")) $("passRow").style.display = "none";
 }
 
-// Popup + perfil extra
-async function loginConPopup(prov) {
-  popupEnCurso = true;
+/* ---------- Login social (Google / Facebook / GitHub) ---------- */
+// Tiempo que se espera el resultado tras cerrarse el popup antes de considerarlo un cierre manual.
+const GRACIA_CIERRE_MS = 1000;
+let popupRef = null, capturarPopup = false, intentoActual = 0, redirigiendo = false;
+
+// Captura la ventana del popup que abre Firebase para saber al instante si se cierra.
+const _windowOpen = window.open.bind(window);
+window.open = (...args) => {
+  const w = _windowOpen(...args);
+  if (capturarPopup) popupRef = w;
+  return w;
+};
+
+async function loginSocial(tipo) {
+  if (tipo === "google" && esWebviewEmbebido())
+    return showSnackbar("⚠️ Abre este enlace en Chrome o Safari para continuar con Google.", "warning");
+
+  const prov = PROVIDERS[tipo];
+  const intento = ++intentoActual;
+  const vigente = () => intento === intentoActual;
+  const textoConexion = `Conectando con ${NOMBRE_PROV[tipo]}...`;
+  let vigia = null, timerCierre = null;
+  flujoManual = true;
+
   try {
-    const result = await signInWithPopup(auth, prov);
-    await procesarLoginGoogle(
-      result.user,
-      getAdditionalUserInfo(result)?.profile,
-    );
+    if (esMobile()) {
+      redirigiendo = true;
+      mostrarCarga(textoConexion);
+      await signInWithRedirect(auth, prov); // se procesa en getRedirectResult al volver
+      return;
+    }
+
+    // Escritorio: el login sigue visible mientras el popup está abierto.
+    popupRef = null;
+    capturarPopup = true;
+    vigia = setInterval(() => {
+      if (!popupRef?.closed) return;
+      clearInterval(vigia);
+      vigia = null;
+      mostrarCarga(textoConexion); // el popup se cerró: carga continua, sin congelarse
+      // Si no llega resultado enseguida, fue un cierre manual: vuelve al login.
+      timerCierre = setTimeout(() => vigente() && ocultarCarga(), GRACIA_CIERRE_MS);
+    }, 100);
+
+    const r = await signInWithPopup(auth, prov);
+    clearTimeout(timerCierre);
+    mostrarCarga("Cargando tu perfil...");
+    await procesarSesion(r.user, getAdditionalUserInfo(r)?.profile);
+  } catch (err) {
+    console.error(err);
+    if (!vigente()) return; // otro intento ya tomó el control
+    ocultarCarga();
+    const code = err.code;
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return;
+    if (code === "auth/account-exists-with-different-credential")
+      return showSnackbar("⚠️ Ese correo ya tiene una cuenta con otro método. Inicia sesión con ese método.", "warning");
+    if (code === "auth/popup-blocked")
+      return showSnackbar("⚠️ Tu navegador bloqueó la ventana. Permite los popups e intenta de nuevo.", "warning");
+    if (code === "auth/network-request-failed")
+      return showSnackbar("📡 Sin conexión. Revisa tu internet e intenta de nuevo.", "warning");
+    showSnackbar(`❌ Error al iniciar sesión con ${NOMBRE_PROV[tipo]}`, "error");
   } finally {
-    popupEnCurso = false;
+    clearInterval(vigia);
+    clearTimeout(timerCierre);
+    capturarPopup = false;
+    popupRef = null;
+    if (vigente()) flujoManual = false;
   }
 }
+window.loginGoogle = () => loginSocial("google");
+window.loginFacebook = () => loginSocial("facebook");
+window.loginGithub = () => loginSocial("github");
 
-/* =========================================================
-   LOGIN GOOGLE
-========================================================= */
-window.loginGoogle = async () => {
-  if (esWebviewEmbebido()) {
-    showSnackbar(
-      "⚠️ Abre este enlace en Chrome o Safari para continuar con Google.",
-      "warning",
-    );
-    return;
-  }
-
-  try {
-    if (esMobile()) {
-      await signInWithRedirect(auth, provider);
-      return; // el resultado se procesa en getRedirectResult() al volver
-    }
-
-    await loginConPopup(provider); // en Facebook: fbProvider, en GitHub: ghProvider
-  } catch (err) {
-    console.error(err);
-    if (
-      err.code === "auth/popup-closed-by-user" ||
-      err.code === "auth/cancelled-popup-request"
-    ) {
-      return; // el usuario canceló, no muestres error
-    }
-    if (err.code === "auth/account-exists-with-different-credential") {
-      showSnackbar(
-        "⚠️ Ese correo ya tiene una cuenta creada con otro método. Inicia sesión con ese método.",
-        "warning",
-      );
-      return;
-    }
-    showSnackbar("❌ Error al iniciar sesión con Google", "error");
-  }
-};
-
-/* =========================================================
-   LOGIN FACEBOOK
-========================================================= */
-window.loginFacebook = async () => {
-  try {
-    if (esMobile()) {
-      await signInWithRedirect(auth, fbProvider);
-      return; // el resultado se procesa en getRedirectResult() al volver
-    }
-
-    await loginConPopup(fbProvider);
-  } catch (err) {
-    console.error(err);
-    if (
-      err.code === "auth/popup-closed-by-user" ||
-      err.code === "auth/cancelled-popup-request"
-    ) {
-      return; // el usuario canceló, no muestres error
-    }
-    if (err.code === "auth/account-exists-with-different-credential") {
-      showSnackbar(
-        "⚠️ Ese correo ya tiene una cuenta con otro método (Google o contraseña). Inicia sesión con ese método.",
-        "warning",
-      );
-      return;
-    }
-    if (err.code === "auth/popup-blocked") {
-      showSnackbar(
-        "⚠️ Tu navegador bloqueó la ventana. Permite los popups e intenta de nuevo.",
-        "warning",
-      );
-      return;
-    }
-    showSnackbar("❌ Error al iniciar sesión con Facebook", "error");
-  }
-};
-
-/* =========================================================
-   LOGIN GITHUB  👈 NUEVO
-========================================================= */
-window.loginGithub = async () => {
-  try {
-    if (esMobile()) {
-      await signInWithRedirect(auth, ghProvider);
-      return; // el resultado se procesa en getRedirectResult() al volver
-    }
-
-    await loginConPopup(ghProvider);
-  } catch (err) {
-    console.error(err);
-    if (
-      err.code === "auth/popup-closed-by-user" ||
-      err.code === "auth/cancelled-popup-request"
-    ) {
-      return; // el usuario canceló, no muestres error
-    }
-    if (err.code === "auth/account-exists-with-different-credential") {
-      showSnackbar(
-        "⚠️ Ese correo ya tiene una cuenta con otro método (Google, Facebook o contraseña). Inicia sesión con ese método.",
-        "warning",
-      );
-      return;
-    }
-    if (err.code === "auth/popup-blocked") {
-      showSnackbar(
-        "⚠️ Tu navegador bloqueó la ventana. Permite los popups e intenta de nuevo.",
-        "warning",
-      );
-      return;
-    }
-    showSnackbar("❌ Error al iniciar sesión con GitHub", "error");
-  }
-};
-
+/* ---------- Login con correo ---------- */
 function abrirCamposLogin() {
-  const f = document.getElementById("loginFields");
-  if (!f || f.classList.contains("open")) return false; // ya estaban abiertos
+  const f = $("loginFields");
+  if (!f || f.classList.contains("open")) return false;
   f.classList.add("open");
-  f.removeAttribute("inert"); // ahora sí se pueden enfocar con teclado
+  f.removeAttribute("inert");
   setTimeout(() => {
-    document.getElementById("loginEmail")?.focus({ preventScroll: true });
-    document
-      .getElementById("btnDoLogin")
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" }); // en móvil, que el botón no quede tapado
+    $("loginEmail")?.focus({ preventScroll: true });
+    $("btnDoLogin")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, 460);
   return true;
+}
+
+/** Solo se llama si el login falló: explica por qué (cuenta social, no existe o contraseña mala). */
+async function explicarFalloLogin(correo) {
+  const emailErr = $("loginEmailError"), passErr = $("loginPassError");
+  try {
+    const { existe, tipo } = await api.checkEmail({ correo });
+    if (!existe) {
+      emailErr.innerHTML = `❌ Este correo no está registrado.
+        <button type="button" class="link-btn-inline" onclick="openRegisterModal()">Crear cuenta gratis</button>`;
+    } else if (tipo !== "email") {
+      const fn = { google: "loginGoogle()", facebook: "loginFacebook()", github: "loginGithub()" }[tipo];
+      emailErr.innerHTML = `<span>🔒 Esta cuenta fue creada con ${NOMBRE_PROV[tipo]}.</span><br>
+        <button type="button" class="link-btn-inline" onclick="${fn}">Continuar con ${NOMBRE_PROV[tipo]}</button>`;
+    } else {
+      passErr.textContent = "❌ Contraseña incorrecta. Inténtalo de nuevo.";
+    }
+  } catch {
+    passErr.textContent = "❌ Correo o contraseña incorrectos.";
+  }
 }
 
 window.doInlineLogin = async (event) => {
   event?.preventDefault();
   if (abrirCamposLogin()) return;
 
-  const emailErr = document.getElementById("loginEmailError");
-  const passErr = document.getElementById("loginPassError");
-  const correo = document
-    .getElementById("loginEmail")
-    .value.trim()
-    .toLowerCase();
-  const pass = document.getElementById("loginPassword").value;
-  const btn = document.getElementById("btnDoLogin");
+  const emailErr = $("loginEmailError"), passErr = $("loginPassError");
+  const correo = $("loginEmail").value.trim().toLowerCase();
+  const pass = $("loginPassword").value;
+  const btn = $("btnDoLogin");
+  emailErr.textContent = passErr.textContent = "";
 
-  emailErr.textContent = "";
-  passErr.textContent = "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) return void (emailErr.textContent = "Ingresa un correo válido.");
+  if (!pass) return void (passErr.textContent = "Ingresa tu contraseña.");
 
-  if (!correo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
-    emailErr.textContent = "Ingresa un correo válido.";
-    return;
-  }
-  if (!pass) {
-    passErr.textContent = "Ingresa tu contraseña.";
-    return;
-  }
-
-  const btnOrig = btn.innerHTML;
+  const orig = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Ingresando...`;
-
+  btn.innerHTML = LOADING("Ingresando...");
+  flujoManual = true;
   try {
-    // 1) ¿Existe el correo y con qué método se creó?
-    const snap = await getDocs(
-      query(
-        collection(db, "Trabajadores_Usuarios_Drivers", "users", "correos"),
-        where("correo", "==", correo),
-      ),
-    );
-
-    if (snap.empty) {
-      emailErr.innerHTML = `
-        ❌ Este correo no está registrado.
-        <button type="button" class="link-btn-inline" onclick="openRegisterModal()">Crear cuenta gratis</button>`;
-      return;
-    }
-
-    const tipoLogin = snap.docs[0].data().tipo;
-    if (["google", "facebook", "github"].includes(tipoLogin)) {
-      const nombres = {
-        google: "Google",
-        facebook: "Facebook",
-        github: "GitHub",
-      };
-      const fn = {
-        google: "loginGoogle()",
-        facebook: "loginFacebook()",
-        github: "loginGithub()",
-      };
-      emailErr.innerHTML = `
-        <span>🔒 Esta cuenta fue creada con ${nombres[tipoLogin]}.</span><br>
-        <button type="button" class="link-btn-inline" onclick="${fn[tipoLogin]}">
-          Continuar con ${nombres[tipoLogin]}
-        </button>`;
-      return;
-    }
-
-    // 2) Autenticar
-    const { signInWithEmailAndPassword } =
-      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-    const result = await signInWithEmailAndPassword(auth, correo, pass);
-    GOOGLE_USER = result.user;
-    entrar(result.user);
+    const { user } = await signInWithEmailAndPassword(auth, correo, pass);
+    await procesarSesion(user);
   } catch (err) {
     console.error("Error login email:", err);
     const code = err?.code || "";
-    if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
-      passErr.textContent = "❌ Contraseña incorrecta. Inténtalo de nuevo.";
-    } else if (code === "auth/too-many-requests") {
-      passErr.textContent = "⚠️ Demasiados intentos. Espera unos minutos.";
-    } else if (code === "auth/user-disabled") {
-      passErr.textContent = "🚫 Esta cuenta fue suspendida.";
-    } else {
-      passErr.textContent = "Error inesperado. Intenta de nuevo.";
-    }
+    if (["auth/wrong-password", "auth/invalid-credential", "auth/user-not-found"].includes(code)) await explicarFalloLogin(correo);
+    else if (code === "auth/too-many-requests") passErr.textContent = "⚠️ Demasiados intentos. Espera unos minutos.";
+    else if (code === "auth/user-disabled") passErr.textContent = "🚫 Esta cuenta fue suspendida.";
+    else passErr.textContent = "Error inesperado. Intenta de nuevo.";
   } finally {
+    flujoManual = false;
     btn.disabled = false;
-    btn.innerHTML = btnOrig;
+    btn.innerHTML = orig;
   }
 };
 
 window.openForgotPassword = async () => {
-  const correo = document
-    .getElementById("loginEmail")
-    .value.trim()
-    .toLowerCase();
-  const errorEl = document.getElementById("loginEmailError");
-  errorEl.textContent = "";
-
+  const correo = $("loginEmail").value.trim().toLowerCase();
+  setError("loginEmailError", "");
   if (!correo) {
-    errorEl.textContent = "Ingresa tu correo para recuperar la contraseña.";
-    document.getElementById("loginEmail").focus();
-    return;
+    $("loginEmailError").textContent = "Ingresa tu correo para recuperar la contraseña.";
+    return $("loginEmail").focus();
   }
-  if (!/^[^\s@]+@gmail\.com$/.test(correo)) {
-    errorEl.textContent = "Ingresa un correo @gmail.com válido.";
-    return;
-  }
+  if (!/^[^\s@]+@gmail\.com$/.test(correo))
+    return void ($("loginEmailError").textContent = "Ingresa un correo @gmail.com válido.");
   if (!confirm(`¿Enviar correo de recuperación a:\n${correo}?`)) return;
 
   try {
-    const { sendPasswordResetEmail } =
-      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
     await sendPasswordResetEmail(auth, correo);
-    showSnackbar(
-      `📩 Correo enviado a ${correo}. Revisa tu bandeja y también la carpeta de <strong>spam</strong>.`,
-      "success",
-    );
+    showSnackbar(`📩 Correo enviado a ${correo}. Revisa tu bandeja y también la carpeta de <strong>spam</strong>.`, "success");
   } catch (err) {
-    console.error("Error recuperando contraseña:", err);
-    const code = err?.code || "";
-    if (code === "auth/user-not-found")
-      showSnackbar("❌ No existe una cuenta con ese correo.", "error");
-    else if (code === "auth/too-many-requests")
-      showSnackbar("⚠️ Demasiados intentos. Espera unos minutos.", "warning");
-    else if (code === "auth/invalid-email")
-      showSnackbar("❌ Correo inválido.", "error");
-    else showSnackbar("❌ Error al enviar. Intenta de nuevo.", "error");
+    const msg = {
+      "auth/user-not-found": ["❌ No existe una cuenta con ese correo.", "error"],
+      "auth/too-many-requests": ["⚠️ Demasiados intentos. Espera unos minutos.", "warning"],
+      "auth/invalid-email": ["❌ Correo inválido.", "error"],
+    }[err?.code] || ["❌ Error al enviar. Intenta de nuevo.", "error"];
+    showSnackbar(...msg);
   }
 };
 
-/* =========================================================
-   REGISTER — validación completa
-========================================================= */
+/* ---------- Registro ---------- */
 window.submitRegister = async (event) => {
   event.preventDefault();
 
-  const nombreCompleto = document
-    .getElementById("regNombre")
-    .value.trim()
-    .replace(/\s+/g, " ");
-  const partes = nombreCompleto.split(" ");
-  const nombre = partes[0] || "";
-  const apellido = partes.slice(1).join(" ");
-  const telefono = document
-    .getElementById("regTelefono")
-    .value.trim()
-    .replace(/\D/g, "");
-  const genero =
-    document.querySelector('input[name="regGenero"]:checked')?.value || "";
+  const nombre = $("regNombre").value.trim().replace(/\s+/g, " ");
+  const telefono = $("regTelefono").value.replace(/\D/g, "");
+  const genero = document.querySelector('input[name="regGenero"]:checked')?.value || "";
   const { dep, prov, dist } = seleccionUbicacion.reg;
-  const correo = document
-    .getElementById("regCorreo")
-    .value.trim()
-    .toLowerCase();
-  const pass1 = modoRegistroGoogle
-    ? ""
-    : document.getElementById("registerPass1").value;
-  const terminos = document.getElementById("termsCheck").checked;
+  const correo = $("regCorreo").value.trim().toLowerCase();
+  const password = modoSocial ? "" : $("registerPass1").value;
 
-  const setError = (id, msg) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = msg;
-    el.style.display = msg ? "block" : "none";
-  };
-  [
-    "errNombre",
-    "errTelefono",
-    "errGenero",
-    "errDistrito",
-    "errCorreo",
-    "errPass",
-    "errTerminos",
-  ].forEach((id) => setError(id, ""));
+  Object.values(CAMPO_A_ERROR).concat("errTerminos").forEach((id) => setError(id, ""));
 
+  // Validación rápida en el cliente (el servidor valida de nuevo)
   let ok = true;
-  if (nombreCompleto.length < 2) {
-    setError("errNombre", "Ingresa tu nombre.");
-    ok = false;
-  }
-  if (!/^\d{7,15}$/.test(telefono)) {
-    setError("errTelefono", "Número inválido.");
-    ok = false;
-  }
-  if (!genero) {
-    setError("errGenero", "Selecciona tu género.");
-    ok = false;
-  }
-  if (!dep || !prov || !dist) {
-    setError("errDistrito", "Selecciona departamento, provincia y distrito.");
-    ok = false;
-  }
-  if (!correo) {
-    setError("errCorreo", "Ingresa tu correo.");
-    ok = false;
-  } else if (modoRegistroGoogle) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
-      setError("errCorreo", "Correo inválido.");
-      ok = false;
-    }
-  } else if (!/^[^\s@]+@gmail\.com$/.test(correo)) {
-    setError("errCorreo", "Solo se permiten correos @gmail.com.");
-    ok = false;
-  }
-  if (!modoRegistroGoogle && pass1.length < 8) {
-    setError("errPass", "La contraseña debe tener al menos 8 caracteres.");
-    ok = false;
-  }
-  if (!terminos) {
-    setError("errTerminos", "Debes aceptar los términos para continuar.");
-    ok = false;
-  }
+  const fallo = (id, msg) => (setError(id, msg), (ok = false));
+  if (nombre.length < 2) fallo("errNombre", "Ingresa tu nombre.");
+  if (!/^\d{7,15}$/.test(telefono)) fallo("errTelefono", "Número inválido.");
+  if (!genero) fallo("errGenero", "Selecciona tu género.");
+  if (!dep || !prov || !dist) fallo("errDistrito", "Selecciona departamento, provincia y distrito.");
+  if (!correo) fallo("errCorreo", "Ingresa tu correo.");
+  else if (modoSocial ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo) : !/^[^\s@]+@gmail\.com$/.test(correo))
+    fallo("errCorreo", modoSocial ? "Correo inválido." : "Solo se permiten correos @gmail.com.");
+  if (!modoSocial && password.length < 8) fallo("errPass", "La contraseña debe tener al menos 8 caracteres.");
+  if (!$("termsCheck").checked) fallo("errTerminos", "Debes aceptar los términos para continuar.");
   if (!ok) return;
 
   const btn = document.querySelector(".btn-register-submit");
-  const btnOrig = btn.innerHTML;
+  const orig = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Creando cuenta...`;
+  btn.innerHTML = LOADING("Creando cuenta...");
+  flujoManual = true;
 
   try {
-    // Usuario autogenerado (correo + 4 dígitos)
-    const base =
-      (correo.split("@")[0] || "user")
-        .toLowerCase()
-        .replace(/[^a-z0-9_.]/g, "")
-        .slice(0, 15) || "user";
-    let username = "";
-    for (let i = 0; i < 5; i++) {
-      const cand = base + Math.floor(1000 + Math.random() * 9000);
-      const s = await getDoc(
-        doc(db, "Trabajadores_Usuarios_Drivers", "users", "nombres_user", cand),
-      );
-      if (!s.exists()) {
-        username = cand;
-        break;
-      }
-    }
-    if (!username) username = base + Date.now().toString().slice(-6);
-
-    let newUser, tipoLogin;
-
-    if (modoRegistroGoogle) {
-      if (!GOOGLE_USER) {
-        showSnackbar(
-          "❌ No se encontró tu sesión. Vuelve a intentar el login.",
-          "error",
-        );
-        return;
-      }
-      newUser = GOOGLE_USER;
-      tipoLogin = tipoProveedor;
+    let user, perfil;
+    if (modoSocial) {
+      if (!GOOGLE_USER) return showSnackbar("❌ No se encontró tu sesión. Vuelve a intentar el login.", "error");
+      user = GOOGLE_USER;
+      ({ perfil } = await api.completeSocialProfile({ nombre, telefono, genero, dep, prov, dist, correo }));
     } else {
-      const correoSnap = await getDocs(
-        query(
-          collection(db, "Trabajadores_Usuarios_Drivers", "users", "correos"),
-          where("correo", "==", correo),
-        ),
-      );
-      if (!correoSnap.empty) {
-        setError(
-          "errCorreo",
-          "Este correo ya tiene una cuenta. Inicia sesión.",
-        );
-        return;
-      }
-      const { createUserWithEmailAndPassword } =
-        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-      try {
-        newUser = (await createUserWithEmailAndPassword(auth, correo, pass1))
-          .user;
-        tipoLogin = "email";
-      } catch (authErr) {
-        if (authErr.code === "auth/email-already-in-use")
-          setError(
-            "errCorreo",
-            "Este correo ya está registrado. Inicia sesión.",
-          );
-        else if (authErr.code === "auth/invalid-email")
-          setError("errCorreo", "Correo inválido.");
-        else if (authErr.code === "auth/weak-password")
-          setError("errPass", "Contraseña muy débil.");
-        else
-          showSnackbar("❌ Error al crear cuenta. Intenta de nuevo.", "error");
-        return;
-      }
+      ({ perfil } = await api.registerEmailUser({ nombre, telefono, genero, dep, prov, dist, correo, password }));
+      user = (await signInWithEmailAndPassword(auth, correo, password)).user;
     }
 
-    const uid = newUser.uid;
-    const usernameFinal = "@" + username;
-
-    await setDoc(
-      doc(db, "Trabajadores_Usuarios_Drivers", "users", "correos", uid),
-      { correo, tipo: tipoLogin },
-    );
-    await setDoc(
-      doc(
-        db,
-        "Trabajadores_Usuarios_Drivers",
-        "users",
-        "nombres_user",
-        username,
-      ),
-      {
-        id_registrado: uid,
-        nombres_user: usernameFinal,
-      },
-    );
-    await setDoc(
-      doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", uid),
-      {
-        nombre,
-        apellido,
-        correo,
-        nombre_user: usernameFinal,
-        id_user: uid,
-        genero,
-        departamento: dep,
-        provincia: prov,
-        localidad: dist,
-        fecha_nac: "",
-        fecha_registrada: new Date().toLocaleDateString("es-PE"),
-        puntos: 500,
-        cod_pais: "pe",
-        nacionalidad_nacimiento: "Perú",
-        tipo_login: tipoLogin,
-        contacto: {
-          cod_telefonico: "+51",
-          nombre_pais_numero: "Perú",
-          numero_user: Number(telefono),
-        },
-        creado_server: serverTimestamp(),
-      },
-    );
-
-    GOOGLE_USER = newUser;
-    modoRegistroGoogle = false;
+    authProcesado = true;
+    GOOGLE_USER = user;
+    modoSocial = false;
     closeModal("registerModal");
     showSnackbar("🎉 ¡Cuenta creada! Bienvenido a Geinz", "success");
-    await delay(900);
-    entrar(newUser);
+    entrar(user, { existe: true, perfil, tieneNegocioRegistrado: false });
   } catch (err) {
     console.error("Error al registrar:", err);
-    showSnackbar("❌ Error al crear la cuenta. Intenta de nuevo.", "error");
+    mostrarErrorApi(err, CAMPO_A_ERROR, "❌ Error al crear la cuenta. Intenta de nuevo.");
   } finally {
+    flujoManual = false;
     btn.disabled = false;
-    btn.innerHTML = btnOrig;
-  }
-};
-window.addEventListener("pageshow", (event) => {
-  if (event.persisted) {
-    window.location.reload();
-  }
-});
-
-/* =========================================================
-   OPTIMIZADOR DE IMÁGENES (avatar) -> WebP comprimido y cuadrado
-========================================================= */
-function _dibujarYRecortarCuadrado(img, maxSize) {
-  const size = Math.min(img.naturalWidth, img.naturalHeight);
-  const sx = (img.naturalWidth - size) / 2;
-  const sy = (img.naturalHeight - size) / 2;
-  const outSize = Math.min(maxSize, size);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = outSize;
-  canvas.height = outSize;
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, sx, sy, size, size, 0, 0, outSize, outSize);
-  return canvas;
-}
-
-function optimizarImagenDesdeArchivo(file, maxSize = 512, quality = 0.85) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = _dibujarYRecortarCuadrado(img, maxSize);
-          canvas.toBlob(
-            (blob) =>
-              blob
-                ? resolve(blob)
-                : reject(new Error("No se pudo procesar la imagen")),
-            "image/webp",
-            quality,
-          );
-        } catch (err) {
-          reject(err);
-        }
-      };
-      img.onerror = () => reject(new Error("Archivo de imagen inválido"));
-      img.src = e.target.result;
-    };
-    reader.onerror = () => reject(new Error("Error leyendo el archivo"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function optimizarImagenDesdeURL(url, maxSize = 512, quality = 0.85) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const canvas = _dibujarYRecortarCuadrado(img, maxSize);
-        canvas.toBlob(
-          (blob) =>
-            blob
-              ? resolve(blob)
-              : reject(new Error("No se pudo procesar la imagen")),
-          "image/webp",
-          quality,
-        );
-      } catch (err) {
-        reject(err);
-      }
-    };
-    img.onerror = () =>
-      reject(
-        new Error("No se pudo cargar la imagen de origen (CORS o URL rota)"),
-      );
-    img.src = url;
-  });
-}
-
-async function subirYGuardarAvatar(uid, blob) {
-  const avatarRef = ref(storage, `avatars/${uid}.webp`);
-  await uploadBytes(avatarRef, blob, { contentType: "image/webp" });
-  const url = await getDownloadURL(avatarRef);
-  await setDoc(
-    doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", uid),
-    { foto: url },
-    { merge: true },
-  );
-  return url;
-}
-/* =========================================================
-   TOKEN FCM
-========================================================= */
-async function obtenerClaveDispositivo() {
-  let clave = localStorage.getItem("geinz_device_key");
-  if (clave) return clave;
-
-  let modelo = "web";
-  try {
-    if (navigator.userAgentData?.getHighEntropyValues) {
-      const ua = await navigator.userAgentData.getHighEntropyValues([
-        "model",
-        "platform",
-      ]);
-      modelo = (ua.model || ua.platform || "web").replace(/\s+/g, "-");
-    }
-  } catch {}
-
-  clave = `${modelo}-${Math.random().toString(36).slice(2, 8)}`;
-  localStorage.setItem("geinz_device_key", clave);
-  return clave;
-}
-
-/* =========================================================
-   GESTIÓN DEL PERMISO DE NOTIFICACIONES (con modal propio)
-========================================================= */
-function gestionarPermisoNotificaciones(uid) {
-  if (!("Notification" in window)) return;
-
-  // Ya se decidió antes (granted o denied): no insistas con el modal,
-  // solo intenta guardar el token si ya está permitido.
-  if (Notification.permission === "granted") {
-    guardarTokenFcm(uid);
-    return;
-  }
-  if (Notification.permission === "denied") {
-    return; // el usuario ya dijo que no, respeta la decisión
-  }
-
-  // permission === "default" → primera vez, mostramos nuestro modal explicativo
-  const modal = document.getElementById("notisModal");
-  if (!modal) {
-    // Fallback por si el HTML del modal no existe todavía: pide directo
-    guardarTokenFcm(uid);
-    return;
-  }
-
-  document.body.classList.add("blur-active");
-  modal.classList.add("active");
-
-  const btnActivar = document.getElementById("btnActivarNotis");
-  const btnOmitir = document.getElementById("btnOmitirNotis");
-
-  const cerrar = () => {
-    modal.classList.remove("active");
-    if (!document.querySelector(".modal-overlay.active")) {
-      document.body.classList.remove("blur-active");
-    }
-  };
-
-  btnActivar.onclick = async () => {
-    cerrar();
-    await guardarTokenFcm(uid); // click real del usuario → el navegador permite el prompt nativo
-  };
-
-  btnOmitir.onclick = () => {
-    cerrar();
-  };
-}
-async function guardarTokenFcm(uid) {
-  try {
-    const permiso = await Notification.requestPermission();
-    if (permiso !== "granted") return;
-
-    const token = await getToken(messaging, {
-      vapidKey:
-        "BHZ1cDOCNN3vIm8tUtSrvCgn-e4jIgR8wl8XloY-pLClHf3JrJpm2J29MPAQscFIM4SHzQtg_lkfo_P1ALeEuWQ",
-    });
-    if (!token) return;
-
-    const tokenGuardado = localStorage.getItem("geinz_fcm_token");
-    if (token === tokenGuardado) return;
-
-    const claveDispositivo = await obtenerClaveDispositivo();
-
-    await setDoc(
-      tokenFcmDoc(uid),
-      { tokens: { [claveDispositivo]: token } },
-      { merge: true },
-    );
-
-    localStorage.setItem("geinz_fcm_token", token);
-  } catch (err) {
-    console.error("Error guardando token FCM:", err);
-  }
-}
-
-/* =========================================================
-   SPLASH SCREEN
-========================================================= */
-let vincularListo = false;
-async function prepararFormularioVincular() {
-  if (vincularListo) return;
-  vincularListo = true;
-
-  await inicializarSelectoresUbicacion("welcome");
-  upgradeAllCoolSelects(document.getElementById("wVincularForm"));
-
-  const btn = document.getElementById("btnVincularInline");
-  if (!btn) return;
-
-  btn.onclick = async () => {
-    const idNegocio = document.getElementById("welcomeIdNegocio").value.trim();
-    const { dep, prov, dist } = seleccionUbicacion.welcome;
-
-    if (!idNegocio || idNegocio.length < 4) {
-      showSnackbar("⚠️ Ingresa un ID válido", "warning");
-      return;
-    }
-    if (!dep || !prov || !dist) {
-      showSnackbar(
-        "⚠️ Selecciona departamento, provincia y distrito",
-        "warning",
-      );
-      return;
-    }
-
-    const btnOrig = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
-
-    try {
-      setUbicacion({ departamento: dep, provincia: prov });
-      const snapTienda = await getDoc(tiendaDoc(dist, "tiendas", idNegocio));
-      if (!snapTienda.exists()) {
-        showSnackbar(
-          "❌ Ese ID no existe. Verifica e intenta de nuevo.",
-          "error",
-        );
-        return;
-      }
-
-      sessionStorage.setItem("tiendaId", idNegocio);
-      sessionStorage.setItem("departamento", dep);
-      sessionStorage.setItem("provincia", prov);
-      sessionStorage.setItem("localidad", dist);
-
-      window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idNegocio)}&departamento=${encodeURIComponent(dep)}&provincia=${encodeURIComponent(prov)}&localidad=${encodeURIComponent(dist)}`;
-    } catch (err) {
-      console.error(err);
-      showSnackbar("Error al validar. Intenta de nuevo.", "error");
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = btnOrig;
-    }
-  };
-}
-async function showSplash(user) {
-  if (splashShown) return;
-  splashShown = true;
-  gestionarPermisoNotificaciones(user.uid); // decide si pide permiso o pasa directo
-
-  // Ocultamos authChecking JUSTO AQUÍ, cuando splashScreen toma el relevo.
-  document.getElementById("authChecking")?.classList.add("hidden");
-
-  document.getElementById("mainUI").style.display = "none";
-  document.getElementById("splashScreen").classList.add("visible");
-
-  await delay(600);
-  markStep("step1");
-  await delay(700);
-  markStep("step2");
-
-  const snap = await getDoc(
-    doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", user.uid),
-  );
-
-  await delay(600);
-  markStep("step3");
-  await delay(700);
-
-  const data = snap.exists() ? snap.data() : {};
-  window._perfilActual = data; // usado para precargar el modal de edición
-  const nombre = data.nombre || user.displayName || "Usuario";
-  const apellido = data.apellido || "";
-  // Facebook/GitHub pueden no traer correo, evitamos el error
-  const username =
-    data.nombre_user || "@" + (user.email?.split("@")[0] || "usuario");
-
-  document.getElementById("wName").textContent = apellido
-    ? `${nombre} ${apellido}`
-    : nombre;
-  document.getElementById("wUser").textContent = username;
-  document.getElementById("wPoints").textContent = data.puntos ?? 500;
-
-  // mostrar el teléfono actual
-  const wPhoneEl = document.getElementById("wPhone");
-  if (wPhoneEl) {
-    const codTel = data.contacto?.cod_telefonico || "+51";
-    const numTel = data.contacto?.numero_user;
-    wPhoneEl.textContent = numTel ? `${codTel} ${numTel}` : "";
-  }
-
-  const avatarImg = document.getElementById("wAvatarImg");
-  const avatarWrap = document.getElementById("wAvatarWrap");
-  let fotoUrl = data.foto || "";
-
-  if (avatarImg) {
-    avatarImg.src =
-      fotoUrl || user.photoURL || "../img/icons/favicon-96x96.png";
-  }
-
-  if (!fotoUrl && user.photoURL) {
-    avatarWrap?.classList.add("is-uploading");
-    try {
-      const blob = await optimizarImagenDesdeURL(user.photoURL, 512, 0.85);
-      fotoUrl = await subirYGuardarAvatar(user.uid, blob);
-      if (avatarImg) avatarImg.src = fotoUrl;
-    } catch (err) {
-      console.warn(
-        "No se pudo optimizar/guardar la foto de Google/Facebook/GitHub:",
-        err,
-      );
-    } finally {
-      avatarWrap?.classList.remove("is-uploading");
-    }
-  }
-  const tienda = data.tienda_propietario;
-  const tieneTienda = !!(tienda && tienda.id_negocio);
-
-  const storeCard = document.getElementById("wStoreCard");
-  const noStoreCard = document.getElementById("wNoStoreCard");
-  const storeLoc = document.getElementById("wStoreLoc");
-  const btnEnter = document.getElementById("btnEnter");
-  const vincularForm = document.getElementById("wVincularForm");
-  const hintEl = document.getElementById("wHint");
-
-  if (tieneTienda) {
-    // ── TIENE negocio vinculado: mostramos tarjeta + botón directo ──
-    if (storeCard) storeCard.style.display = "flex";
-    if (noStoreCard) noStoreCard.style.display = "none";
-    if (vincularForm) vincularForm.style.display = "none";
-    if (btnEnter) btnEnter.style.display = "flex";
-    if (storeLoc) {
-      const partes = [tienda.distrito, tienda.provincia, tienda.departamento]
-        .filter(Boolean)
-        .map((s) => s.charAt(0).toUpperCase() + s.slice(1));
-      storeLoc.textContent = partes.join(" · ") || "Ubicación registrada";
-    }
-    if (hintEl)
-      hintEl.textContent = "Tu negocio ya está vinculado a tu cuenta.";
-
-    const btnOtro = document.getElementById("btnOtroNegocio");
-    const btnCancelarOtro = document.getElementById("btnCancelarOtro");
-
-    if (btnOtro) {
-      btnOtro.style.display = "flex";
-      btnOtro.onclick = async () => {
-        if (storeCard) storeCard.style.display = "none";
-        if (btnEnter) btnEnter.style.display = "none";
-        btnOtro.style.display = "none";
-        if (vincularForm) vincularForm.style.display = "block";
-        if (btnCancelarOtro) btnCancelarOtro.style.display = "flex";
-        if (hintEl) hintEl.textContent = "Ingresa los datos del otro negocio.";
-        await prepararFormularioVincular();
-      };
-    }
-
-    if (btnCancelarOtro) {
-      btnCancelarOtro.onclick = () => {
-        if (vincularForm) vincularForm.style.display = "none";
-        btnCancelarOtro.style.display = "none";
-        if (storeCard) storeCard.style.display = "flex";
-        if (btnEnter) btnEnter.style.display = "flex";
-        btnOtro.style.display = "flex";
-        if (hintEl)
-          hintEl.textContent = "Tu negocio ya está vinculado a tu cuenta.";
-      };
-    }
-    document.getElementById("sValidating").classList.add("fade-out");
-    await delay(450);
-    document.getElementById("sValidating").style.display = "none";
-    document.getElementById("sWelcome").classList.add("visible");
-
-    if (btnEnter) {
-      btnEnter.onclick = () => {
-        const idNegocio = tienda.id_negocio;
-        const departamento = tienda.departamento || "";
-        const provincia = tienda.provincia || "";
-        const localidad = tienda.distrito || "";
-
-        sessionStorage.setItem("tiendaId", idNegocio);
-        sessionStorage.setItem("departamento", departamento);
-        sessionStorage.setItem("provincia", provincia);
-        sessionStorage.setItem("localidad", localidad);
-
-        window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idNegocio)}&departamento=${encodeURIComponent(departamento)}&provincia=${encodeURIComponent(provincia)}&localidad=${encodeURIComponent(localidad)}`;
-      };
-    }
-  } else {
-    // ── NO tiene negocio: mostramos el formulario de siempre (dep/prov/dist + ID) ──
-    if (storeCard) storeCard.style.display = "none";
-    if (noStoreCard) noStoreCard.style.display = "flex";
-    if (btnEnter) btnEnter.style.display = "none";
-    if (vincularForm) vincularForm.style.display = "block";
-    if (hintEl)
-      hintEl.textContent = "Vincula tu negocio o continúa como usuario.";
-
-    document.getElementById("sValidating").classList.add("fade-out");
-    await delay(450);
-    document.getElementById("sValidating").style.display = "none";
-    document.getElementById("sWelcome").classList.add("visible");
-
-    await prepararFormularioVincular();
-
-    try {
-      const p = JSON.parse(
-        localStorage.getItem("geinz_registro_pendiente") || "null",
-      );
-      if (p?.id) {
-        document.getElementById("welcomeIdNegocio").value = p.id;
-        await prefillVincular("welcome", p);
-        document.getElementById("wHint").textContent =
-          `Tu negocio "${p.nombre}" fue creado. Pulsa "Acceder al panel".`;
-        localStorage.removeItem("geinz_registro_pendiente");
-      }
-    } catch {}
-  }
-}
-
-/* =========================================================
-   PANTALLA SELECTOR DE TIENDA (sin ID vinculado)
-========================================================= */
-async function abrirPantallaSocio() {
-  document.getElementById("splashScreen").style.display = "none";
-  document.getElementById("selectorSocioScreen").classList.add("active");
-  await inicializarSelectoresUbicacion("selector");
-  upgradeAllCoolSelects(document.getElementById("selectorSocioScreen"));
-}
-/* =========================================================
-   CONTINUAR PANEL (desde selectorSocioScreen)
-========================================================= */
-window.continuarPanel = async () => {
-  const valor = document.getElementById("selectorInput").value.trim();
-
-  if (!valor || valor.length < 4) {
-    showSnackbar("⚠️ Ingresa un ID válido", "warning");
-    return;
-  }
-  if (
-    !seleccionUbicacion.selector.dep ||
-    !seleccionUbicacion.selector.prov ||
-    !seleccionUbicacion.selector.dist
-  ) {
-    showSnackbar("⚠️ Selecciona departamento, provincia y distrito", "warning");
-    return;
-  }
-
-  const btn = document.getElementById("btnContinuar");
-  const btnOrig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
-
-  try {
-    setUbicacion({
-      departamento: seleccionUbicacion.selector.dep,
-      provincia: seleccionUbicacion.selector.prov,
-    });
-    const tiendaRef = tiendaDoc(
-      seleccionUbicacion.selector.dist,
-      "tiendas",
-      valor,
-    );
-
-    const snap = await getDoc(tiendaRef);
-
-    if (!snap.exists()) {
-      showSnackbar(
-        "❌ Ese ID no existe. Verifica e intenta de nuevo.",
-        "error",
-      );
-      return;
-    }
-
-    sessionStorage.setItem("departamento", seleccionUbicacion.selector.dep);
-    sessionStorage.setItem("provincia", seleccionUbicacion.selector.prov);
-    sessionStorage.setItem("localidad", seleccionUbicacion.selector.dist);
-    sessionStorage.setItem("tiendaId", valor);
-    window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(valor)}&departamento=${encodeURIComponent(seleccionUbicacion.selector.dep)}&provincia=${encodeURIComponent(seleccionUbicacion.selector.prov)}&localidad=${encodeURIComponent(seleccionUbicacion.selector.dist)}`;
-  } catch (err) {
-    console.error(err);
-    showSnackbar("Error al validar. Intenta de nuevo.", "error");
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = btnOrig;
+    btn.innerHTML = orig;
   }
 };
 
-/* =========================================================
-   ACCEDER SOCIO (modal desde welcome screen)
-========================================================= */
-window.accederSocio = async () => {
-  const idTienda = document.getElementById("socioId").value.trim();
-  const { dep, prov, dist } = seleccionUbicacion.socio;
-
-  if (!idTienda || !dep || !prov || !dist) {
-    showSnackbar("⚠️ Completa todos los campos", "warning");
-    return;
-  }
-  if (idTienda.length < 4) {
-    showSnackbar("⚠️ ID inválido", "warning");
-    return;
-  }
-
-  const btn = document.getElementById("btnAccederSocio");
-  const btnOrig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
-
-  try {
-    setUbicacion({ departamento: dep, provincia: prov });
-    const snap = await getDoc(tiendaDoc(dist, "tiendas", idTienda));
-    if (!snap.exists()) {
-      showSnackbar(
-        "❌ Ese ID no existe. Verifica e intenta de nuevo.",
-        "error",
-      );
-      return;
-    }
-    sessionStorage.setItem("tiendaId", idTienda);
-    sessionStorage.setItem("departamento", dep);
-    sessionStorage.setItem("provincia", prov);
-    sessionStorage.setItem("localidad", dist);
-
-    const rutaFinal = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&departamento=${dep}&provincia=${prov}&localidad=${dist}`;
-    console.log("[accederSocio] Redirigiendo a:", rutaFinal);
-
-    window.location.href = rutaFinal;
-  } catch (err) {
-    console.error(err);
-    showSnackbar("Error al validar. Intenta de nuevo.", "error");
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = btnOrig;
-  }
-};
-
-/* =========================================================
-   CERRAR SESIÓN
-========================================================= */
 window.cerrarSesion = async () => {
-  const btn = document.getElementById("btnCerrarSesion");
-  const btnOrig = btn?.innerHTML;
+  const btn = $("btnCerrarSesion");
+  const orig = btn?.innerHTML;
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Cerrando sesión...`;
+    btn.innerHTML = LOADING("Cerrando sesión...");
   }
-
   try {
     await signOut(auth);
     sessionStorage.clear();
@@ -1864,292 +751,381 @@ window.cerrarSesion = async () => {
     showSnackbar("❌ Error al cerrar sesión. Intenta de nuevo.", "error");
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = btnOrig;
+      btn.innerHTML = orig;
     }
   }
 };
+
 /* =========================================================
    EDITAR PERFIL
 ========================================================= */
-window.openEditProfileModal = () => {
-  cargarPaisesEdit();
+function cargarPaisesEdit() {
+  const select = $("editPais");
+  if (!select || select.options.length > 1) return;
+  select.append(...PAISES.map(([cod, nombre, flag, tel]) => {
+    const o = new Option(`${flag}  ${nombre}`, cod);
+    Object.assign(o.dataset, { nombre, flag, tel });
+    return o;
+  }));
+}
 
-  document.getElementById("editNombre").value = (
-    window._perfilActual?.nombre || ""
-  ).trim();
-  document.getElementById("editApellido").value = (
-    window._perfilActual?.apellido || ""
-  ).trim();
-  document.getElementById("editTelefono").value =
-    window._perfilActual?.contacto?.numero_user || "";
-
-  // precargar el país actual guardado en Firestore
-  const codPaisActual = window._perfilActual?.cod_pais || "pe";
-  const paisSelect = document.getElementById("editPais");
-  if (paisSelect) {
-    paisSelect.value = codPaisActual;
-    const optActual = paisSelect.options[paisSelect.selectedIndex];
-    if (optActual) {
-      document.getElementById("editPrefixFlag").textContent =
-        optActual.dataset.flag || "🇵🇪";
-      document.getElementById("editPrefixCode").textContent =
-        optActual.dataset.tel || "+51";
-    }
-  }
-
-  document.body.classList.add("blur-active");
-  document.getElementById("editProfileModal").classList.add("active");
-  upgradeAllCoolSelects(document.getElementById("editProfileModal"));
+window.onEditPaisChange = (sel) => {
+  const o = sel.options[sel.selectedIndex];
+  $("editPrefixFlag").textContent = o.dataset.flag;
+  $("editPrefixCode").textContent = o.dataset.tel;
 };
 
-document
-  .getElementById("btnEditProfile")
-  ?.addEventListener("click", openEditProfileModal);
+window.openEditProfileModal = () => {
+  cargarPaisesEdit();
+  $("editNombre").value = (perfilActual.nombre || "").trim();
+  $("editApellido").value = (perfilActual.apellido || "").trim();
+  $("editTelefono").value = perfilActual.contacto?.numero_user || "";
+
+  const paisSelect = $("editPais");
+  paisSelect.value = perfilActual.cod_pais || "pe";
+  const o = paisSelect.options[paisSelect.selectedIndex];
+  if (o) {
+    $("editPrefixFlag").textContent = o.dataset.flag || "🇵🇪";
+    $("editPrefixCode").textContent = o.dataset.tel || "+51";
+  }
+  abrirModal("editProfileModal");
+  upgradeAllCoolSelects($("editProfileModal"));
+};
+
 window.submitEditProfile = async (event) => {
   event.preventDefault();
+  const nombre = $("editNombre").value.trim();
+  const apellido = $("editApellido").value.trim();
+  const telefono = $("editTelefono").value.trim();
 
-  const nombre = document.getElementById("editNombre").value.trim();
-  const apellido = document.getElementById("editApellido").value.trim();
-  const telefono = document.getElementById("editTelefono").value.trim();
-
-  const setError = (id, msg) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = msg;
-    el.style.display = msg ? "block" : "none";
-  };
-
-  ["errEditNombre", "errEditApellido", "errEditTelefono"].forEach((id) =>
-    setError(id, ""),
-  );
-
+  ["errEditNombre", "errEditApellido", "errEditTelefono"].forEach((id) => setError(id, ""));
   let ok = true;
-
-  if (!nombre || nombre.length < 2) {
-    setError("errEditNombre", "Ingresa un nombre válido (mín. 2 caracteres).");
-    ok = false;
-  }
-  if (!apellido || apellido.length < 2) {
-    setError(
-      "errEditApellido",
-      "Ingresa un apellido válido (mín. 2 caracteres).",
-    );
-    ok = false;
-  }
-  if (!telefono || !/^\d{7,15}$/.test(telefono)) {
-    setError("errEditTelefono", "Número inválido (7–15 dígitos).");
-    ok = false;
-  }
-
+  if (nombre.length < 2) (setError("errEditNombre", "Ingresa un nombre válido (mín. 2 caracteres)."), (ok = false));
+  if (apellido.length < 2) (setError("errEditApellido", "Ingresa un apellido válido (mín. 2 caracteres)."), (ok = false));
+  if (!/^\d{7,15}$/.test(telefono)) (setError("errEditTelefono", "Número inválido (7–15 dígitos)."), (ok = false));
   if (!ok) return;
-  if (!GOOGLE_USER) {
-    showSnackbar("❌ No se encontró tu sesión. Recarga la página.", "error");
-    return;
-  }
+  if (!GOOGLE_USER) return showSnackbar("❌ No se encontró tu sesión. Recarga la página.", "error");
 
-  const btn = document.getElementById("btnSaveProfile");
-  const btnOrig = btn.innerHTML;
+  const btn = $("btnSaveProfile");
+  const orig = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Guardando...`;
-
-  const paisSelect = document.getElementById("editPais");
-  const paisOpt = paisSelect?.options[paisSelect.selectedIndex];
-  const codPais = paisSelect?.value || "pe";
-  const nombrePais = paisOpt?.dataset.nombre || "Perú";
-  const codTelefonico = paisOpt?.dataset.tel || "+51";
-
+  btn.innerHTML = LOADING("Guardando...");
   try {
-    await setDoc(
-      doc(
-        db,
-        "Trabajadores_Usuarios_Drivers",
-        "users",
-        "users",
-        GOOGLE_USER.uid,
-      ),
-      {
-        nombre,
-        apellido,
-        cod_pais: codPais,
-        nacionalidad_nacimiento: nombrePais,
-        contacto: {
-          cod_telefonico: codTelefonico,
-          nombre_pais_numero: nombrePais,
-          numero_user: Number(telefono),
-        },
-      },
-      { merge: true },
-    );
-
-    document.getElementById("wName").textContent = `${nombre} ${apellido}`;
-    if (window._perfilActual) {
-      window._perfilActual.nombre = nombre;
-      window._perfilActual.apellido = apellido;
-      window._perfilActual.cod_pais = codPais;
-      window._perfilActual.nacionalidad_nacimiento = nombrePais;
-      window._perfilActual.contacto = {
-        cod_telefonico: codTelefonico,
-        nombre_pais_numero: nombrePais,
-        numero_user: Number(telefono),
-      };
-    }
-
-    // reflejar el teléfono y país actualizados en pantalla al instante
-    const wPhoneEl = document.getElementById("wPhone");
-    if (wPhoneEl) {
-      wPhoneEl.textContent = `${codTelefonico} ${telefono}`;
-    }
-
+    const { cambios } = await api.updateProfile({ nombre, apellido, telefono, codPais: $("editPais").value || "pe" });
+    Object.assign(perfilActual, cambios);
+    $("wName").textContent = `${cambios.nombre} ${cambios.apellido}`;
+    if ($("wPhone")) $("wPhone").textContent = `${cambios.contacto.cod_telefonico} ${cambios.contacto.numero_user}`;
     closeModal("editProfileModal");
     showSnackbar("✅ Perfil actualizado correctamente", "success");
   } catch (err) {
     console.error("Error al actualizar perfil:", err);
-    showSnackbar("❌ Error al guardar. Intenta de nuevo.", "error");
+    mostrarErrorApi(err, { nombre: "errEditNombre", apellido: "errEditApellido", telefono: "errEditTelefono" }, "❌ Error al guardar. Intenta de nuevo.");
   } finally {
     btn.disabled = false;
-    btn.innerHTML = btnOrig;
+    btn.innerHTML = orig;
   }
 };
-
-window.switchToUserLogin = () => {
-  closeModal("socioModal");
-};
-window.validarCorreoGmail = (input) => {
-  const val = input.value.trim().toLowerCase();
-  const errorEl = document.getElementById("errCorreo");
-  const hintEl = document.getElementById("hintCorreo");
-
-  errorEl.textContent = "";
-  errorEl.style.display = "none";
-  hintEl.style.display = "none";
-
-  // Con Google/Facebook/GitHub se acepta cualquier correo, no mostrar error de @gmail.com
-  if (modoRegistroGoogle) return;
-
-  if (!val) return;
-
-  if (val.includes("@") && !val.endsWith("@gmail.com")) {
-    errorEl.textContent = "Solo se permiten correos @gmail.com.";
-    errorEl.style.display = "block";
-    return;
-  }
-
-  if (/^[^\s@]+@gmail\.com$/.test(val)) {
-    hintEl.style.display = "flex";
-  }
-};
+$("btnEditProfile")?.addEventListener("click", openEditProfileModal);
 
 /* =========================================================
-   AUTH STATE — auto-login si ya hay sesión
+   AVATAR (se optimiza en el cliente; el servidor guarda la URL)
 ========================================================= */
-onAuthStateChanged(auth, async (user) => {
-  const authChecking = document.getElementById("authChecking");
-  const acText = document.getElementById("acText");
+function aWebpCuadrado(img, maxSize = 512, quality = 0.85) {
+  const size = Math.min(img.naturalWidth, img.naturalHeight);
+  const out = Math.min(maxSize, size);
+  const canvas = Object.assign(document.createElement("canvas"), { width: out, height: out });
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, (img.naturalWidth - size) / 2, (img.naturalHeight - size) / 2, size, size, 0, 0, out, out);
+  return new Promise((res, rej) =>
+    canvas.toBlob((b) => (b ? res(b) : rej(new Error("No se pudo procesar la imagen"))), "image/webp", quality));
+}
 
-  if (!user) {
-    document.getElementById("mainUI").style.display = "flex";
-    authChecking?.classList.add("hidden");
-    return;
-  }
-  if (popupEnCurso) return; // el popup ya lo procesa con el perfil extra
-
-  if (acText) acText.textContent = "Sesión encontrada, cargando perfil...";
-  const red = await redirectPromise; // en móvil trae el perfil extra
-  await procesarLoginGoogle(
-    user,
-    red ? getAdditionalUserInfo(red)?.profile : null,
-  );
+const cargarImagen = (src, cors = false) => new Promise((res, rej) => {
+  const img = new Image();
+  if (cors) img.crossOrigin = "anonymous";
+  img.onload = () => res(img);
+  img.onerror = () => rej(new Error("No se pudo cargar la imagen"));
+  img.src = src;
 });
 
-const redirectPromise = getRedirectResult(auth).catch((err) => {
-  console.error("Error en redirect:", err);
-  if (err?.code === "auth/account-exists-with-different-credential") {
-    showSnackbar(
-      "⚠️ Ese correo ya tiene una cuenta con otro método (Google, Facebook o contraseña). Inicia sesión con ese método.",
-      "warning",
-    );
-  } else {
-    showSnackbar("❌ Error al iniciar sesión", "error");
+async function subirAvatar(uid, blob) {
+  const r = ref(storage, `avatars/${uid}.webp`);
+  await uploadBytes(r, blob, { contentType: "image/webp" });
+  const { foto } = await api.saveAvatar({ url: await getDownloadURL(r) });
+  return foto;
+}
+
+$("wAvatarEdit")?.addEventListener("click", () => $("wAvatarInput")?.click());
+$("wAvatarInput")?.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file || !GOOGLE_USER) return;
+  const wrap = $("wAvatarWrap");
+  wrap?.classList.add("is-uploading");
+  try {
+    const url = URL.createObjectURL(file);
+    const blob = await aWebpCuadrado(await cargarImagen(url));
+    URL.revokeObjectURL(url);
+    $("wAvatarImg").src = await subirAvatar(GOOGLE_USER.uid, blob);
+    showSnackbar("✅ Foto de perfil actualizada", "success");
+  } catch (err) {
+    console.error("Error subiendo avatar:", err);
+    showSnackbar("❌ No se pudo actualizar tu foto", "error");
+  } finally {
+    wrap?.classList.remove("is-uploading");
+    e.target.value = "";
   }
-  return null;
 });
 
 /* =========================================================
-   TÍTULO DINÁMICO
+   NOTIFICACIONES (FCM)
 ========================================================= */
-const titleElement = document.getElementById("dynamicTitle");
-const titles = [
-  "Encuentra tu próximo destino favorito",
-  "Tu aventura con Geinz comienza hoy",
-  "Bienvenido a Geinz, tu espacio ideal",
-  "Descubre los mejores negocios locales",
-  "Todo lo que necesitas, cerca de ti",
-  "Explora, conecta y disfruta tu ciudad",
-  "Geinz, tu guía de negocios locales",
-];
+async function claveDispositivo() {
+  let clave = localStorage.getItem("geinz_device_key");
+  if (clave) return clave;
+  let modelo = "web";
+  try {
+    const ua = await navigator.userAgentData?.getHighEntropyValues?.(["model", "platform"]);
+    if (ua) modelo = (ua.model || ua.platform || "web").replace(/\s+/g, "-");
+  } catch {}
+  clave = `${modelo}-${Math.random().toString(36).slice(2, 8)}`;
+  localStorage.setItem("geinz_device_key", clave);
+  return clave;
+}
 
-if (titleElement) {
-  let i = 0;
-  titleElement.style.transition = "opacity .4s ease, transform .4s ease";
-  titleElement.style.opacity = "1";
-  titleElement.textContent = titles[0];
+async function guardarTokenFcm(uid) {
+  try {
+    if ((await Notification.requestPermission()) !== "granted") return;
+    const token = await getToken(getMessaging(app), {
+      vapidKey: "BHZ1cDOCNN3vIm8tUtSrvCgn-e4jIgR8wl8XloY-pLClHf3JrJpm2J29MPAQscFIM4SHzQtg_lkfo_P1ALeEuWQ",
+    });
+    if (!token || token === localStorage.getItem("geinz_fcm_token")) return;
+    await setDoc(tokenFcmDoc(uid), { tokens: { [await claveDispositivo()]: token } }, { merge: true });
+    localStorage.setItem("geinz_fcm_token", token);
+  } catch (err) {
+    console.error("Error guardando token FCM:", err);
+  }
+}
 
-  setInterval(() => {
-    titleElement.style.opacity = "0";
-    titleElement.style.transform = "translateY(8px)";
-    setTimeout(() => {
-      i = (i + 1) % titles.length;
-      titleElement.textContent = titles[i];
-      titleElement.style.opacity = "1";
-      titleElement.style.transform = "translateY(0)";
-    }, 400);
-  }, 4000);
+function gestionarPermisoNotificaciones(uid) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") return void guardarTokenFcm(uid);
+  if (Notification.permission === "denied") return;
+
+  const modal = $("notisModal");
+  if (!modal) return void guardarTokenFcm(uid);
+  abrirModal("notisModal");
+  const cerrar = () => closeModal("notisModal");
+  $("btnActivarNotis").onclick = async () => (cerrar(), guardarTokenFcm(uid));
+  $("btnOmitirNotis").onclick = cerrar;
 }
 
 /* =========================================================
-   ESC CLOSE
+   ACCESO AL PANEL DEL NEGOCIO
 ========================================================= */
-document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape") return;
+function abrirPanel(id, dep, prov, dist) {
+  sessionStorage.setItem("tiendaId", id);
+  sessionStorage.setItem("departamento", dep);
+  sessionStorage.setItem("provincia", prov);
+  sessionStorage.setItem("localidad", dist);
+  window.location.href = "./../../dasboard/panel_perfil.html?" +
+    new URLSearchParams({ id, departamento: dep, provincia: prov, localidad: dist });
+}
 
-  closeModal("registerModal");
-  closeModal("socioModal");
-});
+async function validarYEntrarAlPanel(id, { dep, prov, dist }, btn) {
+  if (!id || id.length < 4) return showSnackbar("⚠️ Ingresa un ID válido", "warning");
+  if (!dep || !prov || !dist) return showSnackbar("⚠️ Selecciona departamento, provincia y distrito", "warning");
+
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = LOADING("Validando...");
+  try {
+    setUbicacion({ departamento: dep, provincia: prov });
+    const snap = await getDoc(tiendaDoc(dist, "tiendas", id));
+    if (!snap.exists()) return showSnackbar("❌ Ese ID no existe. Verifica e intenta de nuevo.", "error");
+    abrirPanel(id, dep, prov, dist);
+  } catch (err) {
+    console.error(err);
+    showSnackbar("Error al validar. Intenta de nuevo.", "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
+window.continuarPanel = () =>
+  validarYEntrarAlPanel($("selectorInput").value.trim(), seleccionUbicacion.selector, $("btnContinuar"));
+window.accederSocio = () =>
+  validarYEntrarAlPanel($("socioId").value.trim(), seleccionUbicacion.socio, $("btnAccederSocio"));
+$("btnAccederSocio")?.addEventListener("click", accederSocio);
+
+let vincularListo = false;
+async function prepararFormularioVincular() {
+  if (vincularListo) return;
+  vincularListo = true;
+  await inicializarSelectoresUbicacion("welcome");
+  upgradeAllCoolSelects($("wVincularForm"));
+  const btn = $("btnVincularInline");
+  if (btn)
+    btn.onclick = () => validarYEntrarAlPanel($("welcomeIdNegocio").value.trim(), seleccionUbicacion.welcome, btn);
+}
 
 /* =========================================================
-   BOTÓN ACCEDER SOCIO
+   SPLASH / BIENVENIDA
 ========================================================= */
-document
-  .getElementById("btnAccederSocio")
-  ?.addEventListener("click", accederSocio);
+const mostrar = (id, v = true) => $(id) && ($(id).style.display = v ? "flex" : "none");
 
-/* =========================================================
-   AVATAR — click para cambiar foto
-========================================================= */
-document.getElementById("wAvatarEdit")?.addEventListener("click", () => {
-  document.getElementById("wAvatarInput")?.click();
-});
+async function showSplash(user, sesion) {
+  if (splashShown) return;
+  splashShown = true;
+  gestionarPermisoNotificaciones(user.uid);
 
-document
-  .getElementById("wAvatarInput")
-  ?.addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file || !GOOGLE_USER) return;
+  $("authChecking")?.classList.add("hidden");
+  $("mainUI").style.display = "none";
+  $("splashScreen").classList.add("visible");
 
-    const wrap = document.getElementById("wAvatarWrap");
+  // Los datos ya están (vienen de getSession): la animación es solo estética y corta.
+  for (const s of ["step1", "step2", "step3"]) {
+    await delay(220);
+    $(s)?.classList.add("done");
+  }
+  await delay(250);
+
+  const data = sesion.perfil || {};
+  perfilActual = data;
+  const nombre = data.nombre || user.displayName || "Usuario";
+  $("wName").textContent = data.apellido ? `${nombre} ${data.apellido}` : nombre;
+  $("wUser").textContent = data.nombre_user || "@" + (user.email?.split("@")[0] || "usuario");
+  if ($("wPhone"))
+    $("wPhone").textContent = data.contacto?.numero_user ? `${data.contacto.cod_telefonico || "+51"} ${data.contacto.numero_user}` : "";
+
+  const avatarImg = $("wAvatarImg");
+  if (avatarImg) avatarImg.src = data.foto || user.photoURL || "../img/icons/favicon-96x96.png";
+
+  // Migra la foto del proveedor a nuestro Storage en segundo plano (no frena la pantalla)
+  if (!data.foto && user.photoURL) {
+    const wrap = $("wAvatarWrap");
     wrap?.classList.add("is-uploading");
+    cargarImagen(user.photoURL, true)
+      .then((img) => aWebpCuadrado(img))
+      .then((blob) => subirAvatar(user.uid, blob))
+      .then((url) => avatarImg && (avatarImg.src = url))
+      .catch((err) => console.warn("No se pudo guardar la foto del proveedor:", err))
+      .finally(() => wrap?.classList.remove("is-uploading"));
+  }
 
+  const tienda = data.tienda_propietario;
+  const tieneTienda = !!tienda?.id_negocio;
+  const hint = $("wHint");
+  const btnEnter = $("btnEnter"), btnOtro = $("btnOtroNegocio"), btnCancelar = $("btnCancelarOtro");
+  const form = $("wVincularForm"), storeCard = $("wStoreCard"), noStoreCard = $("wNoStoreCard");
+
+  const vistaMiNegocio = () => {
+    mostrar("wStoreCard"); mostrar("btnEnter"); mostrar("btnOtroNegocio");
+    if (form) form.style.display = "none";
+    mostrar("btnCancelarOtro", false);
+    if (hint) hint.textContent = "Tu negocio ya está vinculado a tu cuenta.";
+  };
+
+  if (tieneTienda) {
+    mostrar("wNoStoreCard", false);
+    vistaMiNegocio();
+    const loc = [tienda.distrito, tienda.provincia, tienda.departamento]
+      .filter(Boolean).map((s) => s.charAt(0).toUpperCase() + s.slice(1));
+    if ($("wStoreLoc")) $("wStoreLoc").textContent = loc.join(" · ") || "Ubicación registrada";
+
+    btnEnter.onclick = () => abrirPanel(tienda.id_negocio, tienda.departamento || "", tienda.provincia || "", tienda.distrito || "");
+    btnOtro.onclick = async () => {
+      mostrar("wStoreCard", false); mostrar("btnEnter", false); mostrar("btnOtroNegocio", false);
+      form.style.display = "block";
+      mostrar("btnCancelarOtro");
+      if (hint) hint.textContent = "Ingresa los datos del otro negocio.";
+      await prepararFormularioVincular();
+    };
+    if (btnCancelar) btnCancelar.onclick = vistaMiNegocio;
+  } else {
+    mostrar("wStoreCard", false); mostrar("btnEnter", false);
+    mostrar("wNoStoreCard");
+    form.style.display = "block";
+    if (hint) hint.textContent = "Vincula tu negocio o continúa como usuario.";
+  }
+
+  $("sValidating").classList.add("fade-out");
+  await delay(300);
+  $("sValidating").style.display = "none";
+  $("sWelcome").classList.add("visible");
+
+  if (!tieneTienda) {
+    await prepararFormularioVincular();
     try {
-      const blob = await optimizarImagenDesdeArchivo(file, 512, 0.85);
-      const url = await subirYGuardarAvatar(GOOGLE_USER.uid, blob);
-      const imgEl = document.getElementById("wAvatarImg");
-      if (imgEl) imgEl.src = url;
-      showSnackbar("✅ Foto de perfil actualizada", "success");
-    } catch (err) {
-      console.error("Error subiendo avatar:", err);
-      showSnackbar("❌ No se pudo actualizar tu foto", "error");
-    } finally {
-      wrap?.classList.remove("is-uploading");
-      e.target.value = "";
-    }
-  });
+      const p = JSON.parse(localStorage.getItem("geinz_registro_pendiente") || "null");
+      if (p?.id) {
+        $("welcomeIdNegocio").value = p.id;
+        await prefillUbicacion("welcome", p);
+        hint.textContent = `Tu negocio "${p.nombre}" fue creado. Pulsa "Acceder al panel".`;
+        localStorage.removeItem("geinz_registro_pendiente");
+      }
+    } catch {}
+  }
+}
+
+/* =========================================================
+   ARRANQUE: sesión existente / redirect móvil
+========================================================= */
+const redirectPromise = getRedirectResult(auth).catch((err) => {
+  console.error("Error en redirect:", err);
+  showSnackbar(
+    err?.code === "auth/account-exists-with-different-credential"
+      ? "⚠️ Ese correo ya tiene una cuenta con otro método. Inicia sesión con ese método."
+      : "❌ Error al iniciar sesión",
+    err?.code === "auth/account-exists-with-different-credential" ? "warning" : "error",
+  );
+  return null;
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    $("mainUI").style.display = "flex";
+    $("authChecking")?.classList.add("hidden");
+    return;
+  }
+  if (flujoManual) return; // el login manual ya lo procesa
+  if ($("acText")) $("acText").textContent = "Sesión encontrada, cargando perfil...";
+  const red = await redirectPromise;
+  await procesarSesion(user, red ? getAdditionalUserInfo(red)?.profile : null);
+});
+
+window.addEventListener("pageshow", (e) => {
+  if (!e.persisted) return;
+  if (redirigiendo) { // móvil: volvió atrás desde Google/Facebook/GitHub sin completar
+    redirigiendo = false;
+    flujoManual = false;
+    ocultarCarga();
+  } else location.reload();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") ["registerModal", "socioModal"].forEach(closeModal);
+});
+
+/* Título rotativo */
+const titleEl = $("dynamicTitle");
+if (titleEl) {
+  const titles = [
+    "Encuentra tu próximo destino favorito", "Tu aventura con Geinz comienza hoy",
+    "Bienvenido a Geinz, tu espacio ideal", "Descubre los mejores negocios locales",
+    "Todo lo que necesitas, cerca de ti", "Explora, conecta y disfruta tu ciudad",
+    "Geinz, tu guía de negocios locales",
+  ];
+  let i = 0;
+  titleEl.style.transition = "opacity .4s ease, transform .4s ease";
+  titleEl.textContent = titles[0];
+  setInterval(() => {
+    titleEl.style.opacity = "0";
+    titleEl.style.transform = "translateY(8px)";
+    setTimeout(() => {
+      titleEl.textContent = titles[(i = (i + 1) % titles.length)];
+      titleEl.style.opacity = "1";
+      titleEl.style.transform = "translateY(0)";
+    }, 400);
+  }, 4000);
+}

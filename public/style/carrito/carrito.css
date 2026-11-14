@@ -1214,3 +1214,11 @@ body {
         transition: none;
     }
 }
+#drawerItems,
+#sidebarItems{
+  padding-top:0 !important;
+  margin-top:0 !important;
+}
+.hint-box + .hint-box{
+  margin-top:-2px;
+}

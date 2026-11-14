@@ -1476,6 +1476,16 @@
                                         promoción en Geinz.</span>
                                 </div>
                             </button>
+                            <button type="button" class="tipo-pub-chip" data-tipo="solo_ig"
+                                onclick="selectTipoPublicacion(this)">
+                                <i class="ti ti-brand-instagram" aria-hidden="true"></i>
+                                <div class="tipo-pub-text">
+                                    <span class="tipo-pub-title">Solo en Instagram</span>
+                                    <span class="tipo-pub-sub">Se publica únicamente en tu Instagram. Puedes marcar
+                                        también
+                                        Facebook para publicar en ambas.</span>
+                                </div>
+                            </button>
                         </div>
 
                         <div class="param-list">
@@ -2008,20 +2018,21 @@
         <div id="vista-ofertas" style="display:none">
 
             <!-- Banner -->
-     <div class="card" id="cardBanner" style="margin-bottom:20px;">
-    <h3 class="sec-title">Banners de tu negocio</h3>
-    <p class="sec-sub">Sube varias imágenes y elige qué días se ve cada una. Cada banner tiene su propia configuración.</p>
+            <div class="card" id="cardBanner" style="margin-bottom:20px;">
+                <h3 class="sec-title">Banners de tu negocio</h3>
+                <p class="sec-sub">Sube varias imágenes y elige qué días se ve cada una. Cada banner tiene su propia
+                    configuración.</p>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;">
-        <span class="bn-lbl" style="margin:0">Mostrar banners en mi perfil</span>
-        <label class="switch">
-            <input type="checkbox" id="bannerActivoSwitch">
-            <span class="slider"></span>
-        </label>
-    </div>
-    <p class="of-msg" id="bannersContador" style="margin-top:8px"></p>
-    <div id="bannersGrid"></div>
-</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;">
+                    <span class="bn-lbl" style="margin:0">Mostrar banners en mi perfil</span>
+                    <label class="switch">
+                        <input type="checkbox" id="bannerActivoSwitch">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <p class="of-msg" id="bannersContador" style="margin-top:8px"></p>
+                <div id="bannersGrid"></div>
+            </div>
 
             <!-- Ofertas -->
             <div class="card" id="cardOfertas">

@@ -1,3 +1,9 @@
+// ══════════════════════════════════════════════════════════════════════
+//  publicaciones.js
+//  Pantalla "Crea tus promociones": publicar en Geinz, solo en redes
+//  (Facebook y/o Instagram), IA de textos/imágenes, créditos y términos.
+// ══════════════════════════════════════════════════════════════════════
+
 // ── Firebase (módulos ESM) ──────────────────────────────
 import {
   doc,
@@ -28,6 +34,9 @@ let localidad =
 
 const auth = getAuth(app);
 
+// ══════════════════════════════════════════════════════════════════════
+//  CONSTANTES (URLs de Cloud Functions y configuración de Meta)
+// ══════════════════════════════════════════════════════════════════════
 const CLOUD_FN_PUBLICAR_FB =
   "https://us-central1-geinzworkapp.cloudfunctions.net/publicarEnFacebookOrganico";
 const MAX_IMAGENES_FB = 5; // máximo de fotos que se mandan a Meta
@@ -37,12 +46,27 @@ const CLOUD_FN_PUBLICAR_IG =
   "https://us-central1-geinzworkapp.cloudfunctions.net/publicarEnInstagramOrganico";
 const IG_SCOPE =
   "public_profile,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish";
+const CLOUD_FN_LISTAR_PAGINAS_IG =
+  "https://us-central1-geinzworkapp.cloudfunctions.net/listarPaginasIG";
+const IG_CONFIG_ID = "1451477530486757";
+
+// ══════════════════════════════════════════════════════════════════════
+//  ESTADO GLOBAL DE LA PANTALLA
+// ══════════════════════════════════════════════════════════════════════
 let imgsCount = 0;
 let imagesData = [null, null, null, null, null];
 let selectedImageIndex = null;
 let precioYaSeteado = false;
 let terminosAceptados = false;
-let tipoPublicacionActual = "perfil"; // "plataforma" | "perfil" | "solo_fb"
+
+// Tipo de publicación:
+//   "plataforma"  → feed de Geinz (próximamente)
+//   "perfil"      → perfil público de Geinz (+ switches opcionales de FB / IG)
+//   "solo_redes"  → SOLO redes sociales, sin crear la promo en Geinz
+let tipoPublicacionActual = "perfil";
+
+// Redes elegidas en modo "solo_redes". Se pueden marcar una o ambas.
+let redesSolo = { fb: false, ig: false };
 
 let tipoTextoIA = "venta";
 let tipoImagenIA = "venta";
@@ -56,22 +80,39 @@ let _precios = {
   costo_por_moneda: 0.012,
 };
 
-// ── Estado de Facebook (declarado arriba para evitar problemas de orden) ──
+// ── Estado de Facebook / Instagram (declarado arriba para evitar problemas de orden) ──
 let fbConectado = false;
 let fbPublicarActivo = false;
 let igConectado = false;
 let igPublicarActivo = false;
-// ── Helpers de tipo de publicación ──────────────────────
-function esSoloFacebook() {
-  return tipoPublicacionActual === "solo_fb";
-}
-// Perfil y solo FB no cobran créditos por publicar
-function esPublicacionGratis() {
-  return (
-    tipoPublicacionActual === "perfil" || tipoPublicacionActual === "solo_fb"
-  );
+
+// ══════════════════════════════════════════════════════════════════════
+//  HELPERS DE TIPO DE PUBLICACIÓN
+// ══════════════════════════════════════════════════════════════════════
+
+// ¿Está activo el modo "solo redes" (FB, IG o ambas)?
+function esSoloRedes() {
+  return tipoPublicacionActual === "solo_redes";
 }
 
+// Alias por compatibilidad: el resto del código que usaba esSoloFacebook()
+// ahora significa "modo solo redes" (cubre Facebook, Instagram o ambas).
+const esSoloFacebook = esSoloRedes;
+
+// Perfil y solo redes no cobran créditos por publicar
+function esPublicacionGratis() {
+  return tipoPublicacionActual === "perfil" || esSoloRedes();
+}
+
+// Texto legible de las redes elegidas: "Facebook", "Instagram" o "Facebook e Instagram"
+function textoRedes() {
+  if (redesSolo.fb && redesSolo.ig) return "Facebook e Instagram";
+  return redesSolo.ig ? "Instagram" : "Facebook";
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  LINKS (alias de tienda, carrito y compartir)
+// ══════════════════════════════════════════════════════════════════════
 async function obtenerAliasTienda() {
   const d = datosTienda || {};
   let alias = d.alias_key || d.slug || "";
@@ -116,11 +157,16 @@ function construirLinkPromo(id_promocion, localidad) {
   return `https://geinztech.com/api/share?t=prms&l=${l}&pi=${id_promocion}`;
 }
 
-// ── Estilos del botón "Conectando..." de Facebook ───────
+// ══════════════════════════════════════════════════════════════════════
+//  ESTILOS INYECTADOS
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Estilos del botón "Conectando..." de Facebook / Instagram ───────
 (function inyectarEstilosFacebook() {
   const style = document.createElement("style");
   style.textContent = `
-#btnConectarFb.fb-connecting, #btnConectarIg.fb-connecting {      display:inline-flex !important;
+    #btnConectarFb.fb-connecting, #btnConectarIg.fb-connecting {
+      display:inline-flex !important;
       align-items:center;
       gap:8px;
       cursor:not-allowed;
@@ -350,7 +396,9 @@ window.cerrarTerminos = function () {
   document.getElementById("termsOverlay")?.classList.remove("open");
 };
 
-// ── Aplicar precios recibidos al DOM ────────────────────
+// ══════════════════════════════════════════════════════════════════════
+//  PRECIOS EN EL DOM
+// ══════════════════════════════════════════════════════════════════════
 function aplicarPreciosEnDOM() {
   const precioImgEl = document.getElementById("precioImagenIA");
   if (precioImgEl) precioImgEl.textContent = _precios.ia_imagen_texto;
@@ -376,7 +424,9 @@ function aplicarPreciosEnDOM() {
   actualizarBotonesIA();
 }
 
-// ==================== BANNER SALDO BAJO ====================
+// ══════════════════════════════════════════════════════════════════════
+//  BANNER DE SALDO BAJO
+// ══════════════════════════════════════════════════════════════════════
 (function inyectarEstilosBanner() {
   const style = document.createElement("style");
   style.textContent = `
@@ -438,7 +488,6 @@ function inyectarBannerSaldoBajo() {
   banner.id = "bannerSaldoBajo";
   banner.className = "saldo-bajo-banner";
   banner.innerHTML = `
- 
     <div class="banner-body">
       <p class="banner-title">
         Alerta de saldo bajo
@@ -480,12 +529,16 @@ function actualizarBannerSaldo(saldo) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  FECHAS Y COSTOS
+// ══════════════════════════════════════════════════════════════════════
 function parseFechaLocal(str) {
   if (!str) return null;
   const [y, m, d] = str.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
-// ── FUNCIÓN CENTRALIZADA (reemplaza todos los cálculos dispersos) ──
+
+// ── FUNCIÓN CENTRALIZADA de días entre fecha inicial y final ──
 function calcularDias() {
   const fi = document.getElementById("fechaInicio")?.value;
   const ff = document.getElementById("fechaFin")?.value;
@@ -495,8 +548,9 @@ function calcularDias() {
   if (fin < inicio) return 0;
   return Math.round((fin - inicio) / 86400000);
 }
+
 function calcularCostoTotal() {
-  if (esPublicacionGratis()) return 0; // perfil y solo FB no cobran
+  if (esPublicacionGratis()) return 0; // perfil y solo redes no cobran
   const tipo =
     document.querySelector('input[name="plazo"]:checked')?.value || "dias";
   let total = 0;
@@ -522,14 +576,15 @@ function calcularCostoTotal() {
   return total;
 }
 
+// Texto/ícono del botón "Publicar" según el modo y el costo
 function actualizarCostoPublicar() {
   const btn = document.querySelector(".btn-submit");
   if (!btn) return;
 
-  const etiqueta = esSoloFacebook()
-    ? "Publicar en Facebook"
+  const etiqueta = esSoloRedes()
+    ? `Publicar en ${textoRedes()}`
     : "Publicar promoción";
-  const iconoBtn = esSoloFacebook() ? "ti-brand-facebook" : "ti-send";
+  const iconoBtn = "ti-send";
 
   // Solo mostrar costo si hay imágenes seleccionadas
   if (imgsCount === 0) {
@@ -581,15 +636,21 @@ function actualizarEstadoBotonPublicar() {
   const saldoOk = verificarSaldo();
   const terminosOk = terminosAceptados;
 
-  // En "solo Facebook" hace falta tener la Fanpage conectada y habilitada en el plan
-  const fbOk =
-    !esSoloFacebook() || (fbConectado && window.GEINZ_PLAN?.fanpage !== false);
+  // En "solo redes" cada red elegida debe estar conectada
+  // (y la Fanpage además debe estar habilitada en el plan).
+  const redesOk =
+    !esSoloRedes() ||
+    ((!redesSolo.fb || (fbConectado && window.GEINZ_PLAN?.fanpage !== false)) &&
+      (!redesSolo.ig || igConectado));
 
   const habilitado =
-    tieneImagen && tieneTitulo && tieneDesc && saldoOk && terminosOk && fbOk;
+    tieneImagen && tieneTitulo && tieneDesc && saldoOk && terminosOk && redesOk;
   btn.disabled = !habilitado;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  IA: BULLETS Y TIPOS DE CONTENIDO
+// ══════════════════════════════════════════════════════════════════════
 const BULLETS = {
   venta: [
     "Lenguaje persuasivo orientado a conversión",
@@ -624,21 +685,55 @@ function renderBullets(tipo) {
     )
     .join("");
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  SELECTOR DE TIPO DE PUBLICACIÓN (multi-selección de redes)
+//
+//  Reglas:
+//   • "Publicación en perfil" es exclusiva: al marcarla se apagan las redes.
+//   • "Solo en Facebook" y "Solo en Instagram" se pueden marcar a la vez
+//     (o una sola). Al marcar cualquiera se apaga "perfil".
+//   • Si el usuario desmarca todas las redes, vuelve automáticamente a "perfil".
+// ══════════════════════════════════════════════════════════════════════
 window.selectTipoPublicacion = function (el) {
   if (el.disabled || el.classList.contains("is-disabled")) return;
-  document
-    .querySelectorAll("#tipoPubSelector .tipo-pub-chip")
-    .forEach((c) => c.classList.remove("active"));
-  el.classList.add("active");
-  tipoPublicacionActual = el.dataset.tipo;
+
+  const tipo = el.dataset.tipo;
+  const chips = document.querySelectorAll("#tipoPubSelector .tipo-pub-chip");
+  const q = (t) =>
+    document.querySelector(`#tipoPubSelector .tipo-pub-chip[data-tipo="${t}"]`);
+
+  if (tipo === "perfil") {
+    // Perfil es exclusivo: solo él queda activo
+    chips.forEach((c) => c.classList.toggle("active", c === el));
+  } else {
+    // Redes: se alternan de forma independiente y desactivan "perfil"
+    q("perfil")?.classList.remove("active");
+    el.classList.toggle("active");
+
+    // Si no quedó ninguna red marcada, regresar a "perfil"
+    const hayFb = q("solo_fb")?.classList.contains("active");
+    const hayIg = q("solo_ig")?.classList.contains("active");
+    if (!hayFb && !hayIg) q("perfil")?.classList.add("active");
+  }
+
+  // Sincronizar el estado a partir de lo que quedó marcado en pantalla
+  redesSolo.fb = !!q("solo_fb")?.classList.contains("active");
+  redesSolo.ig = !!q("solo_ig")?.classList.contains("active");
+  tipoPublicacionActual =
+    redesSolo.fb || redesSolo.ig ? "solo_redes" : "perfil";
+
   aplicarTipoPublicacionUI();
 
-  // Aviso si eligió "solo Facebook" sin tener la Fanpage conectada
-  if (esSoloFacebook() && !fbConectado) {
+  // Avisos si falta conectar alguna red elegida
+  if (redesSolo.fb && !fbConectado) {
     window.mostrarToast?.(
       "Conecta tu Fanpage de Facebook para poder publicar",
       "error",
     );
+  }
+  if (redesSolo.ig && !igConectado) {
+    window.mostrarToast?.("Conecta tu Instagram para poder publicar", "error");
   }
 };
 
@@ -647,10 +742,11 @@ function setColapsado(el, colapsar) {
   el.classList.toggle("is-hidden", colapsar);
 }
 
+// Muestra/oculta bloques del formulario según el tipo de publicación
 function aplicarTipoPublicacionUI() {
   const esPerfil = tipoPublicacionActual === "perfil";
-  const esSoloFb = esSoloFacebook();
-  const ocultarExtras = esPerfil || esSoloFb;
+  const esSoloRed = esSoloRedes();
+  const ocultarExtras = esPerfil || esSoloRed;
 
   setColapsado(document.getElementById("paramBoxHorario"), ocultarExtras);
   setColapsado(document.getElementById("paramBoxPagos"), ocultarExtras);
@@ -660,25 +756,28 @@ function aplicarTipoPublicacionUI() {
     ocultarExtras || !esPresencial,
   );
 
-  // En solo FB no hay plazo ni WhatsApp / compartir / precio de Geinz
+  // En solo redes no hay plazo ni WhatsApp / compartir / precio de Geinz
   document
     .querySelector(".plazo")
-    ?.style.setProperty("display", esSoloFb ? "none" : "");
+    ?.style.setProperty("display", esSoloRed ? "none" : "");
   ["wp", "share", "price"].forEach((id) => {
     const box = document.getElementById(id)?.closest(".param-box");
-    if (box) box.style.display = esSoloFb ? "none" : "";
+    if (box) box.style.display = esSoloRed ? "none" : "";
   });
 
-  // Forzar el switch de FB encendido (y apagarlo al salir de solo FB si lo forzamos nosotros)
-  const sw = document.getElementById("fbPublicarSwitch");
-  if (esSoloFb) {
-    if (sw && fbConectado) {
-      sw.checked = true;
-      window.toggleFbPublicar(sw);
-    }
+  // Forzar encendido el switch de cada red elegida (si ya está conectada)
+  const swFb = document.getElementById("fbPublicarSwitch");
+  if (esSoloRed && redesSolo.fb && swFb && fbConectado) {
+    swFb.checked = true;
+    window.toggleFbPublicar(swFb);
+  }
+  const swIg = document.getElementById("igPublicarSwitch");
+  if (esSoloRed && redesSolo.ig && swIg && igConectado) {
+    swIg.checked = true;
+    window.toggleIgPublicar(swIg);
   }
 
-  if (!esSoloFb) {
+  if (!esSoloRed) {
     const plazoSel = document.querySelector(".plazo-sel");
     setColapsado(plazoSel, false);
     tipoPlazo(); // sincroniza boxHoras/boxFechas/boxPermanente según el radio marcado
@@ -687,6 +786,7 @@ function aplicarTipoPublicacionUI() {
   actualizarCostoPublicar();
   actualizarEstadoBotonPublicar();
 }
+
 window.selectTipoTexto = function (el) {
   document
     .querySelectorAll("#iaZonaTexto .ia-tipo-chip")
@@ -704,6 +804,7 @@ window.selectTipoImagen = function (el) {
   tipoImagenIA = el.dataset.tipo;
 };
 
+// Token de Firebase Auth para llamar a las Cloud Functions
 async function getToken() {
   return new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -718,7 +819,9 @@ let datosTienda = null;
 const ID_TIENDA = tiendaId;
 const LOCALIDAD = localidad;
 
-/* ── STORAGE ── */
+// ══════════════════════════════════════════════════════════════════════
+//  STORAGE (subida y compresión de imágenes)
+// ══════════════════════════════════════════════════════════════════════
 function dataURLtoBlob(dataURL) {
   const [header, base64] = dataURL.split(",");
   const mime = header.match(/:(.*?);/)[1];
@@ -728,9 +831,12 @@ function dataURLtoBlob(dataURL) {
   return new Blob([arr], { type: mime });
 }
 
+// Sube las imágenes a Storage como JPEG (requisito de Instagram) y
+// devuelve las URLs públicas + una miniatura para el bot.
 async function subirImagenesAStorage(id_tienda, id_promocion) {
   const urls = [];
   let botUrl = null;
+  let igUrl = null; // versión con proporción válida para Instagram
   const primeraImg = imagesData.find((img) => img !== null);
   if (primeraImg) {
     try {
@@ -745,6 +851,22 @@ async function subirImagenesAStorage(id_tienda, id_promocion) {
       botUrl = await getDownloadURL(ref);
     } catch (e) {
       console.warn("⚠️ Error subiendo bot img:", e);
+    }
+  }
+  // Versión para Instagram (proporción entre 4:5 y 1.91:1)
+  if (primeraImg) {
+    try {
+      const igDataURL = await ajustarImagenParaInstagram(primeraImg.data);
+      const igRef = storageRef(
+        storage,
+        `tiendas/${id_tienda}/imagenes/promociones_geinz/${id_promocion}/ig_${Date.now()}.jpg`,
+      );
+      await uploadBytes(igRef, dataURLtoBlob(igDataURL), {
+        contentType: "image/jpeg",
+      });
+      igUrl = await getDownloadURL(igRef);
+    } catch (e) {
+      console.warn("⚠️ Error subiendo imagen para IG:", e);
     }
   }
   for (let i = 0; i < imagesData.length; i++) {
@@ -767,7 +889,7 @@ async function subirImagenesAStorage(id_tienda, id_promocion) {
       throw new Error(`No se pudo subir la imagen ${i + 1}`);
     }
   }
-  return { urls, botUrl };
+  return { urls, botUrl, igUrl };
 }
 
 async function guardarImagenesEnFirestore(
@@ -818,8 +940,55 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     imgEl.src = dataURL;
   });
 }
+
+// Ajusta la imagen a una proporción que Instagram acepta (entre 4:5 y 1.91:1).
+// Si ya está dentro del rango, solo la reduce; si no, la centra sobre fondo
+// blanco sin recortarla. Margen de seguridad: 0.85 y 1.8 en vez de 0.8 y 1.91.
+function ajustarImagenParaInstagram(dataURL, maxPx = 1080, calidad = 0.9) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.width,
+        h = img.height,
+        r = w / h;
+      let cw = w,
+        ch = h;
+      if (r < 0.8) {
+        cw = Math.ceil(h * 0.85); // muy alta → ~4:5
+      } else if (r > 1.91) {
+        ch = Math.ceil(w / 1.8); // muy ancha → ~1.8:1
+      }
+
+      const s = Math.min(1, maxPx / Math.max(cw, ch));
+      cw = Math.round(cw * s);
+      ch = Math.round(ch * s);
+
+      const f = Math.min(cw / w, ch / h); // escala para que quepa entera
+      const dw = Math.round(w * f),
+        dh = Math.round(h * f);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = cw;
+      canvas.height = ch;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(
+        img,
+        Math.round((cw - dw) / 2),
+        Math.round((ch - dh) / 2),
+        dw,
+        dh,
+      );
+      resolve(canvas.toDataURL("image/jpeg", calidad));
+    };
+    img.onerror = () => reject(new Error("No se pudo leer imagen"));
+    img.src = dataURL;
+  });
+}
+
 let _iaGenerando = false;
-let _iaActivo = null;
+let _iaActivo = null; // id del botón IA que está generando (bloquea a los demás)
 function setGenerandoIA(activo, btnId = null) {
   _iaActivo = activo ? btnId : null;
   actualizarBotonesIA();
@@ -830,6 +999,9 @@ function formatFechaSlash(str) {
   return `${d}/${m}/${y}`;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  IIFE PRINCIPAL: formulario, IA, publicar
+// ══════════════════════════════════════════════════════════════════════
 (function () {
   const CLOUD_FN_URL =
     "https://us-central1-geinzworkapp.cloudfunctions.net/generar_titulo_descripcion_IA";
@@ -855,6 +1027,7 @@ function formatFechaSlash(str) {
   const resultadoIAContainer = document.getElementById("resultadoIAContainer");
   const precioInput = document.getElementById("precioInput");
 
+  // El precio solo admite dígitos
   precioInput.addEventListener("input", (e) => {
     e.target.value = e.target.value.replace(/\D/g, "");
   });
@@ -891,7 +1064,9 @@ function formatFechaSlash(str) {
     if (btnSubmit) btnSubmit.disabled = true;
   })();
 
-  /* ── IMAGEN ── */
+  // ────────────────────────────────────────────────────────
+  //  IMÁGENES (selección y borrado)
+  // ────────────────────────────────────────────────────────
   window.selectImage = function (index) {
     if (imagesData[index]) return;
     selectedImageIndex = index;
@@ -914,6 +1089,7 @@ function formatFechaSlash(str) {
     validate();
   };
 
+  // La primera imagen (la que usa la IA) lleva borde de color
   function updateFirstImageBorder() {
     document.querySelectorAll(".image-slot").forEach((slot, idx) => {
       const preview = slot.querySelector(".image-slot-preview");
@@ -923,7 +1099,11 @@ function formatFechaSlash(str) {
     });
   }
 
-  /* ── HELPERS ── */
+  // ────────────────────────────────────────────────────────
+  //  HELPERS
+  // ────────────────────────────────────────────────────────
+
+  // Detecta un precio escrito en título/descripción (cerca de "soles", "s/", etc.)
   function detectarPrecioTexto(texto) {
     if (!texto?.trim()) return null;
     const clean = texto.toLowerCase();
@@ -976,6 +1156,7 @@ function formatFechaSlash(str) {
       precioYaSeteado = true;
     }
   }
+
   function showBtn(btn, visible) {
     if (!btn) return;
     btn.classList.toggle("show", visible);
@@ -1003,7 +1184,9 @@ function formatFechaSlash(str) {
     });
   }
 
-  /* ── VALIDACIÓN GENERAL ── */
+  // ────────────────────────────────────────────────────────
+  //  VALIDACIÓN GENERAL (se ejecuta al escribir / cambiar imágenes)
+  // ────────────────────────────────────────────────────────
   function validate() {
     const titulo = tituloInput.value.trim();
     const desc = descripcionInput.value.trim();
@@ -1027,7 +1210,9 @@ function formatFechaSlash(str) {
     actualizarEstadoBotonPublicar();
   }
 
-  /* ── LOADING BTNS ── */
+  // ────────────────────────────────────────────────────────
+  //  BOTONES CON ESTADO DE CARGA
+  // ────────────────────────────────────────────────────────
   function setBtnLoading(btn, loading = true) {
     if (!btn) return;
     if (loading) {
@@ -1051,7 +1236,9 @@ function formatFechaSlash(str) {
     if (precioImagenIA) precioImagenIA.style.display = on ? "none" : "inline";
   }
 
-  /* ── FIREBASE CALL ── */
+  // ────────────────────────────────────────────────────────
+  //  LLAMADA A CLOUD FUNCTIONS (con token de Firebase)
+  // ────────────────────────────────────────────────────────
   async function callFirebaseFunction(url, payload = {}) {
     const token = await getToken();
     const headers = { "Content-Type": "application/json" };
@@ -1073,7 +1260,9 @@ function formatFechaSlash(str) {
     return data?.result ?? data;
   }
 
-  /* ── IA: MEJORAR TEXTO ── */
+  // ────────────────────────────────────────────────────────
+  //  IA: MEJORAR TEXTO (título + descripción, 3 opciones)
+  // ────────────────────────────────────────────────────────
   async function mejorarTextoIA() {
     if (!datosTienda) {
       mostrarToast("Cargando datos de tienda...", "error");
@@ -1113,6 +1302,7 @@ function formatFechaSlash(str) {
     }
   }
 
+  // Extrae "Opcion N: T: ... D: ..." del texto devuelto por la IA
   function extraerOpciones(texto) {
     const regex =
       /Opcion\s\d+:\s*T:\s*([\s\S]*?)\s*D:\s*([\s\S]*?)(?=Opcion\s\d+:|$)/gi;
@@ -1148,7 +1338,9 @@ function formatFechaSlash(str) {
     });
   }
 
-  /* ── IA: WhatsApp ── */
+  // ────────────────────────────────────────────────────────
+  //  IA: MENSAJE DE WHATSAPP
+  // ────────────────────────────────────────────────────────
   async function generarMensajeWhatsappIA() {
     if (!datosTienda) {
       mostrarToast("Cargando datos de tienda...", "error");
@@ -1187,7 +1379,9 @@ function formatFechaSlash(str) {
     }
   }
 
-  /* ── IA: Compartir ── */
+  // ────────────────────────────────────────────────────────
+  //  IA: MENSAJE PARA COMPARTIR
+  // ────────────────────────────────────────────────────────
   async function generarMensajeCompartirIA() {
     if (!datosTienda) {
       mostrarToast("Cargando datos de tienda...", "error");
@@ -1226,7 +1420,9 @@ function formatFechaSlash(str) {
     }
   }
 
-  /* ── IA: Imagen + Texto ── */
+  // ────────────────────────────────────────────────────────
+  //  IA: IMAGEN → TÍTULO + DESCRIPCIÓN
+  // ────────────────────────────────────────────────────────
   async function generarImagenTextoIA() {
     if (!datosTienda) {
       mostrarToast("Cargando datos de tienda...", "error");
@@ -1282,7 +1478,9 @@ function formatFechaSlash(str) {
     }
   }
 
-  /* ── HANDLE FILES ── */
+  // ────────────────────────────────────────────────────────
+  //  LECTURA DE ARCHIVO DE IMAGEN
+  // ────────────────────────────────────────────────────────
   window.handleFiles = function (input) {
     const file = input.files[0];
     if (!file || selectedImageIndex === null) return;
@@ -1313,7 +1511,9 @@ function formatFechaSlash(str) {
     reader.readAsDataURL(file);
   };
 
-  /* ── TOGGLE / PLAZO / FECHAS ── */
+  // ────────────────────────────────────────────────────────
+  //  TOGGLE DE PANELES / PLAZO / FECHAS
+  // ────────────────────────────────────────────────────────
   window.toggle = function (id, cb) {
     const panel = document.getElementById(id);
     if (panel) panel.classList.toggle("open", cb.checked);
@@ -1328,12 +1528,12 @@ function formatFechaSlash(str) {
       fin = parseFechaLocal(ff.value);
     if (fin >= inicio) {
       const dias = calcularDias();
-      const esPerfil = esPublicacionGratis();
-      const monedas = esPerfil ? 0 : dias * _precios.publicacion_24h;
-      const inversionTxt = esPerfil
+      const esGratis = esPublicacionGratis();
+      const monedas = esGratis ? 0 : dias * _precios.publicacion_24h;
+      const inversionTxt = esGratis
         ? `<span style="font-weight:700;color:var(--green);margin-left:6px">Sin costo</span>`
         : `<span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span>`;
-      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} día${dias > 1 ? "s" : ""}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span>${inversionTxt}</div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${esPerfil ? "Publicación en tu perfil, sin costo" : `${_precios.publicacion_24h} créditos por día`} · Inicio: ${fi.value.split("-").reverse().join("/")} · Fin: ${ff.value.split("-").reverse().join("/")}</div></div>`;
+      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} día${dias > 1 ? "s" : ""}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span>${inversionTxt}</div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${esGratis ? "Publicación en tu perfil, sin costo" : `${_precios.publicacion_24h} créditos por día`} · Inicio: ${fi.value.split("-").reverse().join("/")} · Fin: ${ff.value.split("-").reverse().join("/")}</div></div>`;
       dc.style.display = "block";
     } else {
       dc.innerHTML = `<div style="background:rgba(239,68,68,.1);padding:10px 16px;border-radius:14px;margin-top:12px;border-left:3px solid #ef4444"><span style="font-size:13px;color:#ef4444">⚠️ La fecha final debe ser mayor o igual a la inicial</span></div>`;
@@ -1342,6 +1542,7 @@ function formatFechaSlash(str) {
     actualizarCostoPublicar();
     actualizarEstadoBotonPublicar();
   }
+
   function calcularDuracionHoras() {
     const ih = document.getElementById("inputHoras");
     const dc = document.getElementById("duracionHorasContainer");
@@ -1349,9 +1550,9 @@ function formatFechaSlash(str) {
     let h = parseInt(ih.value);
     if (isNaN(h) || h < 1) h = 1;
     if (h > 20) h = 20;
-    const esPerfil = esPublicacionGratis();
-    const monedas = esPerfil ? 0 : h * _precios.publicacion_x_hora;
-    const inversionTxt = esPerfil
+    const esGratis = esPublicacionGratis();
+    const monedas = esGratis ? 0 : h * _precios.publicacion_x_hora;
+    const inversionTxt = esGratis
       ? `<span style="font-weight:700;color:var(--green);margin-left:6px">Sin costo</span>`
       : `<span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span>`;
     const hoy = new Date();
@@ -1359,12 +1560,13 @@ function formatFechaSlash(str) {
     const finMs = hoy.getTime() + h * 3600000;
     const finDate = new Date(finMs);
     const finStr = `${finDate.getHours().toString().padStart(2, "0")}:${finDate.getMinutes().toString().padStart(2, "0")}`;
-    dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">⏱️ Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${h} ${h === 1 ? "hora" : "horas"}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span>${inversionTxt}</div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${esPerfil ? "Publicación en tu perfil, sin costo" : `${_precios.publicacion_x_hora} créditos/hora`} · Fecha: ${fechaStr} · Termina ~${finStr}</div></div>`;
+    dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">⏱️ Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${h} ${h === 1 ? "hora" : "horas"}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span>${inversionTxt}</div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${esGratis ? "Publicación en tu perfil, sin costo" : `${_precios.publicacion_x_hora} créditos/hora`} · Fecha: ${fechaStr} · Termina ~${finStr}</div></div>`;
     dc.style.display = "block";
     actualizarCostoPublicar();
     actualizarEstadoBotonPublicar();
   }
 
+  // Muestra el bloque correspondiente al plazo elegido (horas / días / permanente)
   window.tipoPlazo = function () {
     const v =
       document.querySelector('input[name="plazo"]:checked')?.value || "dias";
@@ -1403,6 +1605,8 @@ function formatFechaSlash(str) {
     actualizarCostoPublicar();
     actualizarEstadoBotonPublicar();
   };
+
+  // Fechas iniciales: inicio = hoy, fin mínimo = mañana
   (function initDates() {
     const hoy = new Date();
     const strHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
@@ -1415,11 +1619,11 @@ function formatFechaSlash(str) {
     const ff = document.getElementById("fechaFin");
 
     if (fi) {
-      fi.value = strHoy; // ← default = hoy
-      fi.setAttribute("min", strHoy); // ← puede empezar hoy
+      fi.value = strHoy; // default = hoy
+      fi.setAttribute("min", strHoy); // puede empezar hoy
     }
     if (ff) {
-      ff.setAttribute("min", strManana); // ← fin mínimo = mañana
+      ff.setAttribute("min", strManana); // fin mínimo = mañana
       ff.addEventListener("change", () => {
         if (ff.value && ff.value < fi.value) {
           mostrarToast("La fecha final no puede ser menor", "error");
@@ -1430,60 +1634,109 @@ function formatFechaSlash(str) {
     }
   })();
 
-  /* ── PUBLICAR SOLO EN FACEBOOK (sin crear la promo en Geinz) ── */
-  async function publicarSoloFacebook(titulo, descripcion) {
+  // ══════════════════════════════════════════════════════════
+  //  PUBLICAR SOLO EN REDES (Facebook y/o Instagram)
+  //  No crea la promoción en Geinz: sube las imágenes y publica
+  //  directamente en las redes elegidas, en paralelo.
+  //  Si una red falla y la otra no, avisa y considera éxito parcial.
+  // ══════════════════════════════════════════════════════════
+  async function publicarSoloRedes(titulo, descripcion) {
     const btn = document.querySelector(".btn-submit");
+    const { fb, ig } = redesSolo;
 
-    if (!fbConectado || window.GEINZ_PLAN?.fanpage === false) {
+    // Cada red elegida debe estar conectada
+    if (fb && (!fbConectado || window.GEINZ_PLAN?.fanpage === false)) {
       mostrarToast("Conecta tu Fanpage de Facebook primero", "error");
+      return;
+    }
+    if (ig && !igConectado) {
+      mostrarToast("Conecta tu Instagram primero", "error");
       return;
     }
 
     const id_tienda = datosTienda.id_tienda || ID_TIENDA;
     const localidad = datosTienda.localidad || LOCALIDAD;
-    // ⚠️ Este ID debe coincidir con el de una oferta real que el carrito
-    // pueda encontrar (ver notas). Por ahora se genera uno de Firestore.
+    // ID usado para la carpeta de Storage y el link de carrito del post de FB
     const id_oferta = doc(collection(db, "Promociones")).id;
 
     mostrarSkeletonPublicando();
     btn.disabled = true;
-    btn.innerHTML = `<span class="loading-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> Publicando en Facebook...`;
+    btn.innerHTML = `<span class="loading-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> Publicando...`;
 
     try {
       skSetStep(2, "Subiendo imágenes...", "Procesando tus fotos", 55);
-      const { urls } = await subirImagenesAStorage(id_tienda, id_oferta);
+      const { urls, botUrl, igUrl } = await subirImagenesAStorage(
+        id_tienda,
+        id_oferta,
+      );
 
       skSetStep(
         3,
-        "Publicando en Facebook...",
-        "Compartiendo en tu Fanpage",
+        `Publicando en ${textoRedes()}...`,
+        "Compartiendo en tus redes",
         90,
       );
-      const linkCarrito = await construirLinkCarrito(id_oferta);
-      if (!linkCarrito)
-        throw new Error(
-          "No se encontró el alias de tu tienda para armar el link",
+
+      // Se arma una tarea por red; cada una devuelve el nombre de la red si salió bien
+      const tareas = [];
+
+      if (fb) {
+        tareas.push(
+          (async () => {
+            const link = await construirLinkCarrito(id_oferta);
+            if (!link)
+              throw new Error(
+                "No se encontró el alias de tu tienda para armar el link",
+              );
+            const r = await callFirebaseFunction(CLOUD_FN_PUBLICAR_FB, {
+              id_tienda,
+              localidad,
+              image_urls: urls.slice(0, MAX_IMAGENES_FB), // hasta 5 imágenes
+              image_url: urls[0], // compatibilidad con la versión vieja
+              caption: `${titulo}\n\n${descripcion}\n\n👉 Pídelo aquí: ${link}`,
+            });
+            if (!r?.ok)
+              throw new Error(r?.mensaje || "No se pudo publicar en Facebook");
+            return "Facebook";
+          })(),
         );
-      const caption = `${titulo}\n\n${descripcion}\n\n👉 Pídelo aquí: ${linkCarrito}`;
+      }
 
-      const fbResult = await callFirebaseFunction(CLOUD_FN_PUBLICAR_FB, {
-        id_tienda,
-        localidad,
-        image_urls: urls.slice(0, MAX_IMAGENES_FB), // hasta 5 imágenes
-        image_url: urls[0], // compatibilidad con la versión vieja
-        caption,
-      });
+      if (ig) {
+        tareas.push(
+          (async () => {
+            const r = await callFirebaseFunction(CLOUD_FN_PUBLICAR_IG, {
+              id_tienda,
+              localidad,
+              image_url: igUrl || urls[0] || botUrl, // Instagram: JPEG público y proporción válida
+              caption: `${titulo}\n\n${descripcion}`.slice(0, 2200), // límite de IG
+            });
+            if (!r?.ok)
+              throw new Error(r?.mensaje || "No se pudo publicar en Instagram");
+            return "Instagram";
+          })(),
+        );
+      }
 
-      if (!fbResult?.ok)
-        throw new Error(fbResult?.mensaje || "No se pudo publicar en Facebook");
+      const resultados = await Promise.allSettled(tareas);
+      const fallos = resultados.filter((r) => r.status === "rejected");
+
+      // Si TODAS fallaron, se trata como error general
+      if (fallos.length === resultados.length) {
+        throw fallos[0].reason || new Error("No se pudo publicar");
+      }
+      // Si falló solo una, se avisa pero se considera publicado
+      fallos.forEach((f) =>
+        mostrarToast(f.reason?.message || "Falló una de las redes", "error"),
+      );
 
       ocultarSkeleton();
       limpiarFormulario();
-      mostrarModalExito(id_promocion, localidad);
+      mostrarModalExito(id_oferta, localidad);
     } catch (err) {
-      console.error("❌ ERROR FB:", err);
+      console.error("❌ ERROR redes:", err);
       ocultarSkeleton();
-      mostrarToast(err.message || "Error al publicar en Facebook", "error");
+      mostrarToast(err.message || "Error al publicar", "error");
     } finally {
       btn.disabled = false;
       actualizarCostoPublicar();
@@ -1491,13 +1744,15 @@ function formatFechaSlash(str) {
     }
   }
 
-  /* ── PUBLICAR PROMOCIÓN ── */
+  // ══════════════════════════════════════════════════════════
+  //  PUBLICAR PROMOCIÓN (modo perfil, con FB / IG opcionales)
+  // ══════════════════════════════════════════════════════════
   async function publicarPromocion() {
     const btn = document.querySelector(".btn-submit");
     const titulo = tituloInput.value.trim();
     const descripcion = descripcionInput.value.trim();
 
-    // Validaciones obligatorias
+    // ── Validaciones obligatorias ──
     if (!imagesData.some((img) => img !== null)) {
       mostrarToast("Selecciona al menos una imagen", "error");
       return;
@@ -1515,11 +1770,12 @@ function formatFechaSlash(str) {
       return;
     }
 
-    // ── Desvío: solo Facebook (no pide plazo, WhatsApp, precio, etc.) ──
-    if (esSoloFacebook()) {
-      return publicarSoloFacebook(titulo, descripcion);
+    // ── Desvío: solo redes (no pide plazo, WhatsApp, precio, etc.) ──
+    if (esSoloRedes()) {
+      return publicarSoloRedes(titulo, descripcion);
     }
 
+    // Switches de los parámetros (el orden depende del HTML)
     const switches = document.querySelectorAll(
       '.param-box > .param-row > label.switch input[type="checkbox"]',
     );
@@ -1594,6 +1850,7 @@ function formatFechaSlash(str) {
       }
     }
 
+    // ── Plazo ──
     const tipoPlazoVal =
       document.querySelector('input[name="plazo"]:checked')?.value || "dias";
     const fechaInicio = document.getElementById("fechaInicio")?.value || "";
@@ -1623,7 +1880,7 @@ function formatFechaSlash(str) {
       }
     }
 
-    // Verificar saldo
+    // ── Verificar saldo ──
     const total = calcularCostoTotal();
     const saldo = datosTienda?.saldo_tienda ?? 0;
     if (saldo < total) {
@@ -1634,6 +1891,7 @@ function formatFechaSlash(str) {
       return;
     }
 
+    // ── Timestamps de inicio y fin ──
     const ahora = new Date();
     const horaActual = `${String(ahora.getHours()).padStart(2, "0")}:${String(ahora.getMinutes()).padStart(2, "0")}`;
     let tsInicio = {
@@ -1691,6 +1949,7 @@ function formatFechaSlash(str) {
       hora_fin = hora_inicio;
     }
 
+    // ── Métodos de pago ──
     const pagosChecks = document.querySelectorAll(
       '#payments .pay-item input[type="checkbox"]',
     );
@@ -1707,6 +1966,7 @@ function formatFechaSlash(str) {
       pagos[nombresP[i]] = cb.checked;
     });
 
+    // ── Horario ──
     const horarioMap = {
       "Todo el día": "todo_dia",
       Mañana: "manana",
@@ -1717,6 +1977,7 @@ function formatFechaSlash(str) {
       ? horarioMap[document.querySelector("#hours select")?.value] || "todo_dia"
       : "todo_dia";
 
+    // ── Datos de la tienda ──
     const id_tienda = datosTienda.id_tienda || ID_TIENDA;
     const localidad = datosTienda.localidad || LOCALIDAD;
     const id_promocion = doc(collection(db, "Promociones")).id;
@@ -1735,7 +1996,7 @@ function formatFechaSlash(str) {
 
     try {
       skSetStep(2, "Subiendo imágenes...", "Procesando tus fotos", 55);
-      const { urls, botUrl } = await subirImagenesAStorage(
+      const { urls, botUrl, igUrl } = await subirImagenesAStorage(
         id_tienda,
         id_promocion,
       );
@@ -1816,45 +2077,48 @@ function formatFechaSlash(str) {
               : `Publicidad por ${calcularDias()} día${calcularDias() > 1 ? "s" : ""}`,
       };
 
-      const result = await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
+      // Crea la promoción en Geinz
+      await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
 
-      // ── Publicar también en Facebook si el switch está activo ──
-      if (fbPublicarActivo && fbConectado && window.GEINZ_PLAN?.fanpage) {
-        // ── Publicar también en Instagram si el switch está activo ──
-        if (igPublicarActivo && igConectado) {
-          skSetStep(
-            3,
-            "Publicando en Instagram...",
-            "Compartiendo en tu Instagram",
-            97,
-          );
-          try {
-            const igResult = await callFirebaseFunction(CLOUD_FN_PUBLICAR_IG, {
-              id_tienda,
-              localidad,
-              image_url: urls[0] || botUrl,
-              caption: `${titulo}\n\n${descripcion}`,
-            });
-            if (igResult?.ok)
-              mostrarToast("✅ También publicado en tu Instagram");
-            else
-              mostrarToast(
-                igResult?.mensaje || "No se pudo publicar en Instagram",
-                "error",
-              );
-          } catch (igErr) {
-            console.warn("Error publicando en IG:", igErr);
+      // ── Instagram (independiente de Facebook) ──
+      if (igPublicarActivo && igConectado) {
+        skSetStep(
+          3,
+          "Publicando en Instagram...",
+          "Compartiendo en tu Instagram",
+          93,
+        );
+        try {
+          const igResult = await callFirebaseFunction(CLOUD_FN_PUBLICAR_IG, {
+            id_tienda,
+            localidad,
+            image_url: igUrl || urls[0] || botUrl,
+            caption: `${titulo}\n\n${descripcion}`.slice(0, 2200),
+          });
+          if (igResult?.ok) {
+            mostrarToast("✅ También publicado en tu Instagram");
+          } else {
             mostrarToast(
-              "Tu promo en Geinz sí se publicó, pero falló Instagram",
+              igResult?.mensaje || "No se pudo publicar en Instagram",
               "error",
             );
           }
+        } catch (igErr) {
+          console.warn("Error publicando en IG:", igErr);
+          mostrarToast(
+            "Tu promo en Geinz sí se publicó, pero falló Instagram",
+            "error",
+          );
         }
+      }
+
+      // ── Facebook ──
+      if (fbPublicarActivo && fbConectado && window.GEINZ_PLAN?.fanpage) {
         skSetStep(
           3,
           "Publicando en Facebook...",
           "Compartiendo en tu Fanpage",
-          95,
+          97,
         );
         try {
           const linkCarrito = await construirLinkCarrito(id_promocion);
@@ -1863,8 +2127,8 @@ function formatFechaSlash(str) {
           const fbResult = await callFirebaseFunction(CLOUD_FN_PUBLICAR_FB, {
             id_tienda,
             localidad,
-            image_urls: urls.slice(0, MAX_IMAGENES_FB), // hasta 5 imágenes
-            image_url: urls[0] || botUrl, // compatibilidad con la versión vieja
+            image_urls: urls.slice(0, MAX_IMAGENES_FB),
+            image_url: urls[0] || botUrl,
             caption: captionFb,
           });
           if (fbResult?.ok) {
@@ -1883,6 +2147,7 @@ function formatFechaSlash(str) {
           );
         }
       }
+
       ocultarSkeleton();
       limpiarFormulario();
       mostrarModalExito(id_promocion, localidad);
@@ -1897,13 +2162,17 @@ function formatFechaSlash(str) {
     }
   }
 
-  /* ── SKELETON ── */
+  // ══════════════════════════════════════════════════════════
+  //  SKELETON DE "PUBLICANDO..."
+  // ══════════════════════════════════════════════════════════
   function mostrarSkeletonPublicando() {
-    const soloFb = esSoloFacebook();
-    const lblPaso2 = soloFb ? "Preparando publicación" : "Analizando con IA";
-    const lblPaso4 = soloFb ? "Publicando en Facebook" : "Publicando en Geinz";
-    const tituloInicial = soloFb
-      ? "Publicando en Facebook"
+    const soloRed = esSoloRedes();
+    const lblPaso2 = soloRed ? "Preparando publicación" : "Analizando con IA";
+    const lblPaso4 = soloRed
+      ? `Publicando en ${textoRedes()}`
+      : "Publicando en Geinz";
+    const tituloInicial = soloRed
+      ? `Publicando en ${textoRedes()}`
       : "Publicando tu promoción";
 
     const sk = document.createElement("div");
@@ -2112,6 +2381,8 @@ function formatFechaSlash(str) {
 
     document.body.appendChild(sk);
   }
+
+  // Avanza el skeleton: marca pasos anteriores como hechos y el actual como activo
   function skSetStep(stepNum, titleText, subtitleText, barPct) {
     const icons = ["shield_check", "auto_awesome", "image", "public"];
     ["sk-step1", "sk-step2", "sk-step3", "sk-step4"].forEach((id, idx) => {
@@ -2145,6 +2416,7 @@ function formatFechaSlash(str) {
     if (pctEl) pctEl.textContent = barPct + "%";
   }
 
+  // Muestra el "¡Publicado con éxito!" y retira el skeleton
   function ocultarSkeleton() {
     const sk = document.getElementById("skeletonPublicando");
     if (!sk) return;
@@ -2154,8 +2426,8 @@ function formatFechaSlash(str) {
     const pctEl = document.getElementById("skPct");
     if (t) t.textContent = "¡Publicado con éxito!";
     if (s)
-      s.textContent = esSoloFacebook()
-        ? "Tu publicación ya está en tu Fanpage de Facebook"
+      s.textContent = esSoloRedes()
+        ? `Tu publicación ya está en ${textoRedes()}`
         : "Tu promoción ya está visible en Geinz";
     if (b) {
       b.style.width = "100%";
@@ -2176,6 +2448,9 @@ function formatFechaSlash(str) {
     setTimeout(() => sk.remove(), 1800);
   }
 
+  // ══════════════════════════════════════════════════════════
+  //  MODAL DE ÉXITO
+  // ══════════════════════════════════════════════════════════
   async function mostrarModalExito(id_promocion, localidad) {
     // Mismo link que el del post de Facebook (carrito con la oferta).
     // Si no hay alias, cae al link de compartir de siempre.
@@ -2183,6 +2458,16 @@ function formatFechaSlash(str) {
       (await construirLinkCarrito(id_promocion)) ||
       construirLinkPromo(id_promocion, localidad);
     document.getElementById("modalExitoPromo")?.remove();
+
+    // En modo solo redes no existe la promo en Geinz: el texto cambia
+    // y se oculta el botón "Ver mi promo en Geinz".
+    const soloRed = esSoloRedes();
+    const tituloModal = soloRed
+      ? `¡Publicado en ${textoRedes()}!`
+      : "¡Promoción publicada!";
+    const subtituloModal = soloRed
+      ? `Tu publicación ya está en tus redes sociales.`
+      : `Tu promo ya está visible para todos los usuarios<br>de <strong style="color:#fff">${localidad || "tu ciudad"}</strong> en Geinz.`;
 
     const modal = document.createElement("div");
     modal.id = "modalExitoPromo";
@@ -2314,12 +2599,8 @@ function formatFechaSlash(str) {
       <div class="handle"></div>
       <div class="sheet-inner">
 
-      
-      <h2>¡Promoción publicada!</h2>
-        <p class="subtitle">
-          Tu promo ya está visible para todos los usuarios<br>
-          de <strong style="color:#fff">${localidad || "tu ciudad"}</strong> en Geinz.
-        </p>
+      <h2>${tituloModal}</h2>
+        <p class="subtitle">${subtituloModal}</p>
 
         <div class="url-box">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.5 4.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.36-1.36"/></svg>
@@ -2354,12 +2635,16 @@ function formatFechaSlash(str) {
     </div>
   </button>
 
-  <button class="share-btn view" id="btnVerPromo">
+  ${
+    soloRed
+      ? ""
+      : `<button class="share-btn view" id="btnVerPromo">
     <div class="sb-text">
       <div class="sb-label">Ver mi promo en Geinz</div>
       <div class="sb-sub">Previsualizar como la ven los usuarios</div>
     </div>
-  </button>
+  </button>`
+  }
 </div>
 
         <button class="btn-done" id="btnCerrarExito">
@@ -2408,7 +2693,8 @@ function formatFechaSlash(str) {
       }
     });
 
-    document.getElementById("btnVerPromo").addEventListener("click", () => {
+    // El botón "Ver mi promo" solo existe fuera del modo solo redes
+    document.getElementById("btnVerPromo")?.addEventListener("click", () => {
       window.open(url, "_blank");
     });
 
@@ -2421,6 +2707,10 @@ function formatFechaSlash(str) {
       setTimeout(() => modal.remove(), 200);
     }
   }
+
+  // ══════════════════════════════════════════════════════════
+  //  LIMPIAR FORMULARIO (después de publicar)
+  // ══════════════════════════════════════════════════════════
   function limpiarFormulario() {
     imagesData = [null, null, null, null, null];
     imgsCount = 0;
@@ -2436,12 +2726,13 @@ function formatFechaSlash(str) {
     mensajeWpInput.value = "Hola, quiero esta oferta que vi en Geinz";
     mensajeShareInput.value = "Mira esta promo en Geinz 🎁";
     resultadoIAContainer.innerHTML = "";
+
     // Resetear términos
     terminosAceptados = false;
     const tc = document.getElementById("terminosCheck");
     if (tc) tc.checked = false;
 
-    // Apagar todos los switches (incluido el de Facebook) y cerrar sus paneles
+    // Apagar todos los switches (incluidos los de Facebook e Instagram) y cerrar sus paneles
     document
       .querySelectorAll(
         '.param-box > .param-row > label.switch input[type="checkbox"]',
@@ -2453,10 +2744,11 @@ function formatFechaSlash(str) {
           ?.parentElement?.querySelector(".sub-panel");
         if (panel) panel.classList.remove("open");
       });
-    // 🔧 FIX: la variable también se debe apagar, no solo el switch visual
+    // La variable también se debe apagar, no solo el switch visual
     fbPublicarActivo = false;
     igPublicarActivo = false;
-    // 🔧 FIX: fecha inicial = hoy (igual que initDates)
+
+    // Fecha inicial = hoy (igual que initDates)
     const hoy = new Date();
     const strHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
     document.getElementById("fechaInicio").value = strHoy;
@@ -2465,12 +2757,15 @@ function formatFechaSlash(str) {
     document.querySelector('input[name="plazo"][value="dias"]').checked = true;
     precioYaSeteado = false;
 
-    // Re-aplica la UI según el tipo seleccionado (si es solo FB, vuelve a forzar el switch)
+    // Re-aplica la UI según el tipo seleccionado
+    // (si es solo redes, vuelve a forzar los switches de las redes elegidas)
     aplicarTipoPublicacionUI();
     validate();
   }
 
-  /* ── EVENTOS ── */
+  // ────────────────────────────────────────────────────────
+  //  EVENTOS
+  // ────────────────────────────────────────────────────────
   tituloInput?.addEventListener("input", validate);
   descripcionInput?.addEventListener("input", validate);
   mensajeWpInput?.addEventListener("input", validate);
@@ -2518,16 +2813,20 @@ function formatFechaSlash(str) {
     .querySelector(".btn-submit")
     ?.addEventListener("click", publicarPromocion);
 
+  // Estado inicial de la pantalla
   aplicarPreciosEnDOM();
   validate();
   tipoPlazo();
   aplicarTipoPublicacionUI();
+
   // ── Exponer para uso fuera del IIFE (ej. conectarFacebook.js) ──
   window.mostrarToast = mostrarToast;
   window.callFirebaseFunction = callFirebaseFunction;
 })();
 
-// Listener en tiempo real del estado de conexión de Facebook.
+// ══════════════════════════════════════════════════════════════════════
+//  LISTENER EN TIEMPO REAL DE LA CONEXIÓN FB / IG
+// ══════════════════════════════════════════════════════════════════════
 let _unsubFbListener = null;
 function escucharConexionFacebook(id_tienda, localidad) {
   if (_unsubFbListener) _unsubFbListener();
@@ -2557,8 +2856,11 @@ function escucharConexionFacebook(id_tienda, localidad) {
   );
 }
 
-/* ── MENSAJES DESDE EL FRAME PADRE ── */
+// ══════════════════════════════════════════════════════════════════════
+//  MENSAJES DESDE EL FRAME PADRE
+// ══════════════════════════════════════════════════════════════════════
 window.addEventListener("message", (event) => {
+  // Datos completos de la tienda
   if (event.data?.type === "DATOS_TIENDA") {
     const d = event.data.payload;
     datosTienda = {
@@ -2579,9 +2881,13 @@ window.addEventListener("message", (event) => {
     escucharConexionFacebook(datosTienda.id_tienda, datosTienda.localidad);
     actualizarEstadoBotonPublicar();
   }
+
+  // Servicios habilitados por el plan
   if (event.data?.type === "SERVICIOS_UPDATE") {
     aplicarServicios(event.data.servicios);
   }
+
+  // Cambios parciales (claves tipo "a.b.c") sobre datosTienda
   if (event.data?.type === "PATCH_TIENDA") {
     if (!datosTienda) return;
     const diff = event.data.payload;
@@ -2601,6 +2907,8 @@ window.addEventListener("message", (event) => {
     _aplicarDatosTienda(datosTienda);
     actualizarEstadoBotonPublicar();
   }
+
+  // Precios de publicidad
   if (
     event.data?.type === "PUBLICIDAD_UPDATE" ||
     event.data?.type === "PLANES_UPDATE"
@@ -2609,6 +2917,7 @@ window.addEventListener("message", (event) => {
     if (typeof _aplicarPublicidad === "function") _aplicarPublicidad(pub);
   }
 
+  // Saldo de créditos
   if (event.data?.type === "SALDO_UPDATE") {
     if (window.GEINZ_CREDITOS !== undefined) return;
     const nuevoSaldo = event.data?.saldo ?? 0;
@@ -2634,6 +2943,7 @@ window.addEventListener("message", (event) => {
   }
 });
 
+// Vuelca los datos de la tienda en los campos del formulario
 function _aplicarDatosTienda(d) {
   if (!d) return;
   if (window._saldoPendiente !== undefined) {
@@ -2693,6 +3003,7 @@ function _aplicarDatosTienda(d) {
   }
 }
 
+// Aplica los precios de publicidad recibidos del padre
 function _aplicarPublicidad(pub) {
   if (pub.ia_imagen_texto != null)
     _precios.ia_imagen_texto = pub.ia_imagen_texto;
@@ -2784,10 +3095,11 @@ function actualizarBotonesIA() {
   });
 }
 
-// ══════════ CONECTAR FACEBOOK ══════════
-// Requiere <div id="fb-root"></div> en el HTML y la App de Facebook
-// configurada en developers.facebook.com (dominio + SDK JS habilitado).
-
+// ══════════════════════════════════════════════════════════════════════
+//  CONECTAR FACEBOOK
+//  Requiere <div id="fb-root"></div> en el HTML y la App de Facebook
+//  configurada en developers.facebook.com (dominio + SDK JS habilitado).
+// ══════════════════════════════════════════════════════════════════════
 const FACEBOOK_APP_ID = "1271138448339142"; // mismo App ID del backend, este SÍ es público
 const CLOUD_FN_CONECTAR_FB =
   "https://us-central1-geinzworkapp.cloudfunctions.net/conectarFacebookPage";
@@ -2824,6 +3136,7 @@ window.conectarMiFanpage = function () {
   }
   setFbConectando(true);
 
+  // Si el SDK aún no cargó, reintenta durante ~10 segundos
   if (typeof FB === "undefined" || !fbSdkListo) {
     let intentos = 0;
     const esperar = setInterval(() => {
@@ -2927,6 +3240,7 @@ function obtenerPaginasYMostrarSelector(
         );
         return;
       }
+      // Una sola página y sin forzar selector → conectar directo
       if (paginas.length === 1 && !forzarSelector) {
         confirmarConexion(paginas[0].id, userAccessToken);
         return;
@@ -2995,6 +3309,7 @@ function mostrarSelectorDePaginas(paginas, userAccessToken) {
   });
 }
 
+// Switch "publicar también en Facebook"
 window.toggleFbPublicar = function (cb) {
   fbPublicarActivo = cb.checked;
   const panel = document.getElementById("fbPublicarPanel");
@@ -3042,8 +3357,8 @@ function mostrarFbConectado(pageName) {
   if (switchWrap) switchWrap.style.display = "inline-block";
   if (nameText) nameText.textContent = `Conectado a: ${pageName}`;
 
-  // Si ya estaba en modo "solo Facebook", se enciende el switch automáticamente
-  if (esSoloFacebook()) {
+  // Si Facebook está elegido en modo "solo redes", se enciende el switch automáticamente
+  if (esSoloRedes() && redesSolo.fb) {
     const sw = document.getElementById("fbPublicarSwitch");
     if (sw && !sw.checked) {
       sw.checked = true;
@@ -3053,7 +3368,12 @@ function mostrarFbConectado(pageName) {
   actualizarEstadoBotonPublicar();
 }
 window.mostrarFbConectado = mostrarFbConectado;
-// ══════════ CONECTAR INSTAGRAM ══════════
+
+// ══════════════════════════════════════════════════════════════════════
+//  CONECTAR INSTAGRAM
+// ══════════════════════════════════════════════════════════════════════
+
+// Espera a que el SDK de Facebook esté listo (reintenta ~10 s) y ejecuta el callback
 function _conFB(onListo, onFallo) {
   if (typeof FB !== "undefined" && fbSdkListo) return onListo();
   let intentos = 0;
@@ -3101,6 +3421,7 @@ window.cambiarInstagram = function () {
   );
 };
 
+// Login con la configuración de "Facebook Login for Business" (config_id)
 function _loginInstagram(forzarSelector) {
   FB.login(
     function (response) {
@@ -3114,42 +3435,40 @@ function _loginInstagram(forzarSelector) {
         );
       }
     },
-    { scope: IG_SCOPE },
+    { config_id: IG_CONFIG_ID, response_type: "token" },
   );
 }
 
-function obtenerPaginasConIG(userAccessToken, forzarSelector) {
-  FB.api(
-    "/me/accounts",
-    "GET",
-    {
-      access_token: userAccessToken,
-      fields: "id,name,instagram_business_account{id,username}",
-    },
-    function (res) {
-      if (!res || res.error) {
-        setIgConectando(false);
-        window.mostrarToast("No se pudo obtener la lista de páginas", "error");
-        return;
-      }
-      const conIG = (res.data || []).filter(
-        (p) => p.instagram_business_account,
+// Pide al backend las páginas del usuario y filtra las que tienen Instagram profesional
+async function obtenerPaginasConIG(userAccessToken, forzarSelector) {
+  try {
+    const r = await window.callFirebaseFunction(CLOUD_FN_LISTAR_PAGINAS_IG, {
+      user_access_token: userAccessToken,
+    });
+
+    const conIG = (r.paginas || []).filter((p) => p.instagram_business_account);
+
+    if (conIG.length === 0) {
+      setIgConectando(false);
+      window.mostrarToast(
+        "Ninguna de tus páginas tiene un Instagram profesional vinculado",
+        "error",
       );
-      if (conIG.length === 0) {
-        setIgConectando(false);
-        window.mostrarToast(
-          "Ninguna de tus páginas tiene un Instagram profesional vinculado",
-          "error",
-        );
-        return;
-      }
-      if (conIG.length === 1 && !forzarSelector) {
-        confirmarConexionIG(conIG[0].id, userAccessToken);
-        return;
-      }
-      mostrarSelectorDeIG(conIG, userAccessToken);
-    },
-  );
+      return;
+    }
+    // Una sola cuenta y sin forzar selector → conectar directo
+    if (conIG.length === 1 && !forzarSelector) {
+      confirmarConexionIG(conIG[0].id, userAccessToken);
+      return;
+    }
+    mostrarSelectorDeIG(conIG, userAccessToken);
+  } catch (err) {
+    setIgConectando(false);
+    window.mostrarToast(
+      err.message || "No se pudo obtener las páginas",
+      "error",
+    );
+  }
 }
 
 function mostrarSelectorDeIG(paginas, userAccessToken) {
@@ -3210,6 +3529,7 @@ async function confirmarConexionIG(pageId, userAccessToken) {
   }
 }
 
+// Switch "publicar también en Instagram"
 window.toggleIgPublicar = function (cb) {
   igPublicarActivo = cb.checked;
   document
@@ -3247,6 +3567,7 @@ function mostrarIgDesconectado() {
   if (wrap) wrap.style.display = "none";
   if (name) name.textContent = "Conectado a: —";
   igPublicarActivo = false;
+  actualizarEstadoBotonPublicar();
 }
 
 function mostrarIgConectado(username) {
@@ -3257,8 +3578,21 @@ function mostrarIgConectado(username) {
   if (btn) btn.style.display = "none";
   if (wrap) wrap.style.display = "inline-block";
   if (name) name.textContent = `Conectado a: @${username}`;
+
+  // Si Instagram está elegido en modo "solo redes", se enciende el switch automáticamente
+  if (esSoloRedes() && redesSolo.ig) {
+    const sw = document.getElementById("igPublicarSwitch");
+    if (sw && !sw.checked) {
+      sw.checked = true;
+      window.toggleIgPublicar(sw);
+    }
+  }
+  actualizarEstadoBotonPublicar();
 }
-// ══════════ PLAN: qué permite el doc de servicios en esta pantalla ══════════
+
+// ══════════════════════════════════════════════════════════════════════
+//  PLAN: qué permite el doc de servicios en esta pantalla
+// ══════════════════════════════════════════════════════════════════════
 const RUTA_PUB = "cliente_y_fidelizacion.publicidad_ofertas";
 
 // true si es true, o si es un mapa con algún true adentro
@@ -3290,7 +3624,6 @@ function aplicarServicios(servicios) {
   if (datosTienda) _aplicarDatosTienda(datosTienda);
   aplicarTipoPublicacionUI();
   const base = leer(servicios, RUTA_PUB);
-  console.log("📦 publicidad_ofertas:", base);
 
   // Créditos de IA desde la DB (setCreditosIA vive en otro script; si no existe, no rompe)
   const cred = leer(servicios, "panel_admin.creditos_ia500");
@@ -3321,11 +3654,20 @@ function aplicarServicios(servicios) {
     document.getElementById("fbPublicarPanel")?.classList.remove("open");
   }
 
-  // 1b) La opción "Solo en Facebook" solo existe si el plan incluye Fanpage
+  // 1b) La opción "Solo en Facebook" solo existe si el plan incluye Fanpage.
+  //     Si estaba marcada y el plan ya no la permite, se desmarca;
+  //     si no queda ninguna red, se vuelve a "Publicación en perfil".
   const chipFb = document.querySelector('.tipo-pub-chip[data-tipo="solo_fb"]');
   if (chipFb) chipFb.style.display = plan.fanpage ? "" : "none";
-  if (!plan.fanpage && esSoloFacebook()) {
-    document.querySelector('.tipo-pub-chip[data-tipo="perfil"]')?.click();
+  if (!plan.fanpage && redesSolo.fb) {
+    chipFb?.classList.remove("active");
+    redesSolo.fb = false;
+    if (!redesSolo.ig) {
+      tipoPublicacionActual = "perfil";
+      document.querySelector('.tipo-pub-chip[data-tipo="perfil"]')?.click();
+    } else {
+      aplicarTipoPublicacionUI();
+    }
   }
 
   // 2) Pestañas

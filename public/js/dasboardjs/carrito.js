@@ -4020,7 +4020,7 @@ function pintarDeliveryInfo() {
   } else if (!r) {
     html = `<div class="dlv-title">🛵 Delivery disponible</div><span class="dlv-muted">El costo lo confirma el negocio.</span>`;
   } else if (r.gratis) {
-    html = `<div class="dlv-title">🚚 Envío gratis <span class="dlv-muted">(${r.porMonto ? "por tu compra" : "promo del negocio"})</span></div>`;
+    html = `<div class="dlv-title" style="margin:0;text-align:center;color:#4ade80;">🚚 Envío gratis <span class="dlv-muted">(${r.porMonto ? "por tu compra" : "promo del negocio"})</span></div>`;
   } else if (r.aprox) {
     html = `<div class="dlv-title">🛵 Delivery aprox.</div>
       <div class="dlv-cost"><span class="dlv-muted">${r.distKm.toFixed(1)} km en línea recta</span><b>${money(r.costo)}</b></div>`;
@@ -6740,12 +6740,37 @@ function notaGratisFaltante() {
   const st = document.createElement("style");
   st.id = "gratisStyle";
   st.textContent = `
-  .hint-box{margin:0 0 8px;padding:0 4px;}
-  .hint-txt{margin:0 0 4px;font-size:11px;font-weight:600;line-height:1.3;color:#8b8b95;}
-  .hint-txt b{color:#d4d4d8;font-weight:800;}
-  .hint-track{height:3px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;}
-  .hint-fill{height:100%;border-radius:99px;background:rgba(var(--dr),var(--dg),var(--db),.7);transition:width .4s ease;}
-  .hint-box.ok .hint-txt{color:#4ade80;}
+.hint-box{
+  margin:8px 20px 10px;
+  padding:9px 12px;
+  border-radius:14px;
+  text-align:center;
+  background:rgba(var(--dr),var(--dg),var(--db),.07);
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.25);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+}
+  .hint-txt{
+    margin:0;
+    font-size:12px;font-weight:600;line-height:1.35;
+    color:#c4c4cc;
+    text-align:center;
+  }
+  .hint-txt b{color:#fff;font-weight:800;}
+  .hint-track{
+    width:100%;height:5px;border-radius:99px;
+    background:rgba(255,255,255,.09);
+    overflow:hidden;
+  }
+  .hint-fill{
+    height:100%;border-radius:99px;
+    background:linear-gradient(90deg,rgba(var(--dr),var(--dg),var(--db),.6),rgb(var(--dr),var(--dg),var(--db)));
+    transition:width .5s cubic-bezier(.22,1,.36,1);
+  }
+  .hint-box.ok{
+    background:rgba(74,222,128,.08);
+    border-color:rgba(74,222,128,.3);
+  }
+  .hint-box.ok .hint-txt{color:#4ade80;font-weight:700;}
   .hint-box.ok .hint-track{display:none;}`;
   document.head.appendChild(st);
 })();
@@ -6785,11 +6810,10 @@ function pintarProgresoGratis() {
     const ok = sub >= c.monto;
     const pct = Math.min(100, (sub / c.monto) * 100);
     box.className = "hint-box" + (ok ? " ok" : "");
-    box.innerHTML = `<p class="hint-txt">${
-      ok
-        ? "🚚 ¡Ya tienes delivery gratis por tu compra!"
-        : `🚚 Delivery gratis desde S/ ${c.monto.toFixed(2)} · con <b>S/ ${(c.monto - sub).toFixed(2)}</b> más`
-    }</p><div class="hint-track"><div class="hint-fill" style="width:${pct}%"></div></div>`;
+   box.innerHTML = ok
+  ? `<p class="hint-txt">🚚 ¡Ya tienes delivery gratis por tu compra!</p>`
+  : `<p class="hint-txt">🚚 Te faltan <b>S/ ${(c.monto - sub).toFixed(2)}</b> para delivery gratis</p>
+     <div class="hint-track"><div class="hint-fill" style="width:${pct}%"></div></div>`;
   });
 }
 /* ══════════ Progreso de compra mínima del cupón ══════════ */
