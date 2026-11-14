@@ -67,7 +67,10 @@ let tipoPublicacionActual = "perfil";
 
 // Redes elegidas en modo "solo_redes". Se pueden marcar una o ambas.
 let redesSolo = { fb: false, ig: false };
-
+// Modo YouTube: tipoPublicacionActual === "youtube"
+function esYoutube() {
+  return tipoPublicacionActual === "youtube";
+}
 let tipoTextoIA = "venta";
 let tipoImagenIA = "venta";
 
@@ -101,9 +104,8 @@ const esSoloFacebook = esSoloRedes;
 
 // Perfil y solo redes no cobran créditos por publicar
 function esPublicacionGratis() {
-  return tipoPublicacionActual === "perfil" || esSoloRedes();
+  return tipoPublicacionActual === "perfil" || esSoloRedes() || esYoutube();
 }
-
 // Texto legible de las redes elegidas: "Facebook", "Instagram" o "Facebook e Instagram"
 function textoRedes() {
   if (redesSolo.fb && redesSolo.ig) return "Facebook e Instagram";
@@ -581,9 +583,11 @@ function actualizarCostoPublicar() {
   const btn = document.querySelector(".btn-submit");
   if (!btn) return;
 
-  const etiqueta = esSoloRedes()
-    ? `Publicar en ${textoRedes()}`
-    : "Publicar promoción";
+  const etiqueta = esYoutube()
+    ? "Subir video a YouTube"
+    : esSoloRedes()
+      ? `Publicar en ${textoRedes()}`
+      : "Publicar promoción";
   const iconoBtn = "ti-send";
 
   // Solo mostrar costo si hay imágenes seleccionadas
@@ -635,7 +639,12 @@ function actualizarEstadoBotonPublicar() {
   const tieneDesc = desc.length >= 10;
   const saldoOk = verificarSaldo();
   const terminosOk = terminosAceptados;
-
+  // Modo YouTube: solo importan el video, la cuenta, el título/descripción,
+  // la declaración "para niños" y los términos (lo valida el módulo).
+  if (esYoutube()) {
+    btn.disabled = !window.ytListoParaPublicar?.(titulo, terminosOk);
+    return;
+  }
   // En "solo redes" cada red elegida debe estar conectada
   // (y la Fanpage además debe estar habilitada en el plan).
   const redesOk =
@@ -703,40 +712,48 @@ window.selectTipoPublicacion = function (el) {
   const q = (t) =>
     document.querySelector(`#tipoPubSelector .tipo-pub-chip[data-tipo="${t}"]`);
 
-  if (tipo === "perfil") {
-    // Perfil es exclusivo: solo él queda activo
+  if (tipo === "perfil" || tipo === "solo_yt") {
+    // "Perfil" y "YouTube" son exclusivos: solo uno queda activo
     chips.forEach((c) => c.classList.toggle("active", c === el));
   } else {
-    // Redes: se alternan de forma independiente y desactivan "perfil"
+    // Facebook / Instagram: se combinan entre sí, pero apagan perfil y YouTube
     q("perfil")?.classList.remove("active");
+    q("solo_yt")?.classList.remove("active");
     el.classList.toggle("active");
 
-    // Si no quedó ninguna red marcada, regresar a "perfil"
     const hayFb = q("solo_fb")?.classList.contains("active");
     const hayIg = q("solo_ig")?.classList.contains("active");
     if (!hayFb && !hayIg) q("perfil")?.classList.add("active");
   }
 
-  // Sincronizar el estado a partir de lo que quedó marcado en pantalla
   redesSolo.fb = !!q("solo_fb")?.classList.contains("active");
   redesSolo.ig = !!q("solo_ig")?.classList.contains("active");
-  tipoPublicacionActual =
-    redesSolo.fb || redesSolo.ig ? "solo_redes" : "perfil";
+  const hayYt = !!q("solo_yt")?.classList.contains("active");
+  tipoPublicacionActual = hayYt
+    ? "youtube"
+    : redesSolo.fb || redesSolo.ig
+      ? "solo_redes"
+      : "perfil";
 
   aplicarTipoPublicacionUI();
 
-  // Avisos si falta conectar alguna red elegida
-  if (redesSolo.fb && !fbConectado) {
+  if (redesSolo.fb && !fbConectado && !hayYt) {
     window.mostrarToast?.(
       "Conecta tu Fanpage de Facebook para poder publicar",
       "error",
     );
   }
-  if (redesSolo.ig && !igConectado) {
+  if (redesSolo.ig && !igConectado && !hayYt) {
     window.mostrarToast?.("Conecta tu Instagram para poder publicar", "error");
   }
 };
 
+// Muestra/oculta con animación suave (usa publicaciones_youtube.js si está cargado)
+function alternarBloque(el, visible, disp = "") {
+  if (!el) return;
+  if (window.suaveAlternar) window.suaveAlternar(el, visible, disp);
+  else el.style.display = visible ? disp : "none";
+}
 function setColapsado(el, colapsar) {
   if (!el) return;
   el.classList.toggle("is-hidden", colapsar);
@@ -744,9 +761,10 @@ function setColapsado(el, colapsar) {
 
 // Muestra/oculta bloques del formulario según el tipo de publicación
 function aplicarTipoPublicacionUI() {
+  const esYt = esYoutube();
   const esPerfil = tipoPublicacionActual === "perfil";
   const esSoloRed = esSoloRedes();
-  const ocultarExtras = esPerfil || esSoloRed;
+  const ocultarExtras = esPerfil || esSoloRed || esYt;
 
   setColapsado(document.getElementById("paramBoxHorario"), ocultarExtras);
   setColapsado(document.getElementById("paramBoxPagos"), ocultarExtras);
@@ -756,14 +774,26 @@ function aplicarTipoPublicacionUI() {
     ocultarExtras || !esPresencial,
   );
 
-  // En solo redes no hay plazo ni WhatsApp / compartir / precio de Geinz
-  document
-    .querySelector(".plazo")
-    ?.style.setProperty("display", esSoloRed ? "none" : "");
+  // Plazo: oculto en "solo redes" y en YouTube
+  alternarBloque(document.querySelector(".plazo"), !(esSoloRed || esYt));
+
+  // WhatsApp / compartir / precio: ocultos en "solo redes".
+  // En YouTube no se tocan: se esconden junto con toda la lista de parámetros.
   ["wp", "share", "price"].forEach((id) => {
-    const box = document.getElementById(id)?.closest(".param-box");
-    if (box) box.style.display = esSoloRed ? "none" : "";
+    alternarBloque(document.getElementById(id)?.closest(".param-box"), !esSoloRed);
   });
+
+  // Facebook / Instagram: en "solo redes" solo se ve la red elegida;
+  // si marcó las dos, se ven las dos.
+  const planFb = window.GEINZ_PLAN?.fanpage !== false;
+  alternarBloque(
+    document.getElementById("paramBoxFb"),
+    planFb && (!esSoloRed || redesSolo.fb),
+  );
+  alternarBloque(
+    document.getElementById("paramBoxIg"),
+    !esSoloRed || redesSolo.ig,
+  );
 
   // Forzar encendido el switch de cada red elegida (si ya está conectada)
   const swFb = document.getElementById("fbPublicarSwitch");
@@ -777,11 +807,14 @@ function aplicarTipoPublicacionUI() {
     window.toggleIgPublicar(swIg);
   }
 
-  if (!esSoloRed) {
+  if (!esSoloRed && !esYt) {
     const plazoSel = document.querySelector(".plazo-sel");
     setColapsado(plazoSel, false);
-    tipoPlazo(); // sincroniza boxHoras/boxFechas/boxPermanente según el radio marcado
+    tipoPlazo();
   }
+
+  // Selector de video + config de YouTube (con animación)
+  window.ytAplicarModo?.(esYt);
 
   actualizarCostoPublicar();
   actualizarEstadoBotonPublicar();
@@ -1190,17 +1223,17 @@ function formatFechaSlash(str) {
   function validate() {
     const titulo = tituloInput.value.trim();
     const desc = descripcionInput.value.trim();
-    aplicarPrecioDetectado(detectarPrecioTexto(`${titulo} ${desc}`));
+    if (!esYoutube())
+      aplicarPrecioDetectado(detectarPrecioTexto(`${titulo} ${desc}`));
+const zonaImg = document.getElementById("iaZonaImagen");
+if (zonaImg) alternarBloque(zonaImg, imgsCount > 0 && !esYoutube(), "flex");
 
-    const zonaImg = document.getElementById("iaZonaImagen");
-    if (zonaImg) zonaImg.style.display = imgsCount > 0 ? "flex" : "none";
-
-    const zonaTxt = document.getElementById("iaZonaTexto");
-    if (zonaTxt) {
-      const mostrar = desc.length >= 10;
-      zonaTxt.style.display = mostrar ? "flex" : "none";
-      if (mostrar) renderBullets(tipoTextoIA);
-    }
+const zonaTxt = document.getElementById("iaZonaTexto");
+if (zonaTxt) {
+  const mostrar = desc.length >= 10 && !esYoutube();
+  alternarBloque(zonaTxt, mostrar, "flex");
+  if (mostrar) renderBullets(tipoTextoIA);
+}
 
     const tieneContenido = titulo.length >= 4 && desc.length >= 15;
     showBtn(btnMensajeWpIA, tieneContenido);
@@ -1748,6 +1781,14 @@ function formatFechaSlash(str) {
   //  PUBLICAR PROMOCIÓN (modo perfil, con FB / IG opcionales)
   // ══════════════════════════════════════════════════════════
   async function publicarPromocion() {
+        // ── Modo YouTube: lo maneja publicaciones_youtube.js ──
+    if (esYoutube()) {
+      if (!terminosAceptados) {
+        mostrarToast("Acepta los términos de la publicación", "error");
+        return;
+      }
+      return window.publicarEnYoutube?.(datosTienda);
+    }
     const btn = document.querySelector(".btn-submit");
     const titulo = tituloInput.value.trim();
     const descripcion = descripcionInput.value.trim();
@@ -3646,7 +3687,7 @@ function aplicarServicios(servicios) {
   window.GEINZ_PLAN = plan;
 
   // 1) Fanpage
-  _mostrar(document.getElementById("paramBoxFb"), plan.fanpage);
+  aplicarTipoPublicacionUI(); // decide si se ve Facebook según el modo y el plan
   if (!plan.fanpage) {
     fbPublicarActivo = false;
     const sw = document.getElementById("fbPublicarSwitch");

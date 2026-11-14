@@ -1486,6 +1486,16 @@
                                         Facebook para publicar en ambas.</span>
                                 </div>
                             </button>
+                            <button type="button" class="tipo-pub-chip" data-tipo="solo_yt"
+                                onclick="selectTipoPublicacion(this)">
+                                <i class="ti ti-brand-youtube" aria-hidden="true"></i>
+                                <div class="tipo-pub-text">
+                                    <span class="tipo-pub-title">Publicar video en YouTube</span>
+                                    <span class="tipo-pub-sub">Sube un video con título y descripción directo a tu canal
+                                        de
+                                        YouTube. No se publica en tu perfil de Geinz.</span>
+                                </div>
+                            </button>
                         </div>
 
                         <div class="param-list">
@@ -2137,6 +2147,7 @@
     <script type="module" src="../js/dasboardjs/publicaciones.js"></script>
     <script type="module" src="../js/dasboardjs/mis_publicaciones.js"></script>
     <script type="module" src="../js/dasboardjs/publicaciones_perfil.js"></script>
+    <script type="module" src="../js/dasboardjs/publicaciones_youtube.js"></script>
     <!-- ── Lógica del switch de vistas ── -->
     <script>
         document.querySelectorAll('.vista-tab').forEach(tab => {
