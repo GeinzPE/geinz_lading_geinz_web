@@ -3,14 +3,16 @@ import {
   getDoc,
   getDocFromServer,
   onSnapshot,
-  updateDoc,
-  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth,
   onAuthStateChanged,
   signInWithCustomToken,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFunctions,
+  httpsCallable,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 import { db } from "/js/db/db.js";
 import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
 import { setFaviconCircular } from "/js/favicon/favicon.js"; // ajusta la ruta a donde tengas el archivo
@@ -20,9 +22,10 @@ import {
   cargarColoresNegocio,
   leerColorActual,
 } from "../colores_dinamicos/dinamicos.js"; // ajusta la ruta real
-configurarColoresNegocio({ legible: true });
+
 // Fondo oscuro → colores aclarados para que el texto sea legible
 configurarColoresNegocio({ legible: true });
+
 const auth = getAuth();
 const TOKEN_URL = new URLSearchParams(location.search).get("t") || null; // ?t= del invitado
 const AUTH_ORIGIN = "https://geinztech.com";
@@ -30,7 +33,38 @@ const AUTH_ORIGIN = "https://geinztech.com";
 const LOGIN_URL = "/login.html";
 let bizNombreActual = "";
 let bizLogoActual = "";
-// Cache local: si el pedido se vuelve a abrir (o hay un corte de red breve),
+let textoBtnLlegada = "📍 Ya estoy en el local";
+let qrListo = false;
+
+// ---- Cloud Functions (todas las escrituras del cliente pasan por aquí) ----
+const FUNCTIONS_REGION = "us-central1"; // debe ser IGUAL a REGION en pedidos_functions.js
+const functions = getFunctions(db.app, FUNCTIONS_REGION);
+let tiendaPathActual = null;
+
+async function llamar(nombre, extra = {}) {
+  if (!tiendaPathActual || !pedidoIdActual) {
+    return { ok: false, motivo: "sin_contexto", mensaje: "Aún se está cargando el pedido. Intenta de nuevo" };
+  }
+  try {
+    const r = await httpsCallable(
+      functions,
+      nombre,
+    )({
+      tiendaPath: tiendaPathActual,
+      pedidoId: pedidoIdActual,
+      token: TOKEN_URL,
+      ...extra,
+    });
+    return r.data || { ok: false, motivo: "vacio", mensaje: "Respuesta vacía del servidor" };
+  } catch (e) {
+    console.error(`[pedidos] ${nombre}:`, e);
+    const code = String(e?.code || "");
+    if (code.includes("permission-denied")) {
+      return { ok: false, motivo: "permiso", mensaje: "Este pedido no es tuyo. Inicia sesión con la cuenta correcta" };
+    }
+    return { ok: false, motivo: "red", mensaje: "No se pudo conectar. Intenta de nuevo" };
+  }
+}
 
 // ---- Config: fallback de localidad para links viejos (/pedidos/{negocioId}/{pedidoId}) ----
 const LOCALIDAD_FIJA = "barranca";
@@ -38,9 +72,8 @@ let aliasNegocioActual = null;
 const HOST = window.location.hostname.replace(/^www\./, "");
 const ES_DOMINIO_PROPIO =
   !!window.__NEGOCIO_HOSTNAME__ || HOST !== "geinztech.com";
-// ---- Estados del pedido (única fuente de verdad, sin duplicados) ----
-const ESTADOS = ["pendiente", "en_proceso", "entregado"];
 
+// ---- Estados del pedido ----
 const ESTADOS_LABEL = {
   pendiente: "Pendiente",
   pendiente_pago: "Pendiente de pago",
@@ -238,28 +271,19 @@ function mostrarModalRegistro() {
   if (modal) modal.classList.remove("hidden");
 }
 
-// Ejecuta una función en un momento ocioso del navegador (o con un pequeño retraso
-// como respaldo). Evita que trabajo no crítico -como leer los píxeles del logo-
-// bloquee el primer pintado en equipos de gama baja.
-const enIdle = (fn) => {
-  if ("requestIdleCallback" in window)
-    window.requestIdleCallback(fn, { timeout: 1500 });
-  else setTimeout(fn, 200);
-};
-
 let unsubNegocio = null;
 let unsubPedido = null;
 let colorListo = null;
 let primeraVezMostrado = false;
 let estadoAnterior = null; // para detectar el cambio de estado
 let primerRenderPedido = true; // evita notificar en la carga inicial
-let pedidoRefGlobal = null; // referencia del doc del pedido, usada por el banner de pausa
+let pedidoRefGlobal = null; // referencia del doc del pedido (solo lectura / guardia de UI)
 let pedidoIdActual = null; // para armar el mensaje de WhatsApp con el código del pedido
 let waHabilitado = false; // true solo si el negocio tiene WhatsApp configurado y con número válido
 let cuponCanjeActual = null; // cupón de fidelización usado en este pedido (si lo hay)
 let negocioMetodosPagoActual = null;
 let pedidoActualParaPago = null;
-// Cuánto se ahorró el cliente con el cupón (replica lo que cobró el carrito)
+
 function nombreOfuscado(nombreCompleto) {
   const partes = (nombreCompleto || "").trim().split(/\s+/).filter(Boolean);
   if (!partes.length) return "";
@@ -298,6 +322,10 @@ function actualizarBloquePagoQR() {
   const p = pedidoActualParaPago;
   const mp = negocioMetodosPagoActual;
   if (!p || !mp) {
+    card.classList.add("hidden");
+    return;
+  }
+  if (p.pago?.voucher_url) {
     card.classList.add("hidden");
     return;
   }
@@ -343,6 +371,75 @@ function actualizarBloquePagoQR() {
   el("pago-voucher-pendiente").classList.toggle("hidden", yaEnviado);
   el("pago-voucher-enviado").classList.toggle("hidden", !yaEnviado);
 }
+function actualizarComprobante() {
+  const card = el("comprobante-card");
+  if (!card) return;
+  const p = pedidoActualParaPago;
+  const url = p?.pago?.voucher_url;
+  const estado = normalizarEstado(p?.estado);
+  if (!url || estado === "rechazado") {
+    card.classList.add("hidden");
+    return;
+  }
+  card.classList.remove("hidden");
+
+  const img = el("comprobante-img");
+  if (img.getAttribute("src") !== url) img.src = url;
+
+  const confirmado = ["en_proceso", "listo", "entregado"].includes(estado);
+  const chip = el("comprobante-chip");
+  chip.textContent = confirmado ? "✓ Pago confirmado" : "⏳ En revisión";
+  chip.classList.toggle("ok", confirmado);
+  el("comprobante-msg").textContent = confirmado
+    ? "El negocio confirmó tu pago. ¡Gracias!"
+    : "El negocio está revisando tu comprobante. Te avisaremos apenas lo confirme.";
+
+  el("comprobante-monto").textContent = `S/ ${Number(p.total || 0).toFixed(2)}`;
+  const f = toDateFS(p.pago?.voucher_subido_en);
+  el("comprobante-fecha").textContent = f
+    ? f.toLocaleString("es-PE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    : "Hace un momento";
+}
+
+function mostrarErrorVoucher(msg) {
+  const e = el("pago-voucher-error");
+  if (!e) return alert(msg);
+  e.textContent = msg;
+  e.classList.remove("hidden");
+}
+
+// Cuando el pedido pasa a "pendiente de pago", baja solo hasta el QR para que el cliente
+// vea de inmediato dónde pagar y subir el comprobante. Solo una vez por cada vez que entra a ese estado.
+let scrollPagoHecho = false;
+function irAlPagoSiCorresponde(estadoActual) {
+  if (estadoActual !== "pendiente_pago") {
+    scrollPagoHecho = false; // se rearma por si vuelve a ese estado
+    return;
+  }
+  const card = el("pago-qr-card");
+  if (scrollPagoHecho || !card || card.classList.contains("hidden")) return;
+  scrollPagoHecho = true;
+  const reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  card.style.scrollMarginTop = "1rem";
+
+  // 1) baja hasta el pago
+  setTimeout(
+    () => card.scrollIntoView({ behavior: reducir ? "auto" : "smooth", block: "start" }),
+    350,
+  );
+
+  // 2) cuando ya llegó, destella dorado 2 veces
+  setTimeout(() => {
+    card.classList.remove("brillo-pago");
+    void card.offsetWidth; // reinicia la animación si ya estaba puesta
+    card.classList.add("brillo-pago");
+    card.addEventListener(
+      "animationend",
+      () => card.classList.remove("brillo-pago"),
+      { once: true },
+    );
+  }, 900);
+}
 
 function comprimirImagenGenerica(dataURL, maxPx, calidad) {
   return new Promise((resolve, reject) => {
@@ -368,23 +465,18 @@ function comprimirImagenGenerica(dataURL, maxPx, calidad) {
     img.src = dataURL;
   });
 }
-function dataURLtoBlobGenerico(dataURL) {
-  const [header, data] = dataURL.split(",");
-  const mime = header.match(/:(.*?);/)[1];
-  const raw = atob(data);
-  const arr = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
 
 el("btn-subir-voucher")?.addEventListener("click", () =>
   el("pago-voucher-input")?.click(),
 );
 
+// El comprobante se manda a la Cloud Function, que valida la imagen, la sube a
+// Storage y actualiza el pedido. El navegador ya no escribe en Storage.
 el("pago-voucher-input")?.addEventListener("change", async (e) => {
   const file = e.target.files[0];
-  if (!file || !pedidoRefGlobal || !ids) return;
+  if (!file || !ids) return;
   const btn = el("btn-subir-voucher");
+  el("pago-voucher-error")?.classList.add("hidden");
   if (btn) {
     btn.disabled = true;
     btn.textContent = "Subiendo…";
@@ -397,25 +489,27 @@ el("pago-voucher-input")?.addEventListener("change", async (e) => {
       reader.readAsDataURL(file);
     });
     const comprimida = await comprimirImagenGenerica(dataURL, 900, 0.85);
-    const blob = dataURLtoBlobGenerico(comprimida);
-    const {
-      getStorage,
-      ref: storageRef,
-      uploadBytes,
-      getDownloadURL,
-    } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js");
-    const storage = getStorage();
-    const path = `tiendas/${ids.negocioId}/comprobantes_pago/${ids.pedidoId}.webp`;
-    const sref = storageRef(storage, path);
-    await uploadBytes(sref, blob, { contentType: "image/webp" });
-    const url = await getDownloadURL(sref);
-    await updateDoc(pedidoRefGlobal, {
-      "pago.voucher_url": url,
-      "pago.voucher_subido_en": serverTimestamp(),
-      "pago.voucher_visto": false,
-    });
+    const r = await llamar("subirComprobante", { imagen: comprimida });
+    if (!r.ok) {
+      mostrarErrorVoucher(r.mensaje || "No se pudo enviar el comprobante");
+      return;
+    }
+    // Actualización inmediata, sin esperar al snapshot
+    const p = pedidoActualParaPago || {};
+    pedidoActualParaPago = {
+      ...p,
+      pago: { ...(p.pago || {}), voucher_url: r.url || comprimida },
+    };
+    renderPedido(pedidoActualParaPago);
+    actualizarBloquePagoQR();
+    actualizarComprobante();
+    setTimeout(
+      () => el("comprobante-card")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      250,
+    );
   } catch (err) {
     console.error("[pedidos] Error subiendo comprobante:", err);
+    mostrarErrorVoucher("No se pudo leer la imagen. Intenta con otra");
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -424,6 +518,7 @@ el("pago-voucher-input")?.addEventListener("change", async (e) => {
     e.target.value = "";
   }
 });
+
 function calcularAhorroCupon(data) {
   const c = data.cupon;
   if (!c) return 0;
@@ -458,7 +553,8 @@ function renderResumenCupon(data) {
     (s, p) => s + Number(p.subtotal || 0),
     0,
   );
-  const descManual = Number(data.descuentoCupon) > 0 ? Number(data.descuentoCupon) : 0;
+  const descManual =
+    Number(data.descuentoCupon) > 0 ? Number(data.descuentoCupon) : 0;
 
   // Delivery = lo que sobra del total una vez descontados los productos
   const delivery =
@@ -492,12 +588,6 @@ function renderResumenCupon(data) {
 }
 function codigoPedidoCorto(id) {
   return (id || "").slice(0, 6).toUpperCase();
-}
-function hexARgb(hex) {
-  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
-  return m
-    ? `${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)}`
-    : "139,92,246";
 }
 
 function abrirLoginPopup() {
@@ -577,6 +667,49 @@ el("btn-copiar-codigo")?.addEventListener("click", async () => {
     console.warn("[pedidos] No se pudo copiar el código:", e);
   }
 });
+
+/* ══════════════ Código visible + QR del pedido (recojo) ══════════════
+   El QR lleva SOLO el id del pedido (nunca el token). */
+function renderCodigoPedido(data, estadoActual) {
+  const wrap = el("codigo-wrap");
+  if (!wrap) return;
+  const esMesa = !!data.mesa || data.cliente?.tipo_entrega === "Mesa";
+  const visible =
+    !esMesa &&
+    !["rechazado", "entregado"].includes(estadoActual) &&
+    !!pedidoIdActual;
+  wrap.classList.toggle("hidden", !visible);
+  if (!visible) return;
+  el("codigo-grande").textContent = "#" + codigoPedidoCorto(pedidoIdActual);
+  el("codigo-completo").textContent = pedidoIdActual;
+}
+
+el("btn-toggle-qr")?.addEventListener("click", async () => {
+  const box = el("qr-wrap");
+  const txt = el("btn-toggle-qr")?.querySelector(".copy-text");
+  if (!box || !txt || !pedidoIdActual) return;
+  const abrir = box.classList.contains("hidden");
+  if (abrir && !qrListo) {
+    try {
+      const m = await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm");
+      const QRCode = m.default || m;
+      // fondo blanco y puntos negros: sobre tema oscuro algunos lectores no leen QR invertido
+      el("qr-img").src = await QRCode.toDataURL(pedidoIdActual, {
+        width: 320,
+        margin: 2,
+        errorCorrectionLevel: "M",
+        color: { dark: "#000000", light: "#ffffff" },
+      });
+      qrListo = true;
+    } catch (e) {
+      console.warn("[pedidos] No se pudo generar el QR:", e);
+      return;
+    }
+  }
+  box.classList.toggle("hidden", !abrir);
+  txt.textContent = abrir ? "Ocultar QR" : "Mostrar QR";
+});
+
 // Pide permiso de notificaciones en la primera interacción del cliente
 // (los navegadores bloquean el prompt automático si no hay gesto del usuario)
 document.addEventListener(
@@ -604,6 +737,7 @@ window.addEventListener("beforeunload", () => {
 el("btn-cancelar-pedido")?.addEventListener("click", () => {
   if (pedidoRefGlobal) abrirModalCancelar(pedidoRefGlobal);
 });
+
 /* ══════════════ Confirmación antes de retroceder ══════════════
    Al confirmar el pedido, el carrito redirige aquí con
    window.location.href (navegación real, no SPA), así que un "atrás" del
@@ -614,25 +748,11 @@ el("btn-cancelar-pedido")?.addEventListener("click", () => {
    Solo si confirma, se deja avanzar el "atrás" real. */
 let salidaConfirmada = false;
 let redirigirTrasBack = null; // URL a la que se navega una vez consumida la entrada de guardia
-console.log(
-  "[pedidos][guard] Antes de pushState, history.length =",
-  history.length,
-);
 history.pushState(null, document.title, location.href);
-console.log(
-  "[pedidos][guard] Después de pushState, history.length =",
-  history.length,
-);
 
 window.addEventListener("popstate", () => {
-  console.log(
-    "[pedidos][guard] popstate disparado, salidaConfirmada =",
-    salidaConfirmada,
-  );
   if (salidaConfirmada) {
     // Ya confirmó: acabamos de consumir la entrada de guardia con history.back().
-    // Ahora reemplazamos ESA entrada (que seguía apuntando al pedido) por la del
-    // perfil, así el historial queda limpio y un futuro "atrás" no vuelve a caer aquí.
     if (redirigirTrasBack) {
       location.replace(redirigirTrasBack);
     }
@@ -683,6 +803,7 @@ el("leave-copy-link")?.addEventListener("click", async () => {
 el("leave-confirm-modal")?.addEventListener("click", (e) => {
   if (e.target.id === "leave-confirm-modal") cerrarModalSalir();
 });
+
 function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
   console.log("[pedidos] DIAG", {
     uid: uidActual,
@@ -696,7 +817,12 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
   });
   pedidoIdActual = pedidoId;
   showSkeleton();
-aplicarColoresDesdeCache(negocioId);
+  aplicarColoresDesdeCache(negocioId);
+
+  // Ruta del negocio: se usa también para las Cloud Functions
+  const negocioRef = tiendaDoc(localidad, "tiendas", negocioId);
+  tiendaPathActual = negocioRef.path;
+
   // --- Datos del negocio (logo, nombre, contacto) ---
   const aplicarNegocio = (data) => {
     const nombre = data.nombre_tienda || data.nombre || "Negocio";
@@ -741,23 +867,24 @@ aplicarColoresDesdeCache(negocioId);
     const wa = data.metodo_contacto?.whatsapp;
     if (wa?.estado && wa?.numero) renderBotonWhatsapp(wa.numero, nombre);
 
-  if (logoUrl) {
-  el("logo-img").alt = nombre;
-  el("logo-img").src = logoUrl;
-  setFaviconCircular(logoUrl);
-}
+    if (logoUrl) {
+      el("logo-img").alt = nombre;
+      el("logo-img").src = logoUrl;
+      setFaviconCircular(logoUrl);
+    }
 
-// Colores dinámicos del negocio (color_marca → logo → nombre)
-if (!colorListo) {
-  colorListo = Promise.race([
-    cargarColoresNegocio({ id: negocioId, localidad, biz: data }).catch(() => {}),
-    new Promise((r) => setTimeout(r, 2500)),
-  ]);
-}
+    // Colores dinámicos del negocio (color_marca → logo → nombre)
+    if (!colorListo) {
+      colorListo = Promise.race([
+        cargarColoresNegocio({ id: negocioId, localidad, biz: data }).catch(
+          () => {},
+        ),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]);
+    }
   };
 
   try {
-    const negocioRef = tiendaDoc(localidad, "tiendas", negocioId);
     console.log("[pedidos] ruta negocio:", negocioRef.path);
 
     // Lectura directa al servidor (diagnóstico + respaldo)
@@ -796,7 +923,7 @@ if (!colorListo) {
     console.error("[pedidos] Error cargando negocio:", e);
   }
 
-  // --- Pedido en tiempo real ---
+  // --- Pedido en tiempo real (solo lectura) ---
   const pedidoRef = tiendaSubDoc(
     localidad,
     "tiendas",
@@ -805,7 +932,7 @@ if (!colorListo) {
     pedidoId,
   );
   console.log("[pedidos] ruta pedido:", pedidoRef.path);
-  pedidoRefGlobal = pedidoRef; // guardamos la referencia para el banner de pausa
+  pedidoRefGlobal = pedidoRef;
 
   let ultimoDataJSON = null; // evita re-render si el snapshot no trae cambios reales
 
@@ -820,14 +947,12 @@ if (!colorListo) {
 
       const data = snap.data();
 
-      // Optimización: si el contenido es idéntico al último renderizado
-      // (ej. eco de una escritura local u otro evento sin cambios reales),
-      // no se vuelve a procesar ni pintar el DOM.
+      // Si el contenido es idéntico al último renderizado, no se vuelve a pintar el DOM.
       const dataJSON = JSON.stringify(data);
       if (dataJSON === ultimoDataJSON) return;
       ultimoDataJSON = dataJSON;
 
-      // Seguridad:
+      // Seguridad (solo visual; la protección real está en reglas + Cloud Functions):
       //  - pedido de usuario registrado → solo ese usuario
       //  - pedido de invitado → solo quien tenga el ?t= correcto
       //  - pedidos viejos sin ninguna de las dos marcas → se muestran como antes
@@ -846,6 +971,7 @@ if (!colorListo) {
       renderPedido(data);
       pedidoActualParaPago = data;
       actualizarBloquePagoQR();
+      actualizarComprobante();
       // Si el estado cambió respecto al anterior (y no es la primera carga),
       // dispara la notificación push del navegador.
       if (
@@ -864,6 +990,7 @@ if (!colorListo) {
       }
 
       showContent();
+      irAlPagoSiCorresponde(nuevoEstado);
       mostrarBannerConexion(!navigator.onLine);
     },
     (error) => {
@@ -967,14 +1094,10 @@ function renderPuntos(data, estadoActual, esRechazado) {
   }
 }
 
-/* ══════════════ Banner de pedido en pausa ══════════════
-   Se muestra arriba de la tarjeta de estado. Si el negocio ya recibió la
-   respuesta del cliente, solo se confirma lo elegido. Si no, se muestran
-   botones para elegir un reemplazo (de los otros productos del mismo
-   pedido) o continuar sin el producto agotado. */
-function abrirModalCancelar(pedidoRef) {
+/* ══════════════ Cancelar pedido (vía Cloud Function) ══════════════ */
+function abrirModalCancelar() {
   const overlay = el("cancel-confirm-modal");
-  if (!overlay || !pedidoRef) return;
+  if (!overlay) return;
   const btnSi = el("cancel-confirm-yes");
   const btnNo = el("cancel-confirm-no");
   const warn = el("cancel-cupon-warning");
@@ -1009,28 +1132,18 @@ function abrirModalCancelar(pedidoRef) {
   const onSi = async () => {
     btnSi.disabled = true;
     btnSi.textContent = "Cancelando…";
-    try {
-      await updateDoc(pedidoRef, {
-        estado: "rechazado",
-        cancelado_por_cliente: true,
-        respuesta_cliente: {
-          accion: "cancelado",
-          producto_elegido: null,
-          respondido_en: serverTimestamp(),
-        },
-      });
-      cerrar();
-    } catch (err) {
-      console.error("[pedidos] No se pudo cancelar el pedido:", err);
-      btnSi.disabled = false;
-      btnSi.textContent = "Sí, cancelar";
-    }
+    const r = await llamar("cancelarPedido");
+    btnSi.disabled = false;
+    btnSi.textContent = "Sí, cancelar";
+    if (r.ok) return cerrar();
+    alert(r.mensaje || "No se pudo cancelar");
   };
 
   btnSi.addEventListener("click", onSi);
   btnNo.addEventListener("click", onNo);
   overlay.addEventListener("click", onOverlayClick);
 }
+
 function extrasDe(condiciones, sel) {
   let t = 0;
   (condiciones || []).forEach((c) =>
@@ -1049,6 +1162,12 @@ function textoRespuesta(r) {
   if (r.accion === "ajuste") return "Ajustar cantidades";
   return "Continuar sin ese producto";
 }
+
+/* ══════════════ Banner de pedido en pausa ══════════════
+   Se muestra arriba de la tarjeta de estado. Si el cliente ya respondió,
+   solo se confirma lo elegido. Si no, puede ajustar cantidades/variantes
+   (solo hacia abajo) o cambiar lo que falta por otro producto del pedido.
+   El servidor recalcula precios y totales: lo que se vea aquí es solo vista previa. */
 function renderPausaBanner(data, pedidoRef) {
   let wrap = el("pausa-wrap");
   if (!wrap) {
@@ -1064,8 +1183,13 @@ function renderPausaBanner(data, pedidoRef) {
   const respuesta = data.respuesta_cliente;
   const afectados = pausa.productos_afectados || [];
   const productosActuales = Array.isArray(data.productos) ? data.productos : [];
+  // Reemplazos válidos: ni afectados, ni promos, ni canjes, ni adicionales
   const otros = productosActuales.filter(
-    (p) => !afectados.some((a) => a.id === p.id),
+    (p) =>
+      !afectados.some((a) => a.id === p.id) &&
+      !p.esCanje &&
+      !p.esPromo &&
+      !/^(promo|adic)__/.test(p.id),
   );
 
   let restanteTexto = "";
@@ -1126,11 +1250,13 @@ function renderPausaBanner(data, pedidoRef) {
     });
   });
 
+  // Tope por producto: nunca más de lo pedido (el servidor solo acepta ajustes hacia abajo)
   const maxCant = (a, st) => {
+    const pedida = Number(st.linea.cantidad) || 0;
     let max =
       typeof a.stock_disponible === "number"
-        ? a.stock_disponible
-        : Number(st.linea.cantidad) || 0;
+        ? Math.min(a.stock_disponible, pedida)
+        : pedida;
     (a.condiciones || []).forEach((c) =>
       entradasDeOpcion(st.seleccion[c.nombre]).forEach(([n, q]) => {
         const op = (c.opciones || []).find((o) => o.nombre === n);
@@ -1231,7 +1357,7 @@ function renderPausaBanner(data, pedidoRef) {
           : "";
       card.innerHTML = `
         <p style="margin:0;font-weight:700;font-size:0.9rem;">${esc(a.nombre)}</p>
-        <p style="margin:0.15rem 0 0.6rem;font-size:0.78rem;color:var(--text-muted);">Pediste ${st.linea.cantidad}${stockTxt ? " · " + stockTxt : ""}</p>
+        <p style="margin:0.15rem 0 0.6rem;font-size:0.78rem;color:var(--text-muted);">Pediste ${esc(st.linea.cantidad)}${stockTxt ? " · " + esc(stockTxt) : ""}</p>
         <div class="stepper" style="display:flex;align-items:center;gap:0.8rem;">
           <button type="button" data-minus style="width:2rem;height:2rem;border-radius:0.6rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-primary);font-weight:700;cursor:pointer;">−</button>
           <span style="min-width:1.5rem;text-align:center;font-weight:700;">${st.cantidad}</span>
@@ -1337,9 +1463,9 @@ function renderPausaBanner(data, pedidoRef) {
     });
   }
 
+  // El cliente solo manda ids, cantidades y opciones. El servidor recalcula precios y total.
   confirmarBtn.onclick = async () => {
-    if (!pedidoRef) return;
-    const { lista, total, items, faltante } = construir();
+    const { lista } = construir();
     if (!lista.length) return;
 
     const ajustes = afectados
@@ -1348,72 +1474,31 @@ function renderPausaBanner(data, pedidoRef) {
         const st = estado.get(a.id);
         return {
           id: a.id,
-          nombre: a.nombre,
-          cantidad_pedida: Number(st.linea.cantidad) || 0,
-          cantidad_final: st.cantidad,
+          cantidad: st.cantidad,
           opciones: Object.keys(st.seleccion).length ? st.seleccion : null,
         };
       });
 
-    const usaReemplazo = !!reemplazo && faltante > 0;
-    const todoEnCero = ajustes.every((x) => x.cantidad_final === 0);
-
     confirmarBtn.disabled = true;
     confirmarBtn.textContent = "Enviando…";
-    try {
-      await updateDoc(pedidoRef, {
-        respuesta_cliente: {
-          accion: usaReemplazo
-            ? "reemplazo"
-            : todoEnCero
-              ? "sin_producto"
-              : "ajuste",
-          producto_elegido: usaReemplazo ? reemplazo : null,
-          ajustes,
-          respondido_en: serverTimestamp(),
-        },
-        productos: lista,
-        total,
-        total_items: items,
-      });
-    } catch (err) {
-      console.error("[pedidos] No se pudo enviar la respuesta:", err);
+    const r = await llamar("responderPausa", {
+      ajustes,
+      reemplazoId: reemplazo?.id || null,
+    });
+    if (!r.ok) {
+      hint.style.display = "block";
+      hint.textContent = r.mensaje || "No se pudo enviar tu respuesta";
       confirmarBtn.disabled = false;
       pintarTodo();
+      // pintarTodo() oculta el hint si la lista es válida: se vuelve a mostrar el error
+      hint.style.display = "block";
+      hint.textContent = r.mensaje || "No se pudo enviar tu respuesta";
     }
   };
 
   wrap.querySelector("#pausa-cancelar").onclick = () =>
     abrirModalCancelar(pedidoRef);
   pintarTodo();
-}
-
-/* El cliente cancela su propio pedido mientras está en pausa, sin esperar al negocio */
-async function cancelarPedidoCliente(pedidoRef, btnEl) {
-  if (!pedidoRef) return;
-  const ok = window.confirm("¿Seguro que quieres cancelar este pedido?");
-  if (!ok) return;
-  if (btnEl) {
-    btnEl.disabled = true;
-    btnEl.textContent = "Cancelando…";
-  }
-  try {
-    await updateDoc(pedidoRef, {
-      estado: "rechazado",
-      cancelado_por_cliente: true,
-      respuesta_cliente: {
-        accion: "cancelado",
-        producto_elegido: null,
-        respondido_en: serverTimestamp(),
-      },
-    });
-  } catch (err) {
-    console.error("[pedidos] No se pudo cancelar el pedido:", err);
-    if (btnEl) {
-      btnEl.disabled = false;
-      btnEl.textContent = "Cancelar pedido";
-    }
-  }
 }
 
 function quitarPausaBanner() {
@@ -1479,6 +1564,72 @@ function renderTiempoEstimado(data, estadoActual) {
   box.innerHTML = txt;
   box.classList.remove("hidden");
 }
+
+/* ══════════════ "Ya llegué": aviso descriptivo + cuenta regresiva entre avisos ══════════════
+   1.er aviso: botón activo, sin temporizador.
+   Después de cada aviso: se bloquea 2 min con cuenta regresiva y luego se puede volver a avisar.
+   La hora del último aviso la guarda el servidor (cliente_en_local_en). */
+const ESPERA_LLEGADA_MS = 2 * 60 * 1000;
+let timerLlegada = null;
+let avisandoLlegada = false;
+
+function configurarCuentaLlegada(activo, data, esPunto) {
+  clearInterval(timerLlegada);
+  timerLlegada = null;
+
+  const btn = el("btn-en-local");
+  if (!btn) return;
+
+  let aviso = el("en-local-aviso");
+  if (!aviso) {
+    aviso = document.createElement("p");
+    aviso.id = "en-local-aviso";
+    aviso.className = "text-secondary hidden";
+    aviso.style.cssText = "margin:0 0 0.7rem;font-size:0.85rem;line-height:1.5;";
+    btn.insertAdjacentElement("beforebegin", aviso);
+  }
+
+  if (!activo) {
+    aviso.classList.add("hidden");
+    return;
+  }
+
+  const lugar = esPunto ? "al punto de entrega" : "al local";
+  const yaAviso = !!data.cliente_en_local;
+
+  aviso.innerHTML = yaAviso
+    ? `Si todavía no te atienden, puedes volver a avisar cuando termine la cuenta regresiva.`
+    : `📍 <strong>Tu pedido ya está listo.</strong> Cuando llegues ${lugar}, toca el botón de abajo para avisarle al negocio que ya estás ahí. <span class="text-muted">Presiónalo solo cuando ya hayas llegado.</span>`;
+  aviso.classList.remove("hidden");
+
+  // Momento del último aviso (lo guarda el servidor)
+  const ultimo = yaAviso
+    ? (toDateFS(data.cliente_en_local_en)?.getTime() ?? Date.now())
+    : 0;
+  const fin = ultimo + ESPERA_LLEGADA_MS;
+
+  const tick = () => {
+    if (avisandoLlegada) return;
+    const resta = yaAviso ? Math.ceil((fin - Date.now()) / 1000) : 0;
+    if (resta > 0) {
+      const mm = String(Math.floor(resta / 60)).padStart(2, "0");
+      const ss = String(resta % 60).padStart(2, "0");
+      btn.disabled = true;
+      btn.style.opacity = ".6";
+      btn.textContent = `🔔 Volver a avisar · disponible en ${mm}:${ss}`;
+    } else {
+      btn.disabled = false;
+      btn.style.opacity = "";
+      btn.textContent = yaAviso ? "🔔 Volver a avisar que estoy aquí" : textoBtnLlegada;
+      clearInterval(timerLlegada);
+      timerLlegada = null;
+    }
+  };
+
+  tick();
+  if (yaAviso && fin > Date.now()) timerLlegada = setInterval(tick, 1000);
+}
+
 function renderPedido(data) {
   const estadoActual = normalizarEstado(data.estado);
   const esRechazado = estadoActual === "rechazado";
@@ -1512,9 +1663,8 @@ function renderPedido(data) {
     );
   }
 
-  // El cliente solo puede cancelar mientras el pedido sigue "Pendiente".
-  // Una vez que el negocio lo acepta (en_proceso) o lo mueve a cualquier
-  // otro estado, la opción desaparece.
+  // El cliente solo puede cancelar mientras el pedido sigue "Pendiente"
+  // (o pendiente de pago sin comprobante). En pausa tiene su propio botón.
   const btnCancelar = el("btn-cancelar-pedido");
   const puedeCancelar =
     estadoActual === "pendiente" ||
@@ -1528,11 +1678,33 @@ function renderPedido(data) {
   el("pedido-fecha-hora").textContent = [data.fecha, data.hora]
     .filter(Boolean)
     .join(" · ");
-  const esRecojo = /recojo/i.test(data.cliente?.tipo_entrega || "");
-  const aceptado = ["pendiente_pago", "en_proceso", "listo"].includes(estadoActual);
-  el("en-local-wrap")?.classList.toggle("hidden", !(esRecojo && aceptado));
-  el("btn-en-local")?.classList.toggle("hidden", !!data.cliente_en_local);
-  el("en-local-ok")?.classList.toggle("hidden", !data.cliente_en_local);
+
+  /* ── Botón "ya llegué": solo cuando el pedido está LISTO ── */
+  const tipoEntrega = data.cliente?.tipo_entrega || "";
+  const esRecojoPunto = tipoEntrega === "Recojo en punto";
+  const esRecojoLocal = tipoEntrega === "Recojo en local";
+  const puedeAvisar =
+    (esRecojoPunto || esRecojoLocal) && estadoActual === "listo";
+  const puntoNombre = data.punto_entrega?.nombre || "";
+
+  textoBtnLlegada = esRecojoPunto
+    ? "📍 Ya llegué al punto de entrega"
+    : "📍 Ya estoy en el local";
+  const textoOkLlegada = esRecojoPunto
+    ? `✅ Avisamos al negocio que ya estás en ${puntoNombre || "el punto acordado"}`
+    : "✅ Ya avisamos al negocio que llegaste";
+
+  el("en-local-wrap")?.classList.toggle("hidden", !puedeAvisar);
+  configurarCuentaLlegada(puedeAvisar, data, esRecojoPunto);
+  const okLlegada = el("en-local-ok");
+  if (okLlegada) {
+    okLlegada.textContent = textoOkLlegada;
+    okLlegada.classList.toggle("hidden", !data.cliente_en_local);
+  }
+
+  // Código del pedido + QR (recojo)
+  renderCodigoPedido(data, estadoActual);
+
   const dot = el("status-dot");
   dot.dataset.status = estadoActual;
   dot.classList.remove("pulse");
@@ -1554,9 +1726,21 @@ function renderPedido(data) {
   el("cliente-mesa-wrap").classList.toggle("hidden", !cliente.mesa);
   if (cliente.mesa) el("cliente-mesa").textContent = cliente.mesa;
 
-  el("cliente-direccion-wrap").classList.toggle("hidden", !cliente.direccion);
-  if (cliente.direccion)
-    el("cliente-direccion").textContent = cliente.direccion;
+  // Dirección / punto de entrega
+  const dirLabel = el("cliente-direccion-label");
+  if (esRecojoPunto && data.punto_entrega) {
+    const ref = data.punto_entrega.referencia;
+    if (dirLabel) dirLabel.textContent = "Punto de entrega";
+    el("cliente-direccion").textContent = ref
+      ? `${puntoNombre} · ${ref}`
+      : puntoNombre;
+    el("cliente-direccion-wrap").classList.remove("hidden");
+  } else {
+    if (dirLabel) dirLabel.textContent = "Dirección";
+    el("cliente-direccion-wrap").classList.toggle("hidden", !cliente.direccion);
+    if (cliente.direccion)
+      el("cliente-direccion").textContent = cliente.direccion;
+  }
 
   el("nota-wrap").classList.toggle("hidden", !data.nota);
   if (data.nota) el("nota-texto").textContent = data.nota;
@@ -1569,8 +1753,7 @@ function renderPedido(data) {
   // Puntos de fidelización
   renderPuntos(data, estadoActual, esRechazado);
 
-  // Productos (se reconstruye con nodos DOM en vez de innerHTML con datos
-  // dinámicos: evita problemas de escape/XSS si un nombre trae caracteres especiales)
+  // Productos (nodos DOM en vez de innerHTML con datos dinámicos: evita XSS)
   const cont = el("productos-list");
   cont.innerHTML = "";
   const frag = document.createDocumentFragment();
@@ -1598,21 +1781,17 @@ function renderPedido(data) {
     detalle.textContent = `${p.cantidad || 1} × S/ ${Number(p.precio_unitario || 0).toFixed(2)}`;
     info.append(nombre, detalle);
 
-    // Muestra las opciones elegidas (ej. "Temperatura: Helado" · "Tamaño: Grande")
-    // Muestra las opciones elegidas, una línea por opción marcada
+    // Opciones elegidas, una línea por opción marcada
     // (ej. "Extras: Papas extras x2", "Extras: Doble carne")
-    const lineasOpciones = opcionesDetalleLineas(p);
-    if (lineasOpciones.length) {
-      lineasOpciones.forEach((linea) => {
-        const opcionEl = document.createElement("p");
-        opcionEl.className = "detalle";
-        opcionEl.style.color = "var(--accent)";
-        opcionEl.style.fontStyle = "italic";
-        opcionEl.style.margin = "0.1rem 0 0";
-        opcionEl.textContent = `• ${linea}`;
-        info.append(opcionEl);
-      });
-    }
+    opcionesDetalleLineas(p).forEach((linea) => {
+      const opcionEl = document.createElement("p");
+      opcionEl.className = "detalle";
+      opcionEl.style.color = "var(--accent)";
+      opcionEl.style.fontStyle = "italic";
+      opcionEl.style.margin = "0.1rem 0 0";
+      opcionEl.textContent = `• ${linea}`;
+      info.append(opcionEl);
+    });
     if (p.esCanje) {
       const canjeEl = document.createElement("p");
       canjeEl.className = "detalle";
@@ -1651,7 +1830,7 @@ function renderTimeline(
     return;
   }
 
-    const FLUJO = conPago
+  const FLUJO = conPago
     ? ["pendiente", "pendiente_pago", "en_proceso", "listo", "entregado"]
     : ["pendiente", "en_proceso", "listo", "entregado"];
   const idxActual = FLUJO.indexOf(estadoActual);
@@ -1685,124 +1864,22 @@ function renderTimeline(
   cont.appendChild(frag);
 }
 
-// ---- Color dominante del logo → variables CSS de acento ----
-function extraerColorDominante(url) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        const size = 32;
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        ctx.drawImage(img, 0, 0, size, size);
-        const data = ctx.getImageData(0, 0, size, size).data;
-
-        const buckets = {};
-        for (let i = 0; i < data.length; i += 4) {
-          const alpha = data[i + 3];
-          if (alpha < 100) continue;
-          const r = data[i],
-            g = data[i + 1],
-            b = data[i + 2];
-
-          const max = Math.max(r, g, b),
-            min = Math.min(r, g, b);
-          const lightness = (max + min) / 2;
-          const sat =
-            max === min
-              ? 0
-              : (max - min) / (255 - Math.abs(2 * lightness - 255));
-
-          if (lightness > 235 || lightness < 18 || sat < 0.15) continue;
-
-          const key = `${Math.round(r / 24)}-${Math.round(g / 24)}-${Math.round(b / 24)}`;
-          if (!buckets[key])
-            buckets[key] = { r: 0, g: 0, b: 0, count: 0, sat: 0 };
-          buckets[key].r += r;
-          buckets[key].g += g;
-          buckets[key].b += b;
-          buckets[key].count += 1;
-          buckets[key].sat += sat;
-        }
-
-        const bucketList = Object.values(buckets);
-        let chosen = null;
-        if (bucketList.length > 0) {
-          chosen = bucketList
-            .map((bk) => ({ ...bk, score: bk.count * (bk.sat / bk.count) }))
-            .sort((a, b) => b.score - a.score)[0];
-        }
-
-        let r, g, b;
-        if (chosen) {
-          r = Math.round(chosen.r / chosen.count);
-          g = Math.round(chosen.g / chosen.count);
-          b = Math.round(chosen.b / chosen.count);
-        } else {
-          r = 194;
-          g = 112;
-          b = 61; // naranja tostado por defecto
-        }
-
-        // Piso de brillo: este mismo color se usa como TEXTO sobre fondo oscuro
-        // (--bg / --card) en varios lugares (precios, subtotales, opciones, etc.),
-        // así que si sale muy oscuro (logo negro/gris oscuro) hay que aclararlo
-        // o el texto se vuelve invisible.
-        const brightness = (r + g + b) / 3;
-        const MIN_BRIGHTNESS = 110;
-        if (brightness < MIN_BRIGHTNESS) {
-          const boost = MIN_BRIGHTNESS / Math.max(brightness, 1);
-          r = Math.min(255, Math.round(r * boost));
-          g = Math.min(255, Math.round(g * boost));
-          b = Math.min(255, Math.round(b * boost));
-        }
-
-        const toHex = (n) =>
-          Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
-        const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-        const dark = `#${toHex(Math.round(r * 0.65))}${toHex(Math.round(g * 0.65))}${toHex(Math.round(b * 0.65))}`;
-        const soft = `#${toHex(Math.round(r * 0.18))}${toHex(Math.round(g * 0.18))}${toHex(Math.round(b * 0.18))}`;
-
-        document.documentElement.style.setProperty("--accent", hex);
-        document.documentElement.style.setProperty("--accent-dark", dark);
-        document.documentElement.style.setProperty("--accent-soft", soft);
-      } catch (e) {
-        console.warn(
-          "[pedidos] No se pudo extraer color del logo (posible CORS):",
-          e,
-        );
-      }
-      resolve();
-    };
-    img.onerror = () => {
-      console.warn("[pedidos] No se pudo cargar el logo para extraer color");
-      resolve();
-    };
-    img.src = url;
-  });
-}
-
+/* ══════════════ "Ya llegué" (vía Cloud Function) ══════════════ */
 el("btn-en-local")?.addEventListener("click", async () => {
   const b = el("btn-en-local");
-  if (!b || !pedidoRefGlobal) return;
+  if (!b || b.disabled) return;
+  avisandoLlegada = true;
   b.disabled = true;
   b.textContent = "Avisando…";
-  try {
-    await updateDoc(pedidoRefGlobal, {
-      cliente_en_local: true,
-      cliente_en_local_en: serverTimestamp(),
-      cliente_en_local_visto: false,
-    });
-  } catch (e) {
-    console.error(e);
-    b.disabled = false;
-    b.textContent = "📍 Ya estoy en el local";
+  const r = await llamar("avisarLlegada");
+  avisandoLlegada = false;
+  if (!r.ok) {
+    alert(r.mensaje || "No se pudo avisar");
+    renderPedido(pedidoActualParaPago); // restaura botón / cuenta regresiva
   }
 });
-/* ══════════════ Zoom del QR (PhotoSwipe 5, carga bajo demanda) ══════════════ */
+
+/* ══════════════ Zoom del QR de pago (PhotoSwipe 5, carga bajo demanda) ══════════════ */
 const PSWP_VER = "5.4.4";
 let pswpModulo = null;
 function cargarPhotoSwipe() {
@@ -1821,18 +1898,16 @@ function cargarPhotoSwipe() {
   return pswpModulo;
 }
 
-el("pago-qr-zoom")?.addEventListener("click", async () => {
-  const img = el("pago-qr-img");
-  if (!img?.src) return;
+async function abrirVisorImagen(imgEl, alt) {
+  if (!imgEl?.src) return;
   try {
     const { default: PhotoSwipe } = await cargarPhotoSwipe();
-    // Tamaño "virtual" grande: así el QR se ve a pantalla completa aunque el archivo sea chico
-    const nw = img.naturalWidth || 1;
-    const nh = img.naturalHeight || 1;
+    const nw = imgEl.naturalWidth || 1;
+    const nh = imgEl.naturalHeight || 1;
     const W = 1400;
     const H = Math.round((W * nh) / nw);
     const pswp = new PhotoSwipe({
-      dataSource: [{ src: img.src, width: W, height: H, alt: "QR de pago" }],
+      dataSource: [{ src: imgEl.src, width: W, height: H, alt }],
       bgOpacity: 0.96,
       maxZoomLevel: 3,
       wheelToZoom: true,
@@ -1843,7 +1918,14 @@ el("pago-qr-zoom")?.addEventListener("click", async () => {
     });
     pswp.init();
   } catch (e) {
-    console.warn("[pedidos] No se pudo abrir el visor del QR:", e);
-    window.open(img.src, "_blank", "noopener");
+    console.warn("[pedidos] No se pudo abrir el visor:", e);
+    window.open(imgEl.src, "_blank", "noopener");
   }
-});
+}
+
+el("pago-qr-zoom")?.addEventListener("click", () =>
+  abrirVisorImagen(el("pago-qr-img"), "QR de pago"),
+);
+el("comprobante-zoom")?.addEventListener("click", () =>
+  abrirVisorImagen(el("comprobante-img"), "Comprobante de pago"),
+);

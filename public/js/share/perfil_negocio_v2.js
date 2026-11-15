@@ -2252,6 +2252,77 @@ document.getElementById("puntosBadge")?.addEventListener("click", () => {
   }
   irAFidelizacion();
 });
+const NOTIF_SKIP_DIAS = 7;
+
+async function asegurarNotificaciones(uid, { gesto = false } = {}) {
+  if (!uid || !("Notification" in window)) return "no-soportado";
+  const permiso = Notification.permission;
+
+  if (permiso === "granted") {
+    // silencioso: refresca/guarda el token de ESTE dispositivo
+    registrarTokenWeb(uid).catch((e) => console.warn("FCM:", e.message));
+    return "granted";
+  }
+  if (permiso === "denied") return "denied";
+
+  // permiso === "default"
+  if (gesto) {
+    // viene de un clic (seguir, comprar, botón del banner): se puede pedir directo
+    await registrarTokenWeb(uid).catch((e) => console.warn("FCM:", e.message));
+    return Notification.permission;
+  }
+  mostrarBannerNotificaciones(uid); // sin clic: banner con botón propio
+  return "default";
+}
+
+function mostrarBannerNotificaciones(uid) {
+  if (document.getElementById("notifBanner")) return;
+  try {
+    const t = Number(localStorage.getItem(`geinz_notif_skip_${uid}`)) || 0;
+    if (Date.now() - t < NOTIF_SKIP_DIAS * 864e5) return; // dijo "ahora no" hace poco
+  } catch { }
+
+  if (!document.getElementById("notifBannerStyle")) {
+    const st = document.createElement("style");
+    st.id = "notifBannerStyle";
+    st.textContent = `
+      .notif-banner{position:fixed;left:50%;top:16px;transform:translate(-50%,-20px);z-index:10040;
+        width:min(420px,calc(100vw - 24px));padding:14px 16px;border-radius:18px;
+        background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.45);
+        box-shadow:0 20px 50px -14px rgba(0,0,0,.8);opacity:0;
+        transition:opacity .35s ease,transform .45s cubic-bezier(.22,.85,.32,1);}
+      .notif-banner.show{opacity:1;transform:translate(-50%,0);}
+      .notif-banner p{margin:0 0 12px;font-size:13.5px;line-height:1.5;color:#e4e4e7;}
+      .notif-banner-actions{display:flex;gap:8px;}
+      .notif-banner button{flex:1;padding:11px;border-radius:12px;border:none;font-weight:700;font-size:13px;cursor:pointer;color:#fff;}
+      .notif-yes{background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
+      .notif-no{background:rgba(255,255,255,.08);}
+    `;
+    document.head.appendChild(st);
+  }
+
+  const b = document.createElement("div");
+  b.id = "notifBanner";
+  b.className = "notif-banner";
+  b.innerHTML = `
+    <p>🔔 Activa las notificaciones para enterarte del estado de tus pedidos y promos de <b>${escapeHtml(_bizNombre || "este negocio")}</b>.</p>
+    <div class="notif-banner-actions">
+      <button class="notif-no" type="button">Ahora no</button>
+      <button class="notif-yes" type="button">Activar</button>
+    </div>`;
+  document.body.appendChild(b);
+  requestAnimationFrame(() => requestAnimationFrame(() => b.classList.add("show")));
+
+  const cerrar = () => { b.classList.remove("show"); setTimeout(() => b.remove(), 400); };
+  b.querySelector(".notif-no").onclick = () => {
+    try { localStorage.setItem(`geinz_notif_skip_${uid}`, String(Date.now())); } catch { }
+    cerrar();
+  };
+  b.querySelector(".notif-yes").onclick = async () => {
+    cerrar();
+    await asegurarNotificaciones(uid, { gesto: true }); // aquí sí sale el diálogo del navegador
+  };
+}
 function bindFollowButton({ localidad, id }, biz) {
   const btn = document.getElementById("followBtn");
   const icon = document.getElementById("followIcon");
@@ -2308,6 +2379,7 @@ function bindFollowButton({ localidad, id }, biz) {
     const snap = await getDoc(clienteRef);
     setFollowUI(snap.exists());
     _followChecked = true;
+    if (snap.exists()) asegurarNotificaciones(uid);
     _followReady = true;
     tryHideLoader();
 
@@ -2336,12 +2408,7 @@ function bindFollowButton({ localidad, id }, biz) {
 
         try {
           if (next) {
-            // 👇 AGREGAR ESTA LÍNEA — pide permiso y guarda el token FCM
-            registrarTokenWeb(uid).catch((e) =>
-              console.warn("No se pudo registrar token FCM:", e.message),
-            );
-
-            const ubicacion = biz.ubicacion || {};
+            asegurarNotificaciones(uid, { gesto: true }); const ubicacion = biz.ubicacion || {};
             const yaExiste = await getDoc(clienteRef);
             const dataCliente = {
               id: uid,
@@ -3949,15 +4016,15 @@ function calcStatus(horario) {
     if (h > 0) return `${h}h`;
     return `${m}m`;
   };
-const abierto = estadoAbiertoAhora(horario);
-if (abierto) {
-  badge.className = "status-badge open";
-  stxt.textContent =
-    abierto.cierraEn <= 30
-      ? `Cierra pronto · ${abierto.hCierre}`
-      : `Cierra en ${formatDur(abierto.cierraEn)} · ${abierto.hCierre}`;
-  return;
-}
+  const abierto = estadoAbiertoAhora(horario);
+  if (abierto) {
+    badge.className = "status-badge open";
+    stxt.textContent =
+      abierto.cierraEn <= 30
+        ? `Cierra pronto · ${abierto.hCierre}`
+        : `Cierra en ${formatDur(abierto.cierraEn)} · ${abierto.hCierre}`;
+    return;
+  }
   // Día cerrado
   if (!today || today.cerrado || !today.bloques?.length) {
     const motivoTexto = today?.motivo ? ` · ${today.motivo}` : "";
@@ -6413,11 +6480,21 @@ function aplicarFooterYLegal(biz) {
   );
 
   // Seguimiento de pedidos (siempre visible)
+  // Seguimiento de pedidos (siempre visible)
   setLegalLink(
     "linkSeguimientoPedido",
     true,
     "seguimiento_pedido",
     "../../seguimiento/seguimiento_pedido.html",
+    biz,
+  );
+
+  // Historial de pedidos (siempre visible)
+  setLegalLink(
+    "linkHistorialPedidos",
+    true,
+    "historial_pedidos",
+    "../../seguimiento/historial_pedidos.html",
     biz,
   );
 }
@@ -10170,9 +10247,9 @@ function _deEstado(horarioDia, offset) {
     return null;
   const now = Date.now();
   for (const b of horarioDia.bloques) {
-const ini = _deMsLima(offset, b.h_apertura);
-let fin = _deMsLima(offset, b.h_cierre);
-if (fin <= ini) fin += 86400000; // cierra después de medianoche
+    const ini = _deMsLima(offset, b.h_apertura);
+    let fin = _deMsLima(offset, b.h_cierre);
+    if (fin <= ini) fin += 86400000; // cierra después de medianoche
     if (now < ini) return { modo: "abre", target: ini };
     if (now >= ini && now < fin) return { modo: "abierto", target: fin };
   }
@@ -11597,27 +11674,37 @@ const PEDIDO_ACTUAL_CSS = `
   .pw-sheet-title{margin:0 40px 4px 0;font-size:17px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;}
   .pw-sheet-sub{margin:0 0 16px;font-size:12px;color:#9c9ca3;}
 
-  @media (min-width:1024px){
-    .pw-pill,.pw-overlay{display:none !important;}
-    .pw-card{display:block;position:fixed;right:24px;bottom:96px;width:340px;max-height:calc(100dvh - 140px);overflow-y:auto;
-      z-index:9600;padding:14px;border-radius:22px;background:rgba(11,11,13,.94);
-      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-      border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
-      box-shadow:0 20px 50px -14px rgba(0,0,0,.8),0 0 36px -12px rgba(var(--dr),var(--dg),var(--db),.45);}
-    .pw-enter .pw-card{animation:pwCardIn .45s cubic-bezier(.22,.85,.32,1) both;}
-    @keyframes pwCardIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
-    .pw-card-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:#fff;}
-    .pw-card-head b{flex:1;font-weight:800;}
-    .pw-min{width:28px;height:28px;border:none;border-radius:50%;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;}
-    .pw-card.min .pw-card-head{margin-bottom:0;}
-    .pw-card.min .pw-card-list{display:none;}
+ @media (min-width:1024px){
+  .pw-pill{display:none !important;}
+  .pw-card{
+    display:block;position:fixed;right:0;top:40%;z-index:9600;
+    padding:14px 8px;border-radius:16px 0 0 16px;cursor:pointer;
+    background:rgba(11,11,13,.94);
+    border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);border-right:none;
+    box-shadow:0 12px 30px -8px rgba(0,0,0,.7);
   }
+  .pw-card-head{
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    writing-mode:vertical-rl;margin:0;font-size:12.5px;color:#fff;
+  }
+  .pw-card-head b{font-weight:800;}
+  .pw-card-list{display:none;}
+
+  /* el diálogo ahora también se ve en PC, centrado */
+  .pw-overlay{align-items:center;padding:24px;}
+  .pw-sheet{
+    border-radius:26px;
+    border-bottom:1px solid rgba(var(--dr),var(--dg),var(--db),.3);
+    transform:translateY(18px) scale(.95);
+  }
+  .pw-overlay.open .pw-sheet{transform:none;}
+}
 `;
 
 let _pwUnsub = null;
 let _pwUid = null;
 let _pwPedidos = [];
-let _pwMin = false;
+
 
 function injectPedidoActualStyles() {
   if (!document.getElementById("paStyle")) {
@@ -11731,14 +11818,12 @@ function renderPedidoActual() {
       <span>${n > 1 ? `Ver mis pedidos (${n})` : "Ver mi pedido actual"}</span>
       ${n === 1 ? `<span class="pw-state">· ${e.label}</span>` : ""}
     </button>
-    <aside class="pw-card${_pwMin ? " min" : ""}" aria-label="Mi pedido actual">
-      <div class="pw-card-head">
-        <span class="pa-live"></span>
-        <b>${n > 1 ? "Mis pedidos actuales" : "Mi pedido actual"}</b>
-        <button type="button" class="pw-min" data-pw="min" aria-label="${_pwMin ? "Expandir" : "Minimizar"}">${_pwMin ? "▴" : "▾"}</button>
-      </div>
-      <div class="pw-card-list">${filas}</div>
-    </aside>`;
+    <aside class="pw-card" aria-label="Mi pedido actual">
+  <div class="pw-card-head" data-pw="abrir">
+    <span class="pa-live"></span>
+    <b>${n > 1 ? "Mis pedidos actuales" : "Mi pedido actual"}</b>
+  </div>
+</aside>`;
 
   // Si el diálogo (celular) está abierto, se actualiza en vivo
   const list = document.getElementById("pwDialogList");

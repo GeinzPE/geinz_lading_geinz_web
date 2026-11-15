@@ -110,6 +110,14 @@
         "source": "/seguimiento_pedido",
         "destination": "/seguimiento/seguimiento_pedido.html"
       },
+      {
+        "source": "/perfil/*/historial_pedidos",
+        "destination": "/seguimiento/historial_pedidos.html"
+      },
+      {
+        "source": "/historial_pedidos",
+        "destination": "/seguimiento/historial_pedidos.html"
+      },
       { "source": "/perfil/*/*", "destination": "/pedidos/pedidos.html" },
       { "source": "/pedidos/**", "destination": "/pedidos/pedidos.html" },
 

@@ -3,10 +3,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
-  serverTimestamp,
-  runTransaction,
-  addDoc,
   query,
   orderBy,
   limit,
@@ -18,11 +14,14 @@ import {
   signInWithCustomToken,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
+  getFunctions,
+  httpsCallable,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+import {
   tiendaDoc,
   clienteDoc,
   tiendaDescuentosCol,
   data_user_logeado,
-  clienteCuponDoc,
   tiendaSubCol,
 } from "../rutas/rutas.js";
 import { setFaviconCircular } from "../favicon/favicon.js";
@@ -31,6 +30,7 @@ import { initFidelizacionUI } from "./fidelizacion_ui_front.js";
 const LANDING_BASE_URL = "https://geinztech.com";
 const LOCALIDAD_FIJA = "barranca";
 const AUTH_ORIGIN = "https://geinztech.com";
+const FUNCTIONS_REGION = "us-central1"; // IGUAL que CFG.REGION en fidelizacion_functions.js
 const ES_DOMINIO_PROPIO =
   location.hostname !== "geinztech.com" &&
   location.hostname !== "www.geinztech.com";
@@ -42,6 +42,34 @@ const NIVELES = [
 ];
 
 const HP_PAGE_SIZE = 15;
+
+/* ══════════════ Backend (Cloud Functions) ══════════════
+   Puntos, cupones, canjes y devoluciones se escriben SOLO en el servidor.
+   Aquí únicamente se llama y se pinta el resultado. */
+const functionsApp = getFunctions(auth.app, FUNCTIONS_REGION);
+
+async function llamarBackend(nombre, data) {
+  let res;
+  try {
+    res = (await httpsCallable(functionsApp, nombre)(data)).data;
+  } catch (err) {
+    console.error(nombre, err);
+    const sinSesion = err?.code === "functions/unauthenticated";
+    const e = new Error(
+      sinSesion
+        ? "Tu sesión expiró, vuelve a iniciar sesión"
+        : "No hay conexión con el servidor, intenta de nuevo",
+    );
+    e.esRed = !sinSesion; // el resultado real es desconocido: se puede reintentar con la MISMA clave
+    throw e;
+  }
+  if (!res || res.ok !== true)
+    throw new Error(res?.mensaje || "No se pudo completar, intenta de nuevo");
+  return res;
+}
+
+const tiendaPathActual = () =>
+  tiendaDoc(LOCALIDAD, "tiendas", NEGOCIO_ID).path;
 
 /* ══════════════ Estado global ══════════════ */
 let LOCALIDAD = LOCALIDAD_FIJA;
@@ -57,7 +85,7 @@ let _esperandoToken = new URLSearchParams(window.location.hash.slice(1)).has(
   "wl_token",
 );
 
-/* ══════════════ Horario de atención ══════════════ */
+/* ══════════════ Horario de atención (solo para pintar la UI; el servidor lo vuelve a validar) ══════════════ */
 const DIAS_SEMANA = [
   "domingo",
   "lunes",
@@ -288,7 +316,7 @@ function abrirLoginPopup(nombre, logoUrl, rgb) {
   }
 })();
 
-/* ══════════════ Datos ══════════════ */
+/* ══════════════ Datos (solo lectura) ══════════════ */
 async function cargarProductos(negocioId) {
   try {
     const col = tiendaDescuentosCol(LOCALIDAD, negocioId);
@@ -314,6 +342,7 @@ async function cargarUsuario(idUsuario) {
   return snap.exists() ? snap.data() : {};
 }
 
+/* Solo para ocultar premios agotados en pantalla; el servidor lo revalida al canjear */
 async function verificarDisponibilidadRecompensa(p) {
   // las recompensas manuales siempre están disponibles
   if (p.origen !== "catalogo" || !p.productoId || !p.categoria) return true;
@@ -571,7 +600,7 @@ function formatearFechaInicio(timestamp) {
 function showError(msg) {
   const box = document.getElementById("errorBox");
   if (!box) return;
-  box.innerHTML = msg;
+  box.textContent = msg;
   box.classList.remove("hidden");
 }
 
@@ -587,6 +616,14 @@ function revealCard() {
     setTimeout(() => skel.remove(), 420);
   }
 }
+
+/* Escapa texto de la base antes de meterlo en innerHTML */
+const esc = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
 
 /* ── Gate: no logeado ── */
 async function showLoginGate() {
@@ -611,7 +648,7 @@ async function showLoginGate() {
   const rgb = `${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)}`;
 
   const avatar = logo
-    ? `<img src="${logo}" alt="Logo" class="w-full h-full object-cover">`
+    ? `<img src="${esc(logo)}" alt="Logo" class="w-full h-full object-cover">`
     : `<div class="w-full h-full skeleton"></div>`;
 
   const accion = ES_DOMINIO_PROPIO
@@ -647,9 +684,9 @@ function showFollowGate(nombreTienda, logoURL, onFollow) {
     <div class="w-full max-w-sm mx-auto text-center px-4">
       <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
         <div class="logo-avatar mb-5"><div class="logo-avatar-inner">
-          ${logoURL ? `<img src="${logoURL}" alt="Logo" class="w-full h-full object-cover" crossorigin="anonymous">` : `<div class="w-full h-full skeleton"></div>`}
+          ${logoURL ? `<img src="${esc(logoURL)}" alt="Logo" class="w-full h-full object-cover" crossorigin="anonymous">` : `<div class="w-full h-full skeleton"></div>`}
         </div></div>
-        <p class="font-display font-semibold text-white text-base mb-2">Sigue a ${nombreTienda || "este negocio"}</p>
+        <p class="font-display font-semibold text-white text-base mb-2">Sigue a ${esc(nombreTienda || "este negocio")}</p>
         <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Para ver tu tarjeta y las recompensas que puedes canjear, primero debes seguir este negocio.</p>
         <button id="btnSeguirNegocio" class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold w-full max-w-[220px]">Seguir negocio</button>
         <p id="followError" class="hidden text-red-400/80 text-xs mt-3"></p>
@@ -677,15 +714,9 @@ function showFollowGate(nombreTienda, logoURL, onFollow) {
     });
 }
 
-async function seguirNegocio(uid) {
-  const ref = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
-  await setDoc(ref, {
-    id: uid,
-    id_usuario: uid,
-    puntos: 0,
-    fecha_inicio: serverTimestamp(),
-    ultimo_consumo: serverTimestamp(),
-  });
+/* La tarjeta (con 0 puntos) la crea el servidor */
+async function seguirNegocio() {
+  await llamarBackend("fidSeguirNegocio", { tiendaPath: tiendaPathActual() });
 }
 
 /* ══════════════ Tilt / Flip / QR / Barcode ══════════════ */
@@ -887,6 +918,8 @@ function pintarPuntosDOM(n) {
   if (h) h.textContent = `${t} pts`;
 }
 
+/* Solo lo que la UI necesita para pintar. El canje real lo hace el servidor
+   leyendo el premio por su id, así que aquí ya no viaja nada sensible. */
 function premiosParaUI(productos) {
   return productos
     .filter((p) => p.disponible !== false)
@@ -900,18 +933,7 @@ function premiosParaUI(productos) {
         .join(" · "),
       categoria: rfCategoriaDe(p),
       unico: p.origen !== "catalogo",
-      // campos que necesita el canje real (se conservan tal cual)
       origen: p.origen,
-      productoId: p.productoId,
-      tipoBeneficio: p.tipoBeneficio,
-      descuento: p.descuento,
-      varianteElegida: p.varianteElegida,
-      precioOriginal: p.precioOriginal,
-      precioFinalEstimado: p.precioFinalEstimado,
-      compraMinima: p.compraMinima,
-      tipoDescuentoManual: p.tipoDescuentoManual,
-      porcentajeManual: p.porcentajeManual,
-      montoManual: p.montoManual,
     }));
 }
 
@@ -987,246 +1009,25 @@ async function cargarCuponesActivos(uid) {
   }
 }
 
-/* Devuelve los puntos del cupón y lo marca como cancelado (transacción atómica) */
-async function cancelarCupon(cupon, uid) {
-  const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
-  const cuponRef = clienteCuponDoc(LOCALIDAD, NEGOCIO_ID, uid, cupon.codigo);
-  const costo = Number(cupon.costoPuntos ?? 0);
-
-  try {
-    await runTransaction(db, async (tx) => {
-      const cuponSnap = await tx.get(cuponRef);
-      if (!cuponSnap.exists()) throw { motivo: "cupon_no_existe" };
-
-      const cuponData = cuponSnap.data();
-      if (cuponData.estado !== "activo" || cuponData.usado) {
-        throw { motivo: "cupon_no_cancelable" };
-      }
-
-      const clienteSnap = await tx.get(clienteRef);
-      if (!clienteSnap.exists()) throw { motivo: "sin_cliente" };
-      const puntosActuales = Number(clienteSnap.data().puntos ?? 0);
-
-      tx.update(clienteRef, { puntos: puntosActuales + costo });
-      tx.update(cuponRef, {
-        estado: "cancelado",
-        canceladoEn: serverTimestamp(),
-      });
-    });
-
-    try {
-      await addDoc(
-        tiendaSubCol(
-          LOCALIDAD,
-          "tiendas",
-          NEGOCIO_ID,
-          "clientes",
-          uid,
-          "historial",
-        ),
-        {
-          tipo: "devolucion",
-          fecha: serverTimestamp(),
-          puntos: costo,
-          concepto: `Devolución: ${cupon.nombre || cupon.productoNombre || "cupón"}`,
-          codigoCupon: cupon.codigo,
-        },
-      );
-    } catch (e) {
-      console.warn("No se pudo registrar el historial de devolución:", e);
-    }
-
-    return true;
-  } catch (err) {
-    console.error("Error cancelando cupón:", err);
-    if (err?.motivo === "cupon_no_cancelable") {
-      showError(
-        "Este cupón ya no se puede cancelar (ya fue usado o cancelado).",
-      );
-    } else {
-      showError("No se pudo cancelar el cupón, intenta de nuevo.");
-    }
-    return false;
-  }
-}
-
+/* Cancelar: el servidor devuelve los puntos, marca el cupón y registra el historial */
 async function onCancelarCuponUI(cupon) {
-  const ok = await cancelarCupon(cupon, UID_ACTUAL);
-  if (!ok) throw new Error("No se pudo cancelar");
-  const snap = await getDoc(clienteDoc(LOCALIDAD, NEGOCIO_ID, UID_ACTUAL));
-  const puntos = Number(snap.data()?.puntos ?? 0);
+  let res;
+  try {
+    res = await llamarBackend("fidCancelarCupon", {
+      tiendaPath: tiendaPathActual(),
+      codigo: cupon.codigo,
+    });
+  } catch (err) {
+    showError(err.message);
+    throw err;
+  }
+  const puntos = Number(res.puntos ?? 0);
   pintarPuntosDOM(puntos);
   ui?.setPuntos(puntos);
   await cargarCuponesActivos(UID_ACTUAL);
 }
 
 /* ══════════════ Canje ══════════════ */
-function generarCodigoCupon() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I
-  let codigo = "";
-  for (let i = 0; i < 8; i++) {
-    codigo += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return codigo;
-}
-
-function armarCuponData(producto, codigo, uid) {
-  const esProducto = producto.origen === "catalogo";
-  return {
-    codigo,
-    tipo: esProducto ? "producto" : "manual",
-    origen: "fidelizacion",
-    costoPuntos: Number(producto.costoPuntos ?? 0),
-    nombre: producto.nombre || null,
-    productoId: esProducto ? producto.productoId || null : null,
-    productoNombre: esProducto ? producto.nombre || null : null,
-    tipoBeneficio: esProducto ? producto.tipoBeneficio || null : null,
-    descuento: esProducto ? producto.descuento || null : null,
-    varianteElegida: esProducto ? producto.varianteElegida || null : null,
-    precioOriginal: esProducto ? (producto.precioOriginal ?? null) : null,
-    precioFinalEstimado: esProducto
-      ? (producto.precioFinalEstimado ?? null)
-      : null,
-    compraMinima: !esProducto ? Number(producto.compraMinima ?? 0) : null,
-    tipoDescuentoManual: !esProducto
-      ? producto.tipoDescuentoManual || null
-      : null,
-    porcentajeManual: !esProducto ? (producto.porcentajeManual ?? null) : null,
-    montoManual: !esProducto ? (producto.montoManual ?? null) : null,
-    clienteId: uid,
-    negocioId: NEGOCIO_ID,
-    localidad: LOCALIDAD,
-    estado: "activo",
-    usado: false,
-    pedidoId: null,
-    creado: serverTimestamp(),
-  };
-}
-
-/* Canje de VARIOS premios en UNA sola transacción (todo o nada) */
-async function canjearVarios(itemsIn, uid) {
-  const items = itemsIn.map((it) => ({
-    premio: it.premio,
-    cantidad: it.premio?.unico ? 1 : it.cantidad,
-  }));
-  const unidades = [];
-  items.forEach(({ premio, cantidad }) => {
-    for (let i = 0; i < cantidad; i++) unidades.push(premio);
-  });
-  if (!unidades.length) throw new Error("No elegiste ningún premio");
-  // Solo UN premio de origen manual (descuento %, monto o compra mínima) por canje
-  const manuales = items.filter((it) => it.premio?.origen !== "catalogo");
-  if (manuales.length > 1)
-    throw new Error("Solo puedes canjear un cupón de descuento a la vez");
-  const total = unidades.reduce((s, p) => s + Number(p.costoPuntos || 0), 0);
-  const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
-
-  const codigos = new Set();
-  while (codigos.size < unidades.length) codigos.add(generarCodigoCupon());
-  const lista = [...codigos];
-  const cuponRefs = lista.map((c) =>
-    clienteCuponDoc(LOCALIDAD, NEGOCIO_ID, uid, c),
-  );
-
-  // Un solo ref por producto real del catálogo
-  const prodRefs = new Map();
-  unidades.forEach((p) => {
-    if (
-      p.origen === "catalogo" &&
-      p.productoId &&
-      p.categoria &&
-      !prodRefs.has(p.productoId)
-    ) {
-      prodRefs.set(
-        p.productoId,
-        doc(
-          tiendaSubCol(
-            LOCALIDAD,
-            "tiendas",
-            NEGOCIO_ID,
-            "productos",
-            p.categoria,
-            p.categoria,
-          ),
-          p.productoId,
-        ),
-      );
-    }
-  });
-
-  let puntosRestantes = 0;
-  await runTransaction(db, async (tx) => {
-    // ---- lecturas ----
-    const cs = await tx.get(clienteRef);
-    if (!cs.exists()) throw new Error("No encontramos tu tarjeta");
-    const puntosDb = Number(cs.data().puntos ?? 0);
-    if (puntosDb < total)
-      throw new Error("Tus puntos cambiaron, ya no te alcanzan");
-
-    const prodData = new Map();
-    for (const [id, ref] of prodRefs) {
-      const s = await tx.get(ref);
-      prodData.set(id, s.exists() ? s.data() : null);
-    }
-    for (const ref of cuponRefs) {
-      const s = await tx.get(ref);
-      if (s.exists()) throw new Error("Código duplicado, intenta de nuevo");
-    }
-
-    // ---- validaciones ----
-    for (const p of unidades) {
-      if (!prodRefs.has(p.productoId)) continue;
-      const d = prodData.get(p.productoId);
-      if (!d || d.disponible === false)
-        throw new Error(`"${p.nombre}" ya no está disponible`);
-      const ve = p.varianteElegida;
-      if (ve && typeof ve === "object") {
-        for (const [cn, on] of Object.entries(ve)) {
-          const cond = (d.condiciones || []).find((c) => c.nombre === cn);
-          const op = cond?.opciones?.find((o) => o.nombre === on);
-          const sinStock = typeof op?.stock === "number" && op.stock <= 0;
-          if (!cond || !op || op.activo === false || sinStock)
-            throw new Error(
-              `La variante de "${p.nombre}" ya no está disponible`,
-            );
-        }
-      }
-    }
-
-    // ---- escrituras ----
-    puntosRestantes = puntosDb - total;
-    tx.update(clienteRef, { puntos: puntosRestantes });
-    unidades.forEach((p, i) =>
-      tx.set(cuponRefs[i], armarCuponData(p, lista[i], uid)),
-    );
-  });
-
-  // Historial (una línea por premio, fuera de la transacción)
-  const histRef = tiendaSubCol(
-    LOCALIDAD,
-    "tiendas",
-    NEGOCIO_ID,
-    "clientes",
-    uid,
-    "historial",
-  );
-  await Promise.all(
-    items.map(({ premio, cantidad }) =>
-      addDoc(histRef, {
-        tipo: "canje",
-        fecha: serverTimestamp(),
-        puntos: -Number(premio.costoPuntos || 0) * cantidad,
-        concepto:
-          cantidad > 1
-            ? `${premio.nombre} ×${cantidad}`
-            : premio.nombre || "Canje de recompensa",
-      }).catch((e) => console.warn("historial canje:", e)),
-    ),
-  );
-
-  return { codigos: lista, puntosRestantes };
-}
-
 function urlCarrito() {
   if (ES_DOMINIO_PROPIO) return "/carrito";
   if (ALIAS_NEGOCIO)
@@ -1243,18 +1044,101 @@ function irAlCarritoConCupon(codigos) {
       : `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}&cupon=${c}`;
   window.location.href = destino;
 }
+
+/* ── Bloqueo del canje ──
+   Desde el clic hasta que la página navega al carrito:
+   · una capa tapa toda la pantalla (el diálogo se queda debajo, sin poder tocarse)
+   · no se acepta otro canje (evita canjear 2 veces mientras carga el carrito)
+   · si falla por red, el reintento reutiliza la MISMA clave: el servidor no cobra doble */
+let canjeBloqueado = false;
+let canjePendiente = null; // { firma, key }
+
+function overlayCanje(texto) {
+  let el = document.getElementById("canjeOverlay");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "canjeOverlay";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    el.style.cssText =
+      "position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);cursor:wait;padding:1rem";
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-radius:16px;background:#0d0e12;border:1px solid rgba(255,255,255,.12);color:#fff;font:600 13px Inter,sans-serif;box-shadow:0 20px 50px rgba(0,0,0,.6);max-width:90vw">
+        <span style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.2);border-top-color:var(--brand-vivid,#fff);animation:canjeSpin .8s linear infinite"></span>
+        <span id="canjeOverlayTxt"></span>
+      </div>
+      <style>@keyframes canjeSpin{to{transform:rotate(360deg)}}</style>`;
+    document.body.appendChild(el);
+  }
+  el.querySelector("#canjeOverlayTxt").textContent = texto;
+}
+function quitarOverlayCanje() {
+  document.getElementById("canjeOverlay")?.remove();
+}
+
+// Si el usuario vuelve atrás desde el carrito, la página restaurada no debe quedar congelada
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted) location.reload();
+});
+
+/* Canje de VARIOS premios: el servidor valida y cobra todo en una sola transacción */
 async function onCanjearUI(items) {
+  // Ya hay un canje en curso (o ya canjeó y se está yendo al carrito): ignora clics extra
+  if (canjeBloqueado) return new Promise(() => {});
+
   if (!horarioEstado.abierto)
     throw new Error(horarioEstado.mensaje || "El negocio está cerrado ahora");
   if (!UID_ACTUAL) throw new Error("Debes iniciar sesión");
 
-  const { codigos, puntosRestantes } = await canjearVarios(items, UID_ACTUAL);
-  // Solo el texto de la tarjeta: el módulo ya resta los puntos en su estado.
-  pintarPuntosDOM(puntosRestantes);
-  cargarCuponesActivos(UID_ACTUAL);
+  const lineas = items
+    .filter((it) => it?.premio?.id)
+    .map((it) => ({ id: it.premio.id, cantidad: Number(it.cantidad) || 1 }));
+  if (!lineas.length) throw new Error("No elegiste ningún premio");
 
-  // Un solo premio: te lleva al carrito con el cupón aplicado.
-  if (codigos.length) setTimeout(() => irAlCarritoConCupon(codigos), 700);
+  canjeBloqueado = true;
+  overlayCanje("Procesando tu canje…");
+
+  const firma = JSON.stringify(
+    [...lineas].sort((a, b) => a.id.localeCompare(b.id)),
+  );
+  if (!canjePendiente || canjePendiente.firma !== firma)
+    canjePendiente = { firma, key: crypto.randomUUID() };
+
+  let res;
+  try {
+    res = await llamarBackend("fidCanjearPuntos", {
+      tiendaPath: tiendaPathActual(),
+      key: canjePendiente.key,
+      items: lineas,
+    });
+  } catch (err) {
+    // Rechazo definitivo del servidor → clave nueva la próxima vez.
+    // Error de red → se conserva la clave para reintentar sin doble cobro.
+    if (!err.esRed) canjePendiente = null;
+    canjeBloqueado = false;
+    quitarOverlayCanje();
+    throw err; // el diálogo muestra el error como antes
+  }
+
+  canjePendiente = null;
+  const { codigos, puntosRestantes } = res;
+  pintarPuntosDOM(puntosRestantes);
+
+  if (!codigos?.length) {
+    canjeBloqueado = false;
+    quitarOverlayCanje();
+    return;
+  }
+
+  // Canje hecho: la pantalla queda BLOQUEADA hasta que cargue el carrito.
+  overlayCanje("¡Canje listo! Te llevamos al carrito…");
+  setTimeout(() => irAlCarritoConCupon(codigos), 400);
+  // Red de seguridad: si por algo no navega, recarga para mostrar el cupón ya creado
+  setTimeout(() => location.reload(), 20000);
+
+  // Promesa que NUNCA se resuelve: el diálogo no se cierra ni se reactiva
+  // hasta que el navegador abandona la página.
+  return new Promise(() => {});
 }
 
 /* ══════════════ Carga principal ══════════════ */
@@ -1282,7 +1166,7 @@ async function cargarDatos(uid) {
       "";
     if (!clienteSnap.exists()) {
       showFollowGate(nombreTienda, logoURL, async () => {
-        await seguirNegocio(uid);
+        await seguirNegocio();
         await cargarDatos(uid);
       });
       return;

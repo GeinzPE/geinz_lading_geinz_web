@@ -3540,6 +3540,29 @@ document.getElementById("pedidoSearchClear")?.addEventListener("click", () => {
   ejecutarBusquedaPedido("");
   input?.focus();
 });
+/* ── Aviso "ya llegué" del cliente (puede avisar varias veces) ── */
+function numAvisosLlegada(p) {
+  return p?.cliente_en_local ? Math.max(1, Number(p.avisos_llegada) || 1) : 0;
+}
+function textoLlegada(p) {
+  const n = numAvisosLlegada(p);
+  if (!n) return "";
+  const lugar =
+    p.cliente?.tipo_entrega === "Recojo en punto"
+      ? "en el punto de entrega"
+      : "en el local";
+  return `📍 Cliente ${lugar}${n > 1 ? ` · avisó ${n} veces` : ""}`;
+}
+// true si es el primer aviso o un aviso repetido
+function esAvisoLlegadaNuevo(anterior, data) {
+  if (!data.cliente_en_local) return false;
+  if (!anterior?.cliente_en_local) return true;
+  if ((Number(data.avisos_llegada) || 0) > (Number(anterior.avisos_llegada) || 0))
+    return true;
+  const t1 = data.cliente_en_local_en?.toMillis?.() || 0;
+  const t0 = anterior.cliente_en_local_en?.toMillis?.() || 0;
+  return t0 > 0 && t1 > t0;
+}
 function buildCard(id, p) {
   const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
   const fecha = toDate(p.timestamp);
@@ -3575,7 +3598,7 @@ function buildCard(id, p) {
     <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidor ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
     ${cliente.whatsapp ? `<div style="font-size:11px;font-weight:700;color:#25d366;margin-top:2px;">📱 ${escapeHtml(cliente.whatsapp)}</div>` : ""}
-    ${p.cliente_en_local ? `<div style="font-size:11px;font-weight:800;color:#ec4899;margin-top:2px;">📍 Cliente en el local</div>` : ""}
+    ${p.cliente_en_local ? `<div style="font-size:11px;font-weight:800;color:#ec4899;margin-top:2px;">${textoLlegada(p)}</div>` : ""}
            ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}
        ${Number(p.descuentoCupon) > 0 ? `<div class="oc-descuento-line" style="font-size:11px;font-weight:700;color:#4ade80;margin-top:2px;">🏷️ Descuento aplicado: -${fmtMoney(p.descuentoCupon)}</div>` : ""}
       ${p.tiempo_estimado ? `<div style="font-size:11px;font-weight:700;color:#a78bfa;margin-top:2px;">⏱️ ${p.tiempo_estimado.min}–${p.tiempo_estimado.max} min</div>` : ""}
@@ -3635,7 +3658,7 @@ function renderCardActions(container, id, estado, p) {
     </div>`;
   } else if (estado === "listo") {
     container.innerHTML = `
-    <div class="oc-final-tag" style="width:100%;background:rgba(45,212,191,.12);color:#2dd4bf;">🛎️ Listo${p.cliente_en_local ? " · 📍 cliente en el local" : ""}</div>
+    <div class="oc-final-tag" style="width:100%;background:rgba(45,212,191,.12);color:#2dd4bf;">🛎️ Listo${p.cliente_en_local ? " · " + textoLlegada(p) : ""}</div>
     <div class="oc-actions" style="margin-top:8px;">
       <button class="oc-btn ghost" data-action="en_proceso">← Atrás</button>
       <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
@@ -5151,6 +5174,18 @@ function renderDetail(id) {
             : ""
         }
         ${whatsappBlock}
+        ${
+          p.cliente_en_local
+            ? `<div class="dm-meta-item full">
+                <div class="dm-meta-label">📍 Aviso de llegada</div>
+                <div class="dm-meta-value" style="color:#ec4899;font-weight:800;">${escapeHtml(textoLlegada(p))}${
+                  toDate(p.cliente_en_local_en)
+                    ? ` · último aviso ${escapeHtml(timeAgo(toDate(p.cliente_en_local_en)))}`
+                    : ""
+                }</div>
+              </div>`
+            : ""
+        }
         <div class="dm-meta-item">
           <div class="dm-meta-label">${pagoIco} Método de pago</div>
           <div class="dm-meta-value">${escapeHtml(pago.metodo || "Sin especificar")}</div>
@@ -5236,7 +5271,7 @@ function renderModalActions(container, id, estado, p) {
       <button class="oc-btn primary v-green"data-action="listo">Marcar listo ✓</button>`;
   } else if (estado === "listo") {
     container.innerHTML = `
-    <div class="oc-final-tag" style="width:100%;background:rgba(45,212,191,.12);color:#2dd4bf;">🛎️ Pedido listo${p.cliente_en_local ? " · 📍 cliente en el local" : ""}</div>
+    <div class="oc-final-tag" style="width:100%;background:rgba(45,212,191,.12);color:#2dd4bf;">🛎️ Pedido listo${p.cliente_en_local ? " · " + textoLlegada(p) : ""}</div>
     <button class="oc-btn ghost" data-action="en_proceso">← Volver a en proceso</button>
     <button class="oc-btn primary v-green" data-action="entregado">Marcar entregado ✓</button>`;
   } else if (estado === "en_pausa") {
@@ -9029,7 +9064,7 @@ function suscribirPedidos() {
             voucherNotificados.add(id);
             pagosRecibidosNuevos.push({ id, data });
           }
-          if (data.cliente_en_local && !anterior?.cliente_en_local)
+          if (esAvisoLlegadaNuevo(anterior, data))
             enLocalNuevos.push({ id, data });
         }
 
@@ -9092,12 +9127,16 @@ function suscribirPedidos() {
             : `💸 ${pagosRecibidosNuevos.length} clientes enviaron su comprobante de pago`,
         );
       }
-
       if (enLocalNuevos.length) {
-        playSoundOnce(SND_CLIENTE_EN_LOCAL); // suena una sola vez
+        playSoundOnce(SND_CLIENTE_EN_LOCAL); // suena en cada aviso, también en los repetidos
         bellRingFeedback();
         showToast(
-          `📍 ${enLocalNuevos.map(({ data }) => data.cliente?.nombre || "Cliente").join(", ")} ya está en el local`,
+          enLocalNuevos
+            .map(({ data }) => {
+              const n = numAvisosLlegada(data);
+              return `📍 ${data.cliente?.nombre || "Cliente"} ya llegó${n > 1 ? ` (aviso #${n})` : ""}`;
+            })
+            .join(" · "),
         );
       }
       if (canceladosPorClienteEnPausa.length) {
