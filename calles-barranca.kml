@@ -1,0 +1,1014 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Calles de Barranca</name>
+    <Placemark>
+      <name>Antigua Panamericana Norte</name>
+      <Point><coordinates>-77.7753752,-10.7272172,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida A</name>
+      <Point><coordinates>-77.7737209,-10.7368759,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Alfonso Ugarte</name>
+      <Point><coordinates>-77.7530154,-10.7474602,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Ancash</name>
+      <Point><coordinates>-77.7724463,-10.7269675,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Aviación</name>
+      <Point><coordinates>-77.7531935,-10.7499234,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida B</name>
+      <Point><coordinates>-77.774176,-10.7361163,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Chorrillos</name>
+      <Point><coordinates>-77.765427,-10.7596688,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Costanera</name>
+      <Point><coordinates>-77.7605415,-10.7651723,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida del Ejército</name>
+      <Point><coordinates>-77.7665649,-10.7556301,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida El Bosque</name>
+      <Point><coordinates>-77.7664528,-10.7429543,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida F</name>
+      <Point><coordinates>-77.7625969,-10.743451,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida José de la Riva Agüero</name>
+      <Point><coordinates>-77.7636191,-10.7441189,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida José Gálvez</name>
+      <Point><coordinates>-77.7585869,-10.7540767,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida José Victor García Gutiérrez</name>
+      <Point><coordinates>-77.7573046,-10.7620092,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Las Gardenias</name>
+      <Point><coordinates>-77.751011,-10.7441136,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Lima</name>
+      <Point><coordinates>-77.7544229,-10.7577616,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Los Libertadores</name>
+      <Point><coordinates>-77.7611548,-10.758409,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Miramar</name>
+      <Point><coordinates>-77.7589003,-10.7592517,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Pedro Sayan</name>
+      <Point><coordinates>-77.755464,-10.7489112,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Republica de Canada</name>
+      <Point><coordinates>-77.7524195,-10.7529735,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Sesquicentenario</name>
+      <Point><coordinates>-77.7546789,-10.7545081,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Socabaya</name>
+      <Point><coordinates>-77.7541738,-10.7526603,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Avenida Toribio Luzuriaga</name>
+      <Point><coordinates>-77.7719943,-10.7257039,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 1</name>
+      <Point><coordinates>-77.7600619,-10.7397733,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 10</name>
+      <Point><coordinates>-77.7744889,-10.7361762,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 11</name>
+      <Point><coordinates>-77.761178,-10.7425381,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 12</name>
+      <Point><coordinates>-77.7615143,-10.7395352,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 13</name>
+      <Point><coordinates>-77.7619326,-10.7397361,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 14</name>
+      <Point><coordinates>-77.7628923,-10.7400039,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 17</name>
+      <Point><coordinates>-77.7494379,-10.7411109,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 2</name>
+      <Point><coordinates>-77.7565688,-10.7423832,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 3</name>
+      <Point><coordinates>-77.7506511,-10.7429531,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 4</name>
+      <Point><coordinates>-77.7646576,-10.741326,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 5</name>
+      <Point><coordinates>-77.7500792,-10.7420586,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 6</name>
+      <Point><coordinates>-77.7495818,-10.7421537,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 7</name>
+      <Point><coordinates>-77.7618078,-10.7414263,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 8</name>
+      <Point><coordinates>-77.7637643,-10.7425104,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle 9</name>
+      <Point><coordinates>-77.7633579,-10.7433425,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Antonia Morales</name>
+      <Point><coordinates>-77.7508633,-10.7463395,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Apolo</name>
+      <Point><coordinates>-77.7618002,-10.7596669,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Arequipa</name>
+      <Point><coordinates>-77.7609744,-10.7397326,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle B</name>
+      <Point><coordinates>-77.7664403,-10.741455,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Belén</name>
+      <Point><coordinates>-77.7635718,-10.7449685,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Cerro Colorado</name>
+      <Point><coordinates>-77.75301,-10.7430465,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle del Parque</name>
+      <Point><coordinates>-77.7548836,-10.756435,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Ferrocarril</name>
+      <Point><coordinates>-77.7450549,-10.7734947,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle G</name>
+      <Point><coordinates>-77.7684869,-10.741196,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle H</name>
+      <Point><coordinates>-77.7677082,-10.7407021,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Huanta</name>
+      <Point><coordinates>-77.759667,-10.7617936,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Huascar</name>
+      <Point><coordinates>-77.7542288,-10.7518966,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Huascarán</name>
+      <Point><coordinates>-77.7612703,-10.7442525,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle I</name>
+      <Point><coordinates>-77.7661318,-10.7410367,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Ilo</name>
+      <Point><coordinates>-77.7721643,-10.7374667,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Independencia</name>
+      <Point><coordinates>-77.7633822,-10.7530881,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Isabel Maguña</name>
+      <Point><coordinates>-77.761878,-10.7444407,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle J</name>
+      <Point><coordinates>-77.7655553,-10.7402869,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Jacaranda</name>
+      <Point><coordinates>-77.7511627,-10.7453802,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Jerusalen</name>
+      <Point><coordinates>-77.7627916,-10.7447248,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Jose Santos Chocano</name>
+      <Point><coordinates>-77.755277,-10.7479118,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Júpiter</name>
+      <Point><coordinates>-77.762557,-10.7586478,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle K</name>
+      <Point><coordinates>-77.7639259,-10.740282,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle L</name>
+      <Point><coordinates>-77.7681052,-10.7409364,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle La Acaceas</name>
+      <Point><coordinates>-77.7522446,-10.745813,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle La Merced</name>
+      <Point><coordinates>-77.7600748,-10.7620931,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Lamar</name>
+      <Point><coordinates>-77.7553003,-10.7454656,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Las Brisas</name>
+      <Point><coordinates>-77.7612058,-10.7660519,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Las Moreras</name>
+      <Point><coordinates>-77.7507553,-10.7450195,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Las Orquideas</name>
+      <Point><coordinates>-77.7541331,-10.7535787,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Las Turquezas</name>
+      <Point><coordinates>-77.7537502,-10.7530444,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Los Cedros</name>
+      <Point><coordinates>-77.7662556,-10.7437985,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Los Eucaliptos</name>
+      <Point><coordinates>-77.7528894,-10.7453932,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Los Geranios</name>
+      <Point><coordinates>-77.7540161,-10.7530226,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Los Pinos</name>
+      <Point><coordinates>-77.7536252,-10.7461733,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Los Rosales</name>
+      <Point><coordinates>-77.7520635,-10.7447036,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Los Sauces</name>
+      <Point><coordinates>-77.7531783,-10.7460625,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Los Tilos</name>
+      <Point><coordinates>-77.7527126,-10.747049,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Los Tulipanes</name>
+      <Point><coordinates>-77.7534526,-10.7528027,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Manuel Arévalo</name>
+      <Point><coordinates>-77.7535922,-10.7513415,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Manuel Laica Elias</name>
+      <Point><coordinates>-77.7614595,-10.75789,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Maria P. de Bellido</name>
+      <Point><coordinates>-77.7556444,-10.7480491,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Mi Peru</name>
+      <Point><coordinates>-77.7720849,-10.7392866,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle O</name>
+      <Point><coordinates>-77.7640584,-10.7418499,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Pampilia</name>
+      <Point><coordinates>-77.7516419,-10.743656,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Puno</name>
+      <Point><coordinates>-77.7721433,-10.7416646,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle San Ignacio</name>
+      <Point><coordinates>-77.7512934,-10.7459659,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle San Javier</name>
+      <Point><coordinates>-77.7706371,-10.7400358,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle San José</name>
+      <Point><coordinates>-77.7736884,-10.7376541,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle San Martín</name>
+      <Point><coordinates>-77.7423273,-10.7812999,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle San Mateo</name>
+      <Point><coordinates>-77.7512119,-10.7445461,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle San Nicolas</name>
+      <Point><coordinates>-77.7720186,-10.738783,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle San Pablo</name>
+      <Point><coordinates>-77.7566586,-10.7499558,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle San Pedro</name>
+      <Point><coordinates>-77.7562559,-10.7496255,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Santa Clara</name>
+      <Point><coordinates>-77.7663775,-10.7481034,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Santa Rita</name>
+      <Point><coordinates>-77.7665098,-10.747676,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Santa Rosa</name>
+      <Point><coordinates>-77.7666224,-10.7472558,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Santiago Gómez</name>
+      <Point><coordinates>-77.7517513,-10.7421199,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Selva Alegre</name>
+      <Point><coordinates>-77.7527703,-10.7435086,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Calle Virgen de Lourdes</name>
+      <Point><coordinates>-77.7666908,-10.7585188,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Elias Aguirre</name>
+      <Point><coordinates>-77.7701759,-10.7258047,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón 9 de Diciembre</name>
+      <Point><coordinates>-77.7674598,-10.7492383,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Abraham Valdelomar</name>
+      <Point><coordinates>-77.7681688,-10.7505738,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Alfonso Ugarte</name>
+      <Point><coordinates>-77.7602863,-10.7531366,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Andrés Avelino Cáceres</name>
+      <Point><coordinates>-77.7646186,-10.7587526,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Arequipa</name>
+      <Point><coordinates>-77.7641082,-10.7492845,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Arica</name>
+      <Point><coordinates>-77.7632618,-10.7558963,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Augusto B. Leguía</name>
+      <Point><coordinates>-77.7608829,-10.7563602,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Bartolomé de las Casas</name>
+      <Point><coordinates>-77.758252,-10.7491998,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Belisario Suarez</name>
+      <Point><coordinates>-77.7605713,-10.7557272,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Berenice Davila Naupuri</name>
+      <Point><coordinates>-77.7660186,-10.7503627,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Bernice Davila</name>
+      <Point><coordinates>-77.7603586,-10.7476882,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Bolognesi</name>
+      <Point><coordinates>-77.7598918,-10.7536315,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Callao</name>
+      <Point><coordinates>-77.7668131,-10.7457721,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Carlos Sayan</name>
+      <Point><coordinates>-77.7662486,-10.7463055,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Chavin</name>
+      <Point><coordinates>-77.7601652,-10.7616164,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Colorado</name>
+      <Point><coordinates>-77.7608835,-10.7664611,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Cusco</name>
+      <Point><coordinates>-77.7583315,-10.7571384,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Dios del Olimpo</name>
+      <Point><coordinates>-77.7614781,-10.7606262,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón El Lino</name>
+      <Point><coordinates>-77.7561795,-10.7587443,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Enrique López Albújar</name>
+      <Point><coordinates>-77.7689231,-10.7509571,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Enrique Palacios</name>
+      <Point><coordinates>-77.7592687,-10.7552983,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Francisco Vidal</name>
+      <Point><coordinates>-77.7633472,-10.7474374,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Guardia Civíl</name>
+      <Point><coordinates>-77.7566588,-10.7513488,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Hipólito Unanue</name>
+      <Point><coordinates>-77.7690061,-10.7519482,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Huancayo</name>
+      <Point><coordinates>-77.7594005,-10.7620891,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Inca Garcilaso de la Vega</name>
+      <Point><coordinates>-77.7676978,-10.7531742,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Independencia</name>
+      <Point><coordinates>-77.7595835,-10.7585343,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Isabel la Católica</name>
+      <Point><coordinates>-77.7580588,-10.7462213,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón José Faustino Sánchez Carrión</name>
+      <Point><coordinates>-77.7575632,-10.7488641,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Jose Olaya</name>
+      <Point><coordinates>-77.7606243,-10.7507776,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón La Arboleda</name>
+      <Point><coordinates>-77.7645361,-10.7431362,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón La Atarjea</name>
+      <Point><coordinates>-77.7556358,-10.7441531,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Las Casuarias</name>
+      <Point><coordinates>-77.7658312,-10.7432389,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Lauriama</name>
+      <Point><coordinates>-77.7594314,-10.7494198,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Leoncio Prado</name>
+      <Point><coordinates>-77.757855,-10.7527034,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Los Emprendedores</name>
+      <Point><coordinates>-77.761544,-10.7600067,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Los Ficus</name>
+      <Point><coordinates>-77.7658798,-10.7431842,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Los Huarangos</name>
+      <Point><coordinates>-77.7653298,-10.743421,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Los Robles</name>
+      <Point><coordinates>-77.7650058,-10.7436071,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Manco Capac</name>
+      <Point><coordinates>-77.7611886,-10.7590708,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Mariano Melgar</name>
+      <Point><coordinates>-77.757659,-10.7451776,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Mariscal Andres Santa Cruz</name>
+      <Point><coordinates>-77.7576571,-10.7481417,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Miguel Grau</name>
+      <Point><coordinates>-77.7609758,-10.7539116,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Nicolas de Pierola</name>
+      <Point><coordinates>-77.7648305,-10.7526888,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Pampa De Lara</name>
+      <Point><coordinates>-77.7642994,-10.7462368,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Pan de Azucar</name>
+      <Point><coordinates>-77.7335748,-10.7854347,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Pedro Ruiz Gallo</name>
+      <Point><coordinates>-77.7589617,-10.743515,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Primavera</name>
+      <Point><coordinates>-77.7610928,-10.7542928,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Progreso</name>
+      <Point><coordinates>-77.7638936,-10.7507564,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Ramón Castilla</name>
+      <Point><coordinates>-77.7639657,-10.7474676,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Ramon Zavala</name>
+      <Point><coordinates>-77.7614641,-10.7516294,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Ricardo Palma Soriano</name>
+      <Point><coordinates>-77.7605343,-10.7482256,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Sáenz Peña</name>
+      <Point><coordinates>-77.7580623,-10.7506334,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón San Antonio</name>
+      <Point><coordinates>-77.7565787,-10.7530971,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón San Bartolome</name>
+      <Point><coordinates>-77.7587716,-10.7584661,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón San Francisco</name>
+      <Point><coordinates>-77.7728756,-10.7421803,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón San Martin</name>
+      <Point><coordinates>-77.773859,-10.7415779,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón San Martin de Porras</name>
+      <Point><coordinates>-77.7645632,-10.7547289,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón San Vicente</name>
+      <Point><coordinates>-77.7577873,-10.7452129,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Santa Catalina</name>
+      <Point><coordinates>-77.7721691,-10.7432462,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Santa Rosa</name>
+      <Point><coordinates>-77.7716697,-10.7408831,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Santiago Antúnez de Mayolo</name>
+      <Point><coordinates>-77.7663015,-10.7531453,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Vilela</name>
+      <Point><coordinates>-77.760929,-10.7490657,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Jirón Zeus</name>
+      <Point><coordinates>-77.7619097,-10.7588396,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>José de San Martín</name>
+      <Point><coordinates>-77.7723214,-10.7266099,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Los Jasminez</name>
+      <Point><coordinates>-77.7541614,-10.7527223,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Miguel Grau Seminario</name>
+      <Point><coordinates>-77.7715938,-10.7279927,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Panamericana Norte</name>
+      <Point><coordinates>-77.7361568,-10.7559998,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje 1</name>
+      <Point><coordinates>-77.7569907,-10.7460916,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje 2</name>
+      <Point><coordinates>-77.761402,-10.7398318,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje 23 de Septiembre</name>
+      <Point><coordinates>-77.7621525,-10.7570745,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje 3</name>
+      <Point><coordinates>-77.762662,-10.7398034,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje 5</name>
+      <Point><coordinates>-77.7545784,-10.7452322,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje 7</name>
+      <Point><coordinates>-77.7536515,-10.7451078,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje 8</name>
+      <Point><coordinates>-77.7530055,-10.7447188,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Agustín Dávila</name>
+      <Point><coordinates>-77.7574354,-10.7488421,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Aires</name>
+      <Point><coordinates>-77.760181,-10.7567696,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Ancash</name>
+      <Point><coordinates>-77.7579342,-10.7447113,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Andrés Bello</name>
+      <Point><coordinates>-77.7592648,-10.7476632,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Arequipa</name>
+      <Point><coordinates>-77.7743979,-10.7413194,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Atahualpa</name>
+      <Point><coordinates>-77.7676996,-10.7515987,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Bellavista</name>
+      <Point><coordinates>-77.7660712,-10.7455191,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Cielo</name>
+      <Point><coordinates>-77.761202,-10.7575023,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Costanera</name>
+      <Point><coordinates>-77.7636437,-10.7577172,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje El Palmo</name>
+      <Point><coordinates>-77.7563979,-10.7468026,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Enrique López Albújar</name>
+      <Point><coordinates>-77.7591506,-10.7476082,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Ica</name>
+      <Point><coordinates>-77.7606447,-10.761329,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje José María Eguren</name>
+      <Point><coordinates>-77.7683459,-10.7502171,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Juan Velasco Alvarado</name>
+      <Point><coordinates>-77.7654591,-10.7549784,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje La Atarjea Baja</name>
+      <Point><coordinates>-77.7576358,-10.7433569,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje La Católica</name>
+      <Point><coordinates>-77.7578472,-10.745684,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje La Floresta</name>
+      <Point><coordinates>-77.7608157,-10.7587161,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje La Perla</name>
+      <Point><coordinates>-77.7665928,-10.7451438,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje La Punta</name>
+      <Point><coordinates>-77.7663101,-10.7457295,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Las Amapolas</name>
+      <Point><coordinates>-77.7557346,-10.7522343,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Las Azucenas</name>
+      <Point><coordinates>-77.7555047,-10.752564,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Las Camellias</name>
+      <Point><coordinates>-77.760141,-10.7594613,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Las Dalias</name>
+      <Point><coordinates>-77.760024,-10.7589063,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Las Gardenias</name>
+      <Point><coordinates>-77.759995,-10.7584551,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Las Margaritas</name>
+      <Point><coordinates>-77.755782,-10.7513413,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Las Rosas</name>
+      <Point><coordinates>-77.7619582,-10.7567097,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Las Violetas</name>
+      <Point><coordinates>-77.7557791,-10.7517251,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Laverde</name>
+      <Point><coordinates>-77.7601151,-10.7486753,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Limoncillo</name>
+      <Point><coordinates>-77.7671879,-10.7450155,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Los Alhelies</name>
+      <Point><coordinates>-77.7598141,-10.7595279,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Los Eranios</name>
+      <Point><coordinates>-77.75505,-10.7521778,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Los Florales</name>
+      <Point><coordinates>-77.7560611,-10.7513469,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Los Laureles</name>
+      <Point><coordinates>-77.756882,-10.7515566,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Los Lirios</name>
+      <Point><coordinates>-77.7563004,-10.7510998,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Mar</name>
+      <Point><coordinates>-77.7607993,-10.7575706,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Mercurio</name>
+      <Point><coordinates>-77.7613133,-10.7605887,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Miguel Iglesias</name>
+      <Point><coordinates>-77.760449,-10.7559006,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Nazca</name>
+      <Point><coordinates>-77.760291,-10.7608897,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Neptuno</name>
+      <Point><coordinates>-77.7607093,-10.7600215,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje No. 3</name>
+      <Point><coordinates>-77.7537917,-10.7514958,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Pablo Neruda</name>
+      <Point><coordinates>-77.7676896,-10.7495325,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Perú</name>
+      <Point><coordinates>-77.7576782,-10.7474821,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Piura</name>
+      <Point><coordinates>-77.755384,-10.7464645,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Providencia</name>
+      <Point><coordinates>-77.7725018,-10.7370905,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Puerto Chico</name>
+      <Point><coordinates>-77.7633376,-10.7571923,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje S/N</name>
+      <Point><coordinates>-77.7633991,-10.7580057,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Andres</name>
+      <Point><coordinates>-77.7594107,-10.758291,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Aurelio</name>
+      <Point><coordinates>-77.7676967,-10.7485853,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Benito</name>
+      <Point><coordinates>-77.7578089,-10.7431678,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Carlos</name>
+      <Point><coordinates>-77.7578554,-10.7427856,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Diego</name>
+      <Point><coordinates>-77.758942,-10.7566392,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Felipe</name>
+      <Point><coordinates>-77.7596899,-10.7478709,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Francisco</name>
+      <Point><coordinates>-77.7547671,-10.7488766,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Hilarión</name>
+      <Point><coordinates>-77.7579314,-10.7573748,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Isidro</name>
+      <Point><coordinates>-77.7574297,-10.7426603,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Lorenzo</name>
+      <Point><coordinates>-77.7578663,-10.7435898,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Lucas</name>
+      <Point><coordinates>-77.7670696,-10.7564875,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Marcos</name>
+      <Point><coordinates>-77.7666965,-10.7562822,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Martín</name>
+      <Point><coordinates>-77.7421014,-10.779759,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje San Miguel</name>
+      <Point><coordinates>-77.767549,-10.7488373,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Santa Alicia</name>
+      <Point><coordinates>-77.7580124,-10.745092,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Santa Lucia</name>
+      <Point><coordinates>-77.7583601,-10.7452251,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Santa Maritza</name>
+      <Point><coordinates>-77.7571599,-10.7499956,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Santa Rosa</name>
+      <Point><coordinates>-77.7551988,-10.7490862,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Santo Cristo</name>
+      <Point><coordinates>-77.7588111,-10.7567933,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Santo Domingo</name>
+      <Point><coordinates>-77.7585185,-10.7567806,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Saturno</name>
+      <Point><coordinates>-77.7613345,-10.7600247,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Señor de los Milagros</name>
+      <Point><coordinates>-77.766095,-10.7515371,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Tumbes</name>
+      <Point><coordinates>-77.7560931,-10.7462699,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Tutican Chico</name>
+      <Point><coordinates>-77.7687971,-10.742727,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Tutican Grande</name>
+      <Point><coordinates>-77.7688285,-10.7445439,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pasaje Uranio</name>
+      <Point><coordinates>-77.7606193,-10.7606253,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Pedro Reyes Barboza</name>
+      <Point><coordinates>-77.7602557,-10.754829,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Prolongación Andres de los Reyes</name>
+      <Point><coordinates>-77.7576059,-10.7543538,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Prolongación Calle Arequipa</name>
+      <Point><coordinates>-77.7604519,-10.741738,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Prolongación Calle Huascarán</name>
+      <Point><coordinates>-77.7621652,-10.7406238,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Simón Bolívar</name>
+      <Point><coordinates>-77.7740318,-10.7272786,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Tacna</name>
+      <Point><coordinates>-77.7756356,-10.7282222,0</coordinates></Point>
+    </Placemark>
+  </Document>
+</kml>

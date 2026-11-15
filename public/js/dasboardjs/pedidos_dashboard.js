@@ -1567,6 +1567,19 @@ function deliveryBlockSinMapa(p) {
   if (p.cliente?.tipo_entrega !== "Delivery" || !p.delivery) return "";
   return `<div class="dm-meta-item full"><div class="dm-meta-label">🛵 Delivery</div>${deliPrecioHtmlPedido(p)}</div>`;
 }
+/* Origen de la ruta: primero ubicacion_ruta (config del panel), si no, ubicacion del perfil */
+function recalcularOrigenRuta() {
+  const ur = bizDataGlobal?.ubicacion_ruta;
+  const ub = bizDataGlobal?.ubicacion;
+  let la = num(ur?.lat), lo = num(ur?.lng);
+  if (la == null || lo == null) {
+    la = num(ub?.latitud ?? ub?.lat);
+    lo = num(ub?.longitud ?? ub?.lng);
+  }
+  const ok = la != null && lo != null;
+  bizLat = ok ? la : null;
+  bizLng = ok ? lo : null;
+}
 function num(v) {
   const n = typeof v === "string" ? parseFloat(v.replace(",", ".")) : Number(v);
   return Number.isFinite(n) ? n : null;
@@ -1589,29 +1602,40 @@ function mapaDeliveryHTML(p) {
   if (!c && !direccion) return "";
 
   const tieneNegocio = bizLat != null && bizLng != null;
+  const destino = c ? `${c.lat},${c.lng}` : encodeURIComponent(direccion);
+
   let mapsUrl,
+    linkUrl,
     distHtml = "",
+    avisoHtml = "",
     etiqueta = "📍 Ubicación del cliente";
 
-  if (c && tieneNegocio) {
-    const distKm = calcularDistanciaKm(bizLat, bizLng, c.lat, c.lng);
-    mapsUrl = `https://www.google.com/maps?saddr=${bizLat},${bizLng}&daddr=${c.lat},${c.lng}&output=embed`;
-    distHtml = `<div class="dm-meta-value">${distKm.toFixed(1)} km en línea recta desde el negocio</div>`;
-    etiqueta = "🛵 Distancia al cliente";
-  } else if (c) {
-    mapsUrl = `https://www.google.com/maps?q=${c.lat},${c.lng}&z=17&output=embed`;
+  if (tieneNegocio) {
+    // RUTA real: negocio → cliente
+    mapsUrl = `https://www.google.com/maps?saddr=${bizLat},${bizLng}&daddr=${destino}&dirflg=d&output=embed`;
+    linkUrl = `https://www.google.com/maps/dir/?api=1&origin=${bizLat},${bizLng}&destination=${destino}&travelmode=driving`;
+    etiqueta = "🛵 Ruta desde el negocio hasta el cliente";
+    if (c) {
+      const km = calcularDistanciaKm(bizLat, bizLng, c.lat, c.lng);
+      distHtml = `<div class="dm-meta-value">${km.toFixed(1)} km en línea recta desde el negocio</div>`;
+    }
   } else {
-    mapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(direccion)}&z=17&output=embed`;
-    etiqueta = "📍 Ubicación aproximada (por dirección)";
+    mapsUrl = c
+      ? `https://www.google.com/maps?q=${c.lat},${c.lng}&z=17&output=embed`
+      : `https://www.google.com/maps?q=${destino}&z=17&output=embed`;
+    linkUrl = `https://www.google.com/maps/search/?api=1&query=${destino}`;
+    avisoHtml = `
+      <div class="deli-rec-hint" style="margin:8px 0;">
+        ⚠️ Para ver la ruta falta la dirección del negocio.
+        <button type="button" class="oc-btn ghost" data-abrir-ruta-negocio style="width:100%;margin-top:6px;">🏠 Configurar dirección del negocio</button>
+      </div>`;
+    if (!c) etiqueta = "📍 Ubicación aproximada (por dirección)";
   }
 
-  const distKm =
-    c && tieneNegocio
-      ? calcularDistanciaKm(bizLat, bizLng, c.lat, c.lng)
-      : null;
-  const precioDeli = distKm != null ? calcularPrecioDelivery(distKm) : null;
-
+  // Precio: se muestra TODO junto (gratis/costo) sin esconder la ruta
   let precioHtml = "";
+  const distKm = c && tieneNegocio ? calcularDistanciaKm(bizLat, bizLng, c.lat, c.lng) : null;
+  const precioDeli = distKm != null ? calcularPrecioDelivery(distKm) : null;
   if (p.cupon?.envioGratis === true) {
     precioHtml = `<div class="deli-precio gratis">🚚 Envío gratis (promo del negocio)</div>`;
   } else if (precioDeli !== null) {
@@ -1624,12 +1648,17 @@ function mapaDeliveryHTML(p) {
   return `
     <div class="dm-meta-item full">
       <div class="dm-meta-label">${etiqueta}</div>
-      ${distHtml}
       ${precioHtml}
+      ${distHtml}
+      ${avisoHtml}
       <div class="mapa-delivery-mini" data-maps-url="${escapeHtml(mapsUrl)}">
         <iframe src="${mapsUrl}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
         <div class="mapa-delivery-click-layer">🔍 Toca para ver el mapa completo</div>
       </div>
+      <a href="${escapeHtml(linkUrl)}" target="_blank" rel="noopener"
+         class="oc-btn ghost" style="display:block;text-align:center;margin-top:8px;text-decoration:none;">
+        🧭 ${tieneNegocio ? "Abrir ruta en Google Maps" : "Abrir en Google Maps"}
+      </a>
     </div>`;
 }
 let cerrarMapaTimer;
@@ -1831,13 +1860,7 @@ async function cargarNegocio() {
     const nombre = data ? data.nombre_tienda || data.nombre : null;
     bizNombreGlobal = nombre || "Geinz";
     bizLogoUrl = data?.img_tienda?.logo_tienda || "";
-    const ubic = data?.ubicacion;
-    const la = num(ubic?.latitud ?? ubic?.lat);
-    const lo = num(ubic?.longitud ?? ubic?.lng);
-    if (la != null && lo != null) {
-      bizLat = la;
-      bizLng = lo;
-    }
+ recalcularOrigenRuta();
     document.title = `Pedidos en vivo · ${nombre || "Geinz"}`;
   } catch {}
 }
@@ -5164,6 +5187,9 @@ function renderDetail(id) {
   `;
 
   bindMapaDeliveryClicks();
+    document
+    .querySelector("[data-abrir-ruta-negocio]")
+    ?.addEventListener("click", () => rnAbrir());
   document
     .querySelector("[data-dlv-enviar]")
     ?.addEventListener("click", () => dlvAbrirSelector(id, p));
@@ -11714,4 +11740,173 @@ function peSyncGratis() {
     }
   });
   peSyncGratis();
+})();
+/* ══════════════ DIRECCIÓN DEL NEGOCIO (solo para la ruta del delivery) ══════════════
+   Se guarda en tienda.ubicacion_ruta, NO toca tienda.ubicacion */
+const rnStyle = document.createElement("style");
+rnStyle.textContent = `#rnMap{height:280px;border-radius:14px;margin:10px 0;border:1px solid var(--line);isolation:isolate;}`;
+document.head.appendChild(rnStyle);
+
+const rnOv = document.createElement("div");
+rnOv.className = "dlv-ov";
+rnOv.innerHTML = `
+  <div class="dlv-box">
+    <div class="dlv-head"><span>🏠 Dirección del negocio</span><button type="button" data-x>✕</button></div>
+    <p class="dlv-cfg-sub">Es el punto de partida de la ruta hacia el cliente en los pedidos delivery. Si estás en el negocio, toca 🎯. Desde PC el GPS puede fallar por metros: ajusta el pin arrastrándolo.</p>
+    <div class="pe-search">
+      <input type="text" id="rnBuscar" placeholder="Buscar dirección o lugar…">
+      <button type="button" class="oc-btn ghost" id="rnBuscarBtn">🔍</button>
+      <button type="button" class="oc-btn ghost" id="rnGpsBtn" title="Usar mi ubicación actual">🎯</button>
+    </div>
+    <div id="rnMap"></div>
+    <div class="pe-coords" id="rnCoords">Toca el mapa o arrastra el pin.</div>
+    <button type="button" class="np-confirmar-btn" id="rnGuardar">Guardar dirección del negocio</button>
+    <button type="button" class="oc-btn ghost danger" id="rnQuitar" style="width:100%;margin-top:8px;display:none;">Quitar ubicación guardada</button>
+  </div>`;
+document.body.appendChild(rnOv);
+rnOv.addEventListener("click", (e) => {
+  if (e.target === rnOv || e.target.hasAttribute("data-x")) rnOv.classList.remove("show");
+});
+
+let rnMap = null, rnMarker = null, rnPos = null;
+
+function rnPintarCoords() {
+  document.getElementById("rnCoords").textContent = rnPos
+    ? `📍 ${rnPos.lat.toFixed(6)}, ${rnPos.lng.toFixed(6)}`
+    : "Toca el mapa o arrastra el pin.";
+}
+function rnColocarPin(lat, lng, centrar = true) {
+  rnPos = { lat, lng };
+  if (!rnMarker) {
+    rnMarker = L.marker([lat, lng], { draggable: true }).addTo(rnMap);
+    rnMarker.on("dragend", () => {
+      const p = rnMarker.getLatLng();
+      rnPos = { lat: p.lat, lng: p.lng };
+      rnPintarCoords();
+    });
+  } else rnMarker.setLatLng([lat, lng]);
+  if (centrar) rnMap.setView([lat, lng], Math.max(rnMap.getZoom(), 17));
+  rnPintarCoords();
+}
+
+async function rnAbrir() {
+  const saved = bizDataGlobal?.ubicacion_ruta;
+  const tieneSaved = saved && Number.isFinite(Number(saved.lat)) && Number.isFinite(Number(saved.lng));
+  rnPos = null;
+  document.getElementById("rnBuscar").value = "";
+  document.getElementById("rnQuitar").style.display = tieneSaved ? "block" : "none";
+  document.getElementById("cfgPanel")?.classList.remove("show");
+  rnOv.classList.add("show");
+  try {
+    await peCargarLeaflet();
+  } catch {
+    return showToast("❌ No se pudo cargar el mapa", true);
+  }
+  const centro = tieneSaved
+    ? [Number(saved.lat), Number(saved.lng)]
+    : bizLat != null ? [bizLat, bizLng] : [-12.0464, -77.0428];
+  if (!rnMap) {
+    rnMap = L.map("rnMap").setView(centro, 16);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap",
+    }).addTo(rnMap);
+    rnMap.on("click", (e) => rnColocarPin(e.latlng.lat, e.latlng.lng, false));
+  } else rnMap.setView(centro, 16);
+  if (rnMarker) { rnMarker.remove(); rnMarker = null; }
+  if (tieneSaved) rnColocarPin(centro[0], centro[1]);
+  else rnPintarCoords();
+  setTimeout(() => rnMap.invalidateSize(), 250);
+}
+
+document.getElementById("rnBuscarBtn").addEventListener("click", async () => {
+  const q = document.getElementById("rnBuscar").value.trim();
+  if (!q || !rnMap) return;
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&q=${encodeURIComponent(q)}`,
+    );
+    const j = await r.json();
+    if (!j.length) return showToast("No se encontró ese lugar", true);
+    rnColocarPin(Number(j[0].lat), Number(j[0].lon));
+  } catch {
+    showToast("❌ No se pudo buscar", true);
+  }
+});
+document.getElementById("rnBuscar").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("rnBuscarBtn").click();
+});
+document.getElementById("rnGpsBtn").addEventListener("click", () => {
+  if (!navigator.geolocation || !rnMap) return showToast("Sin geolocalización", true);
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      rnColocarPin(pos.coords.latitude, pos.coords.longitude);
+      showToast(`🎯 Ubicación obtenida (±${Math.round(pos.coords.accuracy)} m)`);
+    },
+    () => showToast("No se pudo obtener tu ubicación (revisa el permiso)", true),
+    { enableHighAccuracy: true, timeout: 12000 },
+  );
+});
+
+async function rnGuardarEnDB(valor) {
+  await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), { ubicacion_ruta: valor });
+  bizDataGlobal = { ...(bizDataGlobal || {}), ubicacion_ruta: valor };
+  recalcularOrigenRuta();
+  rnSync();
+  // si hay un pedido abierto, la ruta aparece al instante
+  if (activeModalId && pedidosMap.has(activeModalId)) renderDetail(activeModalId);
+}
+
+document.getElementById("rnGuardar").addEventListener("click", async () => {
+  if (!rnPos) return showToast("Marca el pin en el mapa o usa 🎯", true);
+  try {
+    await rnGuardarEnDB({ lat: rnPos.lat, lng: rnPos.lng, actualizado: Date.now() });
+    rnOv.classList.remove("show");
+    showToast("🏠 Dirección del negocio guardada");
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo guardar", true);
+  }
+});
+document.getElementById("rnQuitar").addEventListener("click", async () => {
+  try {
+    await rnGuardarEnDB(null);
+    rnOv.classList.remove("show");
+    showToast("Ubicación para ruta eliminada");
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo quitar", true);
+  }
+});
+
+function rnSync() {
+  const el = document.getElementById("rnEstado");
+  if (!el) return;
+  const ur = bizDataGlobal?.ubicacion_ruta;
+  if (ur && Number.isFinite(Number(ur.lat))) {
+    el.textContent = `✅ Guardada: ${Number(ur.lat).toFixed(5)}, ${Number(ur.lng).toFixed(5)}`;
+    el.style.color = "#4ade80";
+  } else if (bizLat != null) {
+    el.textContent = "Usando la ubicación del perfil del negocio";
+    el.style.color = "";
+  } else {
+    el.textContent = "⚠️ Sin ubicación: no se puede trazar la ruta";
+    el.style.color = "#fbbf24";
+  }
+}
+
+(function () {
+  const panel = document.getElementById("cfgPanel");
+  if (!panel) return;
+  const row = document.createElement("div");
+  row.className = "autorej-wrap";
+  row.style.gridColumn = "1 / -1";
+  row.innerHTML = `
+    <div class="dlv-cfg-row"><span class="l">🏠 Dirección del negocio (origen de la ruta)</span></div>
+    <div id="rnEstado" class="dlv-cfg-sub" style="margin:6px 0;"></div>
+    <button type="button" class="oc-btn ghost" id="rnEdit" style="width:100%;">📍 Configurar ubicación</button>`;
+  panel.appendChild(row);
+  document.getElementById("rnEdit").addEventListener("click", rnAbrir);
+  document.getElementById("cfgBtn")?.addEventListener("click", rnSync);
+  rnSync();
 })();

@@ -5,6 +5,37 @@ import { mostrarBienvenidaRegistro } from "../share/registra_bievenida.js";
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
+// ═══════════ SIN SELECCIÓN DE TEXTO (arrastrar / mantener presionado) ═══════════
+if (!document.getElementById("noSelectStyle")) {
+  const s = document.createElement("style");
+  s.id = "noSelectStyle";
+  s.textContent = `
+    html, body, body *{
+      -webkit-user-select:none; user-select:none;
+      -webkit-touch-callout:none;            /* iOS: sin menú de copiar al mantener */
+      -webkit-tap-highlight-color:transparent;
+    }
+    /* Solo donde el usuario necesita escribir */
+    input, textarea, [contenteditable="true"]{
+      -webkit-user-select:text; user-select:text;
+      -webkit-touch-callout:default;
+    }
+    img, svg{ -webkit-user-drag:none; user-drag:none; }
+  `;
+  document.head.appendChild(s);
+}
+
+// Respaldo para Android: evita el menú contextual al mantener presionado
+document.addEventListener("contextmenu", (e) => {
+  if (e.target.closest?.("input, textarea, [contenteditable='true']")) return;
+  e.preventDefault();
+});
+// Evita que se inicie una selección arrastrando fuera de los campos
+document.addEventListener("selectstart", (e) => {
+  const t = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+  if (t?.closest?.("input, textarea, [contenteditable='true']")) return;
+  e.preventDefault();
+});
 // ═══════════ EMOJI → IMAGEN (automático) ═══════════
 const ICON_BASE = "/img/iconos_perfil/";
 const EMOJI_MAP = {
@@ -55,11 +86,11 @@ const _MAP = Object.fromEntries(
 );
 const _EMOJI_RE = new RegExp(
   "(" +
-    Object.keys(_MAP)
-      .sort((a, b) => b.length - a.length)
-      .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("|") +
-    ")\\uFE0F?",
+  Object.keys(_MAP)
+    .sort((a, b) => b.length - a.length)
+    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|") +
+  ")\\uFE0F?",
   "g",
 );
 
@@ -1196,7 +1227,7 @@ const _cGet = (k, ttl = 6 * 3600e3) => {
 const _cSet = (k, d) => {
   try {
     localStorage.setItem(k, JSON.stringify({ t: Date.now(), d }));
-  } catch {}
+  } catch { }
 };
 function aplicarManifest({ alias, id, localidad }) {
   const q = _esDominioPersonalizado
@@ -2247,6 +2278,7 @@ function bindFollowButton({ localidad, id }, biz) {
     const uid = user?.uid || null;
     _currentUid = uid;
     actualizarHeaderUsuario(user);
+    iniciarPedidoActual(uid);
     renderBannerCumple(_bizRef);
     if (!uid) {
       btn.onclick = () => {
@@ -2659,7 +2691,7 @@ async function _getSegmento() {
   try {
     const s = await getDoc(data_user_logeado(uid));
     if (s.exists()) d = s.data();
-  } catch {}
+  } catch { }
   _segCache = {
     uid,
     logeado: true,
@@ -2690,7 +2722,7 @@ async function trackPromo(promoId, evento) {
     try {
       if (localStorage.getItem(k)) return;
       localStorage.setItem(k, "1");
-    } catch {}
+    } catch { }
   }
 
   const seg = await _getSegmento();
@@ -2864,21 +2896,19 @@ function renderActivePromos(promos, localidad) {
         ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
         ${destacado ? `<span class="promo-destacado-badge">Destacado por hoy</span>` : ""}
         <div class="promo-active-top-actions">
-          ${
-            puedeComprarPromo
-              ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+          ${puedeComprarPromo
+        ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/></svg>
           </button>`
-              : ""
-          }
+        : ""
+      }
           ${waLink ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ""}
-          ${
-            shareAllowed
-              ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+          ${shareAllowed
+        ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/></svg>
           </button>`
-              : ""
-          }
+        : ""
+      }
         </div>
         <div class="promo-active-bottom-overlay">
           ${precio > 0 ? `<span class="promo-active-price-badge">${desde.varia ? "Desde " : ""}S/ ${desde.precio.toFixed(2)}</span>` : ""}
@@ -2900,14 +2930,15 @@ function renderActivePromos(promos, localidad) {
 
     const onComprarEstaPromo = puedeComprarPromo
       ? () => {
-          trackPromo(p.id, "clics_comprar");
-          agregarAlCarritoPerfil({
-            promoId: `activa_${p.id}`,
-            nombre: titulo,
-            precio,
-            imagen: img,
-          });
-        }
+        if (bloquearSiCerrado()) return;
+        trackPromo(p.id, "clics_comprar");
+        agregarAlCarritoPerfil({
+          promoId: `activa_${p.id}`,
+          nombre: titulo,
+          precio,
+          imagen: img,
+        });
+      }
       : null;
 
     const datosDetalle = {
@@ -3833,6 +3864,45 @@ function updateQuickNav() {
 // ══════════════════════════════════════════
 //  STATUS BADGE (compatible con nuevo formato de bloques)
 // ══════════════════════════════════════════
+const _hMin = (t) => {
+  if (!t) return null;
+  const [h, m] = String(t).split(":").map(Number);
+  return h * 60 + (m || 0);
+};
+
+// Si está abierto ahora devuelve { cierraEn (min), hCierre }, si no null.
+// Incluye horarios que pasan la medianoche (hoy y los de ayer que siguen vigentes).
+function estadoAbiertoAhora(horario) {
+  if (!horario) return null;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const idxHoy = [6, 0, 1, 2, 3, 4, 5][now.getDay()];
+  const idxAyer = (idxHoy + 6) % 7;
+
+  const hoy = horario[idxHoy];
+  if (hoy && !hoy.cerrado) {
+    for (const b of hoy.bloques || []) {
+      const a = _hMin(b.h_apertura);
+      let c = _hMin(b.h_cierre);
+      if (a === null || c === null) continue;
+      if (c <= a) c += 1440; // cierra pasada la medianoche
+      if (nowMin >= a && nowMin < c)
+        return { cierraEn: c - nowMin, hCierre: b.h_cierre };
+    }
+  }
+
+  const ayer = horario[idxAyer];
+  if (ayer && !ayer.cerrado) {
+    for (const b of ayer.bloques || []) {
+      const a = _hMin(b.h_apertura);
+      const c = _hMin(b.h_cierre);
+      if (a === null || c === null) continue;
+      if (c <= a && nowMin < c)
+        return { cierraEn: c - nowMin, hCierre: b.h_cierre };
+    }
+  }
+  return null;
+}
 function calcStatus(horario) {
   const now = new Date();
   const DIAS_ES = [
@@ -3879,7 +3949,15 @@ function calcStatus(horario) {
     if (h > 0) return `${h}h`;
     return `${m}m`;
   };
-
+const abierto = estadoAbiertoAhora(horario);
+if (abierto) {
+  badge.className = "status-badge open";
+  stxt.textContent =
+    abierto.cierraEn <= 30
+      ? `Cierra pronto · ${abierto.hCierre}`
+      : `Cierra en ${formatDur(abierto.cierraEn)} · ${abierto.hCierre}`;
+  return;
+}
   // Día cerrado
   if (!today || today.cerrado || !today.bloques?.length) {
     const motivoTexto = today?.motivo ? ` · ${today.motivo}` : "";
@@ -3899,22 +3977,7 @@ function calcStatus(horario) {
     return;
   }
 
-  // Revisar cada bloque de hoy
-  for (const bloque of today.bloques) {
-    const apertura = toMin(bloque.h_apertura);
-    const cierre = toMin(bloque.h_cierre);
-    if (apertura === null || cierre === null) continue;
 
-    if (nowMin >= apertura && nowMin < cierre) {
-      const diff = cierre - nowMin;
-      badge.className = "status-badge open";
-      stxt.textContent =
-        diff <= 30
-          ? `Cierra pronto · ${bloque.h_cierre}`
-          : `Cierra en ${formatDur(diff)} · ${bloque.h_cierre}`;
-      return;
-    }
-  }
 
   // Aún no abre (primer bloque futuro de hoy)
   for (const bloque of today.bloques) {
@@ -4747,6 +4810,7 @@ function pdPintarSugeridos(cont, lista) {
   cont.appendChild(sec);
 }
 function openPromoDetailModal(data) {
+  if (bloquearSiCerrado()) return;
   bindPromoDetailModal();
   const modal = document.getElementById("promoDetailModal");
   const img = document.getElementById("promoDetailImg");
@@ -5246,11 +5310,11 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
     ? `<div class="banner-cta-days">
          <span class="banner-cta-days-lbl">Días</span>
          ${DAY_ORDER_CORTO.filter(([k]) => dias.includes(k))
-           .map(
-             ([k, l]) =>
-               `<span class="banner-cta-day${k === hoy ? " hoy" : ""}">${l}</span>`,
-           )
-           .join("")}
+      .map(
+        ([k, l]) =>
+          `<span class="banner-cta-day${k === hoy ? " hoy" : ""}">${l}</span>`,
+      )
+      .join("")}
          ${banner.soloSeguidores ? `<span class="banner-cta-tag">· Solo seguidores</span>` : ""}
        </div>`
     : banner.soloSeguidores
@@ -5261,33 +5325,30 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
   cta.id = "bannerCta";
   cta.className = "banner-cta";
   cta.innerHTML = `
-    ${
-      href
-        ? `<div class="banner-cta-info">
+    ${href
+      ? `<div class="banner-cta-info">
       <p class="banner-cta-desc">${escapeHtml(desc)}</p>
       <span class="banner-cta-price">${precioLabel}</span>
     </div>`
-        : ""
+      : ""
     }
     ${href ? diasHTML : ""}
-    ${
-      href
-        ? `<a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
+    ${href
+      ? `<a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/></svg>
       <span>Ir al carrito</span>
       <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>`
-        : ""
+      : ""
     }
-    ${
-      hayVarios
-        ? `<div class="banner-cta-dots">${lista
-            .map(
-              (_, i) =>
-                `<button type="button" class="banner-cta-dot${i === indice ? " on" : ""}" data-i="${i}" aria-label="Banner ${i + 1}"></button>`,
-            )
-            .join("")}</div>`
-        : ""
+    ${hayVarios
+      ? `<div class="banner-cta-dots">${lista
+        .map(
+          (_, i) =>
+            `<button type="button" class="banner-cta-dot${i === indice ? " on" : ""}" data-i="${i}" aria-label="Banner ${i + 1}"></button>`,
+        )
+        .join("")}</div>`
+      : ""
     }`;
 
   cta
@@ -5933,6 +5994,7 @@ function injectPerfilCartStyles() {
 }
 
 function agregarAlCarritoPerfil({ promoId, nombre, precio, imagen, ...extra }) {
+  if (bloquearSiCerrado()) return;
   const existente = _perfilCarritoItems.find((i) => i.promoId === promoId);
   if (existente) existente.cantidad += 1;
   else
@@ -6111,6 +6173,35 @@ let _mesasUnsub = null;
 let _mesaSeleccionada = null;
 let _waNumeroNegocio = "";
 let _horarioHoy = null;
+let _horarioSemana = null; // horario normalizado de los 7 días (null = sin horario configurado)
+
+function negocioAbiertoAhora() {
+  if (!_horarioSemana) return true; // sin horario configurado: no se bloquea
+  return !!estadoAbiertoAhora(_horarioSemana);
+}
+// true = está cerrado y ya avisó al cliente (quien llama debe hacer return)
+function bloquearSiCerrado() {
+  if (negocioAbiertoAhora()) return false;
+  const estado = document.getElementById("statusText")?.textContent?.trim();
+  showToast(`🔒 ${estado || "El negocio está cerrado ahora"}. No se puede pedir en este momento`);
+  return true;
+}
+
+// Atenúa visualmente los botones de compra cuando está cerrado
+function actualizarEstadoCerrado() {
+  if (!document.getElementById("cerradoStyle")) {
+    const st = document.createElement("style");
+    st.id = "cerradoStyle";
+    st.textContent = `
+      body.neg-cerrado [data-buy-promo],
+      body.neg-cerrado .promo-icon-buy,
+      body.neg-cerrado #promoDetailBuyBtn,
+      body.neg-cerrado .pd-sug-btn{opacity:.4;filter:grayscale(1);}
+    `;
+    document.head.appendChild(st);
+  }
+  document.body.classList.toggle("neg-cerrado", !negocioAbiertoAhora());
+}
 let _reservaVerInterval = null;
 let _mesasCache = [];
 let _horaMaxReserva = null;
@@ -6384,6 +6475,11 @@ async function render(biz, isInitial = true) {
   const horario = normalizeSchedule(biz.horario_atencion);
   const mapDiaHoy = [6, 0, 1, 2, 3, 4, 5];
   _horarioHoy = horario[mapDiaHoy[new Date().getDay()]];
+  _horarioSemana =
+    biz.horario_atencion && Object.keys(biz.horario_atencion).length
+      ? horario
+      : null;
+  actualizarEstadoCerrado();
   const esPresencial = _F.presencial;
   const plan = (biz.plan_seleccionado || "basico").toLowerCase();
   const esPremium = plan === "emprendedor" || plan === "empresa";
@@ -6533,7 +6629,10 @@ async function render(biz, isInitial = true) {
   ) {
     calcStatus(horario);
     if (_schedInterval) clearInterval(_schedInterval);
-    _schedInterval = setInterval(() => calcStatus(horario), 30000);
+    _schedInterval = setInterval(() => {
+      calcStatus(horario);
+      actualizarEstadoCerrado();
+    }, 30000);
   }
 
   setText("descText", descripcion);
@@ -6776,16 +6875,15 @@ async function render(biz, isInitial = true) {
           <div class="promo-card-img-wrap">
                                 ${promo.destacado ? `<span class="promo-destacado-badge">Destacado por hoy</span>` : ""}
             <div class="promo-card-top-actions">
-              ${
-                puedeComprarPromo
-                  ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+              ${puedeComprarPromo
+          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                   <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
                 </svg>
               </button>`
-                  : ""
-              }
+          : ""
+        }
               <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -6793,17 +6891,16 @@ async function render(biz, isInitial = true) {
                 </svg>
               </button>
             </div>
-            ${
-              promo.precio > 0 || promo.descripcion
-                ? `
+            ${promo.precio > 0 || promo.descripcion
+          ? `
             <div class="promo-card-bottom-overlay">
                        ${promo.precio > 0 ? `<span class="promo-card-price">${promo.condiciones?.length && cpDesde(promo).varia ? "Desde " : ""}S/ ${(promo.condiciones?.length ? cpDesde(promo).precio : promo.precio).toFixed(2)}</span>` : ""}
                        ${promo.deliveryGratis ? `<span class="promo-delivery-chip">🚚 Delivery gratis</span>` : ""}
               ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
                                          ${promo.destacado && promo.destacadoTexto ? `<p class="promo-destacado-txt">${escapeHtml(promo.destacadoTexto)}</p>` : ""}
             </div>`
-                : ""
-            }
+          : ""
+        }
           </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -6826,12 +6923,12 @@ async function render(biz, isInitial = true) {
 
       const onComprarEstaPromo = puedeComprarPromo
         ? () =>
-            agregarAlCarritoPerfil({
-              promoId: promo.id,
-              nombre: promo.titulo,
-              precio: promo.precio,
-              imagen: promo.url,
-            })
+          agregarAlCarritoPerfil({
+            promoId: promo.id,
+            nombre: promo.titulo,
+            precio: promo.precio,
+            imagen: promo.url,
+          })
         : null;
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
@@ -7522,8 +7619,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-        .toDate()
-        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+      .toDate()
+      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -8079,10 +8176,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
       : "";
     const respuestaHTML = respuestaTexto
       ? `
@@ -8617,7 +8714,7 @@ function diaEspecialProximo() {
       ({ biz, servicios } = cached);
       Promise.all([loadBusiness(params), loadServicios(params)])
         .then(([b, s]) => _cSet(ck, { biz: b, servicios: s }))
-        .catch(() => {});
+        .catch(() => { });
     } else {
       [biz, servicios] = await Promise.all([
         loadBusiness(params),
@@ -9521,10 +9618,10 @@ function cpPintarGrupo(c, sec) {
     if (op.descripcion) info.appendChild(cpMk("p", "opt-desc", op.descripcion));
     const precio = op.costoAdicional
       ? cpMk(
-          "span",
-          "opt-price",
-          `+S/ ${op.costoAdicional.toFixed(2)}${c.conCantidad ? " c/u" : ""}`,
-        )
+        "span",
+        "opt-price",
+        `+S/ ${op.costoAdicional.toFixed(2)}${c.conCantidad ? " c/u" : ""}`,
+      )
       : null;
 
     if (c.conCantidad) {
@@ -9639,6 +9736,7 @@ function cpResumen() {
 }
 
 function cpAbrirDialog(p) {
+  if (bloquearSiCerrado()) return;
   // si venimos del diálogo de una promo, guardamos su estado para restaurarlo al cerrar
   if (_cpModoPromo) _cpPrev = { prod: _cpProd, sel: _cpSel, grupos: _cpGrupos };
   _cpModoPromo = false;
@@ -10072,8 +10170,9 @@ function _deEstado(horarioDia, offset) {
     return null;
   const now = Date.now();
   for (const b of horarioDia.bloques) {
-    const ini = _deMsLima(offset, b.h_apertura);
-    const fin = _deMsLima(offset, b.h_cierre);
+const ini = _deMsLima(offset, b.h_apertura);
+let fin = _deMsLima(offset, b.h_cierre);
+if (fin <= ini) fin += 86400000; // cierra después de medianoche
     if (now < ini) return { modo: "abre", target: ini };
     if (now >= ini && now < fin) return { modo: "abierto", target: fin };
   }
@@ -10411,7 +10510,7 @@ function renderBannerCumple(biz) {
   );
   const texto = escapeHtml(
     String(cfg.texto || "").trim() ||
-      "Registra tu fecha de nacimiento y recibe descuentos, promociones o canjes en tu día.",
+    "Registra tu fecha de nacimiento y recibe descuentos, promociones o canjes en tu día.",
   );
   const perk = escapeHtml(String(cfg.beneficio || "").trim());
 
@@ -10604,7 +10703,7 @@ function renderInstallBanner() {
       try {
         const { outcome } = await _deferredInstall.userChoice;
         if (outcome === "accepted") showToast("Instalando… 🎉");
-      } catch {}
+      } catch { }
       _deferredInstall = null;
       return;
     }
@@ -10935,7 +11034,7 @@ async function cargarUserPanel(uid) {
     _upState.sig === sig &&
     Date.now() - _upState.ts < UP_TTL
   ) {
-    await traerPedidosVivosUserPanel(_upState).catch(() => {});
+    await traerPedidosVivosUserPanel(_upState).catch(() => { });
     return;
   }
 
@@ -11108,9 +11207,9 @@ function _upVivosInnerHTML(st) {
 
   const filas = mostrar.length
     ? mostrar
-        .map((p) => {
-          const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
-          return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
+      .map((p) => {
+        const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
+        return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
               <span class="pa-dot"></span>
             <div class="pa-main">
     <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
@@ -11120,8 +11219,8 @@ function _upVivosInnerHTML(st) {
               <div class="pa-total">${_fmtSoles(p.total)}</div>
               <span class="pa-go">Ver →</span>
             </a>`;
-        })
-        .join("")
+      })
+      .join("")
     : `<div class="up-empty">No tienes pedidos en este estado.</div>`;
 
   const mas =
@@ -11337,7 +11436,7 @@ function volarAlCarrito(imagen) {
   x.style.transitionDuration =
     y.style.transitionDuration =
     ball.style.transitionDuration =
-      `${dur}s`;
+    `${dur}s`;
   if (dy < 0) y.style.transitionTimingFunction = "cubic-bezier(.3,.7,.5,1)";
 
   y.appendChild(ball);
@@ -11451,4 +11550,246 @@ function _paUrl(pedidoId) {
   if (alias)
     return `/perfil/${encodeURIComponent(alias)}/${encodeURIComponent(pedidoId)}`;
   return `/pedidos/${encodeURIComponent(_params.id)}/${encodeURIComponent(pedidoId)}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PEDIDO ACTUAL (solo geinztech.com) — tiempo real
+//  Celular: botón + diálogo · PC: tarjeta fija sobre la página
+// ═══════════════════════════════════════════════════════════════
+const PW_ESTADOS_QUERY = [
+  "pendiente", "Pendiente",
+  "pendiente_pago", "Pendiente de pago", "pendiente de pago", "pendiente_de_pago",
+  "en_proceso", "En proceso", "en proceso",
+  "listo", "Listo",
+  "en_pausa", "En pausa", "en pausa",
+];
+
+const PEDIDO_ACTUAL_CSS = `
+  .pw-pill{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+    z-index:9600;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);padding:12px 18px;border-radius:999px;
+    cursor:pointer;font-family:inherit;font-weight:800;font-size:13px;color:#fff;white-space:nowrap;
+    background:rgba(11,11,13,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    border:1px solid rgba(var(--dr),var(--dg),var(--db),.55);
+    box-shadow:0 12px 30px -8px rgba(0,0,0,.7),0 0 26px -8px rgba(var(--dr),var(--dg),var(--db),.55);}
+  .pw-pill:active{transform:translateX(-50%) scale(.97);}
+  .pw-pill .pw-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--c,#4ade80);animation:paBlink 1.6s ease-in-out infinite;}
+  .pw-pill .pw-state{font-weight:700;font-size:12px;color:var(--c);overflow:hidden;text-overflow:ellipsis;}
+  .pw-enter .pw-pill{animation:pwIn .45s cubic-bezier(.22,.85,.32,1) both;}
+  @keyframes pwIn{from{opacity:0;transform:translate(-50%,16px);}to{opacity:1;transform:translate(-50%,0);}}
+
+  .pw-card{display:none;}
+  .pw-card-list .pa-row,#pwDialogList .pa-row{margin-bottom:8px;}
+
+  .pw-overlay{position:fixed;inset:0;z-index:10010;background:rgba(3,3,3,.55);
+    -webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);
+    display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;
+    transition:opacity .3s ease,visibility .3s ease,backdrop-filter .4s ease,-webkit-backdrop-filter .4s ease;}
+  .pw-overlay.open{opacity:1;visibility:visible;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+  .pw-sheet{position:relative;width:100%;max-width:480px;max-height:85dvh;overflow-y:auto;background:#0b0b0d;
+    border:1px solid rgba(var(--dr),var(--dg),var(--db),.3);border-bottom:none;border-radius:26px 26px 0 0;
+    padding:12px 20px calc(22px + env(safe-area-inset-bottom,0px));
+    transform:translateY(100%);transition:transform .42s cubic-bezier(.22,.85,.32,1);
+    box-shadow:0 -25px 60px -14px rgba(0,0,0,.7),0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.3);}
+  .pw-overlay.open .pw-sheet{transform:none;}
+  .pw-handle{width:40px;height:4px;border-radius:999px;background:rgba(255,255,255,.22);margin:0 auto 14px;}
+  .pw-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:none;border-radius:50%;
+    background:rgba(255,255,255,.08);color:#fff;cursor:pointer;}
+  .pw-sheet-title{margin:0 40px 4px 0;font-size:17px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;}
+  .pw-sheet-sub{margin:0 0 16px;font-size:12px;color:#9c9ca3;}
+
+  @media (min-width:1024px){
+    .pw-pill,.pw-overlay{display:none !important;}
+    .pw-card{display:block;position:fixed;right:24px;bottom:96px;width:340px;max-height:calc(100dvh - 140px);overflow-y:auto;
+      z-index:9600;padding:14px;border-radius:22px;background:rgba(11,11,13,.94);
+      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+      border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+      box-shadow:0 20px 50px -14px rgba(0,0,0,.8),0 0 36px -12px rgba(var(--dr),var(--dg),var(--db),.45);}
+    .pw-enter .pw-card{animation:pwCardIn .45s cubic-bezier(.22,.85,.32,1) both;}
+    @keyframes pwCardIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+    .pw-card-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:#fff;}
+    .pw-card-head b{flex:1;font-weight:800;}
+    .pw-min{width:28px;height:28px;border:none;border-radius:50%;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;}
+    .pw-card.min .pw-card-head{margin-bottom:0;}
+    .pw-card.min .pw-card-list{display:none;}
+  }
+`;
+
+let _pwUnsub = null;
+let _pwUid = null;
+let _pwPedidos = [];
+let _pwMin = false;
+
+function injectPedidoActualStyles() {
+  if (!document.getElementById("paStyle")) {
+    const s = document.createElement("style");
+    s.id = "paStyle";
+    s.textContent = PEDIDOS_ACTIVOS_CSS;
+    document.head.appendChild(s);
+  }
+  if (!document.getElementById("pedidoActualStyle")) {
+    const s = document.createElement("style");
+    s.id = "pedidoActualStyle";
+    s.textContent = PEDIDO_ACTUAL_CSS;
+    document.head.appendChild(s);
+  }
+}
+
+function iniciarPedidoActual(uid) {
+  if (_esDominioPersonalizado) return; // ahí ya existe el panel de usuario
+  if (_pwUid === (uid || null)) return;
+  detenerPedidoActual();
+  if (!uid || !_params?.id) return;
+  _pwUid = uid;
+
+  const q = query(
+    tiendaSubCol(_params.localidad, "tiendas", _params.id, "pedidos"),
+    where("cliente.id_cliente", "==", uid),
+    where("estado", "in", PW_ESTADOS_QUERY),
+    limit(10),
+  );
+  _pwUnsub = onSnapshot(
+    q,
+    (snap) => {
+      _pwPedidos = snap.docs
+        .map((d) => {
+          const x = d.data();
+          return {
+            id: d.id,
+            est: _paNormalizar(x.estado),
+            total: Number(x.total) || 0,
+            tipo: x.cliente?.tipo_entrega || "",
+            ts: x.timestamp || null,
+            fechaTxt: [x.fecha, x.hora].filter(Boolean).join(" · "),
+          };
+        })
+        .filter((p) => PA_ESTADOS[p.est]) // fuera entregado / rechazado
+        .sort((a, b) => (b.ts?.toMillis?.() || 0) - (a.ts?.toMillis?.() || 0))
+        .slice(0, 5);
+      renderPedidoActual();
+    },
+    (e) => console.warn("Pedido actual:", e.code, e.message),
+  );
+}
+
+function detenerPedidoActual() {
+  _pwUnsub?.();
+  _pwUnsub = null;
+  _pwUid = null;
+  _pwPedidos = [];
+  renderPedidoActual();
+}
+
+function _pwRowHTML(p) {
+  const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
+  return `<a class="pa-row" data-nav href="${_paUrl(p.id)}" style="--c:${e.color}">
+      <span class="pa-dot"></span>
+      <div class="pa-main">
+        <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
+        <div class="pa-state">${e.label}${p.tipo ? " · " + escapeHtml(p.tipo) : ""}</div>
+        <div class="pa-date">🗓️ ${p.ts ? _fmtFecha(p.ts, true) : escapeHtml(p.fechaTxt || "—")}</div>
+      </div>
+      <div class="pa-total">${_fmtSoles(p.total)}</div>
+      <span class="pa-go">Ver →</span>
+    </a>`;
+}
+
+function renderPedidoActual() {
+  let w = document.getElementById("pedidoActualWidget");
+
+  if (!_pwPedidos.length) {
+    cerrarPedidoActualDialog();
+    w?.remove();
+    return;
+  }
+  injectPedidoActualStyles();
+
+  if (!w) {
+    w = document.createElement("div");
+    w.id = "pedidoActualWidget";
+    w.style.display = "contents";
+    w.classList.add("pw-enter"); // la animación de entrada solo corre una vez
+    setTimeout(() => w.classList.remove("pw-enter"), 700);
+    w.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-pw]");
+      if (!b) return;
+      if (b.dataset.pw === "abrir") abrirPedidoActualDialog();
+      else if (b.dataset.pw === "min") {
+        _pwMin = !_pwMin;
+        renderPedidoActual();
+      }
+    });
+    document.body.appendChild(w);
+  }
+
+  const n = _pwPedidos.length;
+  const e = PA_ESTADOS_TODOS[_pwPedidos[0].est] || PA_ESTADOS_TODOS.pendiente;
+  const filas = _pwPedidos.map(_pwRowHTML).join("");
+
+  w.innerHTML = `
+    <button type="button" class="pw-pill" data-pw="abrir" style="--c:${e.color}">
+      <span class="pw-dot"></span>
+      <span>${n > 1 ? `Ver mis pedidos (${n})` : "Ver mi pedido actual"}</span>
+      ${n === 1 ? `<span class="pw-state">· ${e.label}</span>` : ""}
+    </button>
+    <aside class="pw-card${_pwMin ? " min" : ""}" aria-label="Mi pedido actual">
+      <div class="pw-card-head">
+        <span class="pa-live"></span>
+        <b>${n > 1 ? "Mis pedidos actuales" : "Mi pedido actual"}</b>
+        <button type="button" class="pw-min" data-pw="min" aria-label="${_pwMin ? "Expandir" : "Minimizar"}">${_pwMin ? "▴" : "▾"}</button>
+      </div>
+      <div class="pw-card-list">${filas}</div>
+    </aside>`;
+
+  // Si el diálogo (celular) está abierto, se actualiza en vivo
+  const list = document.getElementById("pwDialogList");
+  if (list) list.innerHTML = filas;
+  const tit = document.getElementById("pwDialogTitle");
+  if (tit) tit.textContent = n > 1 ? "Mis pedidos actuales" : "Mi pedido actual";
+}
+
+function abrirPedidoActualDialog() {
+  if (!_pwPedidos.length) return;
+  injectPedidoActualStyles();
+  let m = document.getElementById("pwDialog");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "pwDialog";
+    m.className = "pw-overlay";
+    m.innerHTML = `
+      <div class="pw-sheet">
+        <div class="pw-handle"></div>
+        <button type="button" class="pw-close" id="pwClose" aria-label="Cerrar">✕</button>
+        <h3 class="pw-sheet-title"><span class="pa-live"></span><span id="pwDialogTitle"></span></h3>
+        <p class="pw-sheet-sub">Se actualiza solo, no necesitas recargar</p>
+        <div id="pwDialogList"></div>
+      </div>`;
+    document.body.appendChild(m);
+    m.addEventListener("click", (e) => {
+      if (e.target === m || e.target.closest("#pwClose"))
+        cerrarPedidoActualDialog();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && m.classList.contains("open"))
+        cerrarPedidoActualDialog();
+    });
+  }
+  document.getElementById("pwDialogTitle").textContent =
+    _pwPedidos.length > 1 ? "Mis pedidos actuales" : "Mi pedido actual";
+  document.getElementById("pwDialogList").innerHTML = _pwPedidos
+    .map(_pwRowHTML)
+    .join("");
+
+  m.classList.remove("open");
+  void m.offsetHeight;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => m.classList.add("open")),
+  );
+  document.body.style.overflow = "hidden";
+}
+
+function cerrarPedidoActualDialog() {
+  const m = document.getElementById("pwDialog");
+  if (!m?.classList.contains("open")) return;
+  m.classList.remove("open");
+  document.body.style.overflow = "";
 }

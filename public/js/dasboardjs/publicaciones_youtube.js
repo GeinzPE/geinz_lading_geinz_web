@@ -1,8 +1,8 @@
 import { setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { tiendaSubDoc } from "../rutas/rutas.js";
 
-const YT_CLIENT_ID = 
-  "921389328767-gt62dnnieaan28buhfknvl27fn303oes.apps.googleusercontent.com.apps.googleusercontent.com";
+const YT_CLIENT_ID =
+  "921389328767-gt62dnnieaan28buhfknvl27fn303oes.apps.googleusercontent.com";
 const YT_SCOPES =
   "https://www.googleapis.com/auth/youtube.upload openid email profile";
 const YT_SCOPE_UPLOAD = "https://www.googleapis.com/auth/youtube.upload";

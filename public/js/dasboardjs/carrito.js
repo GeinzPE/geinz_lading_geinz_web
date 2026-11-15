@@ -41,6 +41,12 @@ import {
 
 import { abrirJuegoDialogo } from "../../carrito/js/juego_dialogo.js"; // ← ajusta la ruta real
 
+import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFunctions,
+  httpsCallable,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+
 configurarColoresNegocio({ legible: true });
 const db = getFirestore();
 /* ══════════════ Config de enlaces ══════════════
@@ -57,6 +63,59 @@ function getLandingBase() {
   return LANDING_BASE_URL;
 }
 const AUTH_ORIGIN = "https://geinztech.com";
+const FUNCTIONS_REGION = "us-central1"; // IGUAL a CFG.REGION del backend
+const crearPedidoFn = httpsCallable(
+  getFunctions(getApp(), FUNCTIONS_REGION),
+  "crearPedido",
+  { timeout: 30000 },
+);
+// Se reutiliza si falla la RED (el reintento no duplica) y se renueva cuando el servidor responde
+let claveEnvio = null;
+
+async function enviarPedidoSeguro({ items, nombre, whatsapp, direccion, vuelto, nota, totalCliente, tokenSeguimiento }) {
+  if (!claveEnvio) claveEnvio = crypto.randomUUID().replace(/-/g, "");
+  const bannerCupon =
+    cuponAplicado?.origen === "banner" && cuponAplicado._bannerId
+      ? { id: cuponAplicado._bannerId }
+      : null;
+  const payload = {
+    key: claveEnvio,
+    tiendaPath: tiendaDoc(localidad, "tiendas", tiendaId).path,
+    items: items.map((it) => ({
+      id: it.id,
+      categoria: it.categoria || null,
+      cantidad: it.cantidad,
+      seleccion: it.seleccion || null,
+      esCanje: it.esCanje === true,
+      cuponCodigos: it.cuponCodigos || [],
+    })),
+    cupones: todosLosCupones()
+      .filter((c) => c._ref)
+      .map((c) => ({ codigo: c.codigo, path: c._ref.path })),
+    bannerCupon,
+    cliente: {
+      nombre,
+      whatsapp,
+      tipo_entrega: tipoEntrega,
+      direccion,
+      ubicacion: clienteLat != null && clienteLng != null ? { lat: clienteLat, lng: clienteLng } : null,
+    },
+    pago: { metodo: metodoPago, vuelto },
+    nota,
+    zona: zonaDeliverySel || null,
+    token_seguimiento: tokenSeguimiento,
+    totalCliente,
+    mesa: false,
+  };
+  try {
+    const { data } = await crearPedidoFn(payload);
+    claveEnvio = null;
+    return data || { ok: false, motivo: "error_generico" };
+  } catch (err) {
+    console.error("crearPedido (red/servidor):", err);
+    return { ok: false, motivo: "red", mensaje: "Sin conexión con el servidor, intenta de nuevo" };
+  }
+}
 function statsCuponUpdate(pedido) {
   const hoy = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Lima",
@@ -80,72 +139,6 @@ function statsCuponUpdate(pedido) {
     u.usos_invitado = increment(1);
   }
   return u;
-}
-async function confirmarPedidoAtomico(items, construirPedido, cupones) {
-  const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
-  const nuevoPedidoRef = doc(pedidosRef);
-  const lista = (cupones || []).filter((c) => c?._ref);
-
-  try {
-    await runTransaction(db, async (tx) => {
-      // ---- lecturas (todas antes de escribir) ----
-      const estados = [];
-      for (const c of lista) {
-        const snap = await tx.get(c._ref);
-        if (!snap.exists()) throw { motivo: "cupon_invalido" };
-        const d = snap.data();
-        const multi = d.multiuso === true;
-        if (multi) {
-          if (
-            d.activo === false ||
-            (d.expiraEn && Date.now() >= d.expiraEn) ||
-            (d.usosMaximos && (d.usos || 0) >= d.usosMaximos)
-          )
-            throw { motivo: "cupon_invalido" };
-        } else if (
-          d.usado ||
-          d.estado === "cancelado" ||
-          d.activo === false ||
-          (d.expiraEn && Date.now() >= d.expiraEn)
-        ) {
-          throw { motivo: "cupon_invalido" };
-        }
-        // la plantilla del formulario no se puede usar suelta
-        if (d.soloFormulario) throw { motivo: "cupon_invalido" };
-        // fidelización y formulario: solo su dueño
-        if (
-          (d.origen === "fidelizacion" || d.origen === "formulario") &&
-          (!usuarioLogeado || d.clienteId !== usuarioLogeado.id)
-        )
-          throw { motivo: "cupon_invalido" };
-        estados.push(multi);
-      }
-
-      // ---- escrituras ----
-      const pedido = construirPedido();
-      tx.set(nuevoPedidoRef, pedido);
-
-      lista.forEach((c, i) => {
-        if (estados[i]) {
-          tx.update(c._ref, statsCuponUpdate(pedido));
-        } else {
-          tx.update(c._ref, {
-            usado: true,
-            estado: "usado",
-            pedidoId: nuevoPedidoRef.id,
-            usadoEn: serverTimestamp(),
-          });
-        }
-      });
-    });
-
-    return { ok: true, id: nuevoPedidoRef.id };
-  } catch (err) {
-    if (err?.motivo === "cupon_invalido")
-      return { ok: false, motivo: "cupon_invalido" };
-    console.error("Error en transacción de pedido:", err);
-    return { ok: false, motivo: "error_generico" };
-  }
 }
 let localidad = "barranca";
 let tiendaId = null;
@@ -2228,10 +2221,12 @@ async function aplicarCuponBanner() {
     it?.clickeable === true &&
     ["descuento", "envio_gratis"].includes(it.tipo) &&
     diaOk(it);
-  const banner =
+  const entradaBanner =
     param !== "1" && items[param]
-      ? items[param]
-      : Object.values(items).find(esCupon);
+      ? [param, items[param]]
+      : Object.entries(items).find(([, it]) => esCupon(it));
+  const banner = entradaBanner?.[1];
+  const bannerId = entradaBanner?.[0];
   if (!banner || !esCupon(banner)) {
     showToast("Esa promoción no está disponible hoy");
     return;
@@ -2269,6 +2264,7 @@ async function aplicarCuponBanner() {
       envioGratis: true,
     };
   }
+  nuevoCupon._bannerId = bannerId;
   cuponAplicado = nuevoCupon;
   updateCartUI();
   showToast(
@@ -2792,12 +2788,12 @@ function pintarPuntoEntrega() {
     .punto-map.loaded{animation:none;background:#0d0d0d;}
     .punto-map iframe{width:100%;height:100%;border:0;opacity:0;transition:opacity .4s ease;}
     .punto-map iframe.loaded{opacity:1;}
-    .punto-map-skel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    
     .punto-map iframe{pointer-events:auto;touch-action:none;}
 .punto-map-expand{position:absolute;top:8px;right:8px;z-index:3;padding:6px 10px;border:none;border-radius:10px;
   font-size:11.5px;font-weight:800;color:#fff;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);cursor:pointer;}
 .punto-map:fullscreen{height:100%;width:100%;margin:0;border-radius:0;}
-      font-size:12px;font-weight:700;color:#9ca3af;pointer-events:none;transition:opacity .3s ease;}
+      .punto-map-skel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#9ca3af;pointer-events:none;transition:opacity .3s ease;}
     .punto-map.loaded .punto-map-skel{opacity:0;}
     @keyframes puntoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`;
     document.head.appendChild(st);
@@ -3056,7 +3052,10 @@ function aplicarComportamientoBotonAtras() {
 }
 function normalizarWhatsapp(raw) {
   let d = String(raw || "").replace(/[^\d]/g, "");
-  if (d.length === 9) d = "51" + d; // celular peruano
+  if (d.length === 9) {
+    if (d[0] !== "9") return null; // celular peruano empieza con 9
+    d = "51" + d;
+  }
   return d.length >= 11 && d.length <= 15 ? d : null;
 }
 function prepararCheckoutInvitado() {
@@ -6000,137 +5999,28 @@ document
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = "Guardando pedido…";
 
-    const now = new Date();
-    const construirPedido = () => ({
-      estado: "pendiente",
-      fecha: now.toLocaleDateString("es-PE"),
-      hora: now.toLocaleTimeString("es-PE", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      timestamp: serverTimestamp(),
-      cliente: {
-        id_cliente: usuarioLogeado?.id || null,
-        nombre,
-        whatsapp: whatsapp || null,
-        tipo_entrega: tipoEntrega,
-        direccion:
-          tipoEntrega === "Delivery"
-            ? direccion
-            : tipoEntrega === TIPO_PUNTO
-              ? getPuntoEntrega()?.nombre || ""
-              : "",
-        ubicacion:
-          tipoEntrega === "Delivery" && clienteLat != null && clienteLng != null
-            ? { lat: clienteLat, lng: clienteLng }
-            : null,
-      },
-      token_seguimiento: tokenSeguimiento,
-      mesa: mesaId
-        ? {
-            id: mesaId,
-            nombre: mesaNombre || null,
-            numero: mesaNumero ? Number(mesaNumero) : null,
-          }
-        : null,
-      pago: {
-        metodo: metodoPago,
-        vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
-      },
-      nota: nota || "",
-      productos: items.map((it) => ({
-        id: it.id,
-        nombre: it.nombre,
-        categoria: it.categoria,
-        precio_unitario: it.precio,
-        cantidad: it.cantidad,
-        subtotal: +(it.precio * it.cantidad).toFixed(2),
-        imagen: it.imagen || "",
-        opciones: it.seleccion || null,
-        esCanje: it.esCanje || false,
-        esPromo: it.esPromo || false,
-        cuponCodigo: it.cuponCodigo || null,
-        cuponCodigos: it.cuponCodigos || null,
-      })),
-      total_items: items.reduce((s, i) => s + i.cantidad, 0),
-      total: +total.toFixed(2),
-      subtotal: +subtotal.toFixed(2),
-      descuentoCupon,
-      delivery: deliv,
-      punto_entrega:
-        tipoEntrega === TIPO_PUNTO && getPuntoEntrega()
-          ? getPuntoEntrega()
-          : null,
-      tiempo_estimado: tiempoEstimadoPedido(),
-      cupon:
-        cuponAplicado || cuponesProductoActivos()[0]
-          ? resumenCupon(cuponAplicado || cuponesProductoActivos()[0])
-          : null,
-      cupones: todosLosCupones().map(resumenCupon),
-      negocio: { id: tiendaId, nombre: bizNombre, localidad },
-    });
-
-    console.log("[CUPON] 5) items que se van a guardar en el pedido:", items);
-    console.log(
-      "[CUPON] cuponAplicado al momento de confirmar pedido:",
-      cuponAplicado,
-    );
-    console.log(
-      "[CUPON] total con descuento aplicado:",
-      total,
-      "| descuentoCupon:",
-      descuentoCupon,
-    );
-
-    const resultado = await confirmarPedidoAtomico(
+    const resultado = await enviarPedidoSeguro({
       items,
-      construirPedido,
-      todosLosCupones(),
-    );
+      nombre,
+      whatsapp: whatsapp || null,
+      direccion,
+      vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
+      nota: nota || "",
+      totalCliente: total,
+      tokenSeguimiento,
+    });
 
     if (!resultado.ok) {
       btn.disabled = false;
       btn.innerHTML = textoOriginal;
-      if (resultado.motivo === "sin_stock") {
-        showToast(
-          `⚠️ "${resultado.nombre}" ya no tiene stock (quedan ${resultado.disponible}${resultado.detalle ? " de " + resultado.detalle : ""})`,
-        );
-      } else if (resultado.motivo === "cupon_invalido") {
-        showToast("⚠️ El cupón ya no es válido, quítalo e intenta de nuevo");
-      } else {
-        showToast("⚠️ No se pudo guardar tu pedido, intenta de nuevo");
+      showToast("⚠️ " + (resultado.mensaje || "No se pudo guardar tu pedido, intenta de nuevo"));
+      if (["precio_cambio", "producto_no_disponible", "promo_no_disponible", "opcion_invalida"].includes(resultado.motivo)) {
+        setTimeout(() => location.reload(), 2200); // el carrito se restaura con precios frescos
       }
       return;
     }
-    function registrarConversionOfertas(items) {
-      const hoy = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Lima",
-      }).format(new Date());
-      items
-        .filter(
-          (i) =>
-            i.esOfertaTiempo && String(i.promoId || "").startsWith("activa_"),
-        )
-        .forEach((i) => {
-          const ref = tiendaSubDoc(
-            localidad,
-            "tiendas",
-            tiendaId,
-            "promociones_geinz",
-            i.promoId.slice(7),
-          );
-          updateDoc(ref, {
-            "estadisticas.pedidos": increment(1),
-            "estadisticas.unidades_vendidas": increment(i.cantidad),
-            "estadisticas.ventas_total": increment(
-              +(i.cantidad * i.precio).toFixed(2),
-            ),
-            [`estadisticas.por_dia.${hoy}.pedidos`]: increment(1),
-          }).catch(() => {});
-        });
-    }
     const pedidoId = resultado.id;
-    registrarConversionOfertas(items);
+    const tokenFinal = resultado.token || tokenSeguimiento;
     pedidoEnviado = true;
     carrito.clear(); // opcional pero recomendado
     limpiarCarritoPersistido();
@@ -6154,7 +6044,7 @@ document
       } catch {}
     }
 
-    const sufijo = tokenSeguimiento ? `?t=${tokenSeguimiento}` : "";
+    const sufijo = tokenFinal ? `?t=${tokenFinal}` : "";
     const linkPedido =
       (window.__NEGOCIO_HOSTNAME__
         ? `${getLandingBase()}/pedido/${pedidoId}`
@@ -6515,22 +6405,7 @@ async function purgarDescuentosVencidos() {
   if (!vencidos.length) return;
 
   for (const p of vencidos) {
-    try {
-      const ref = doc(
-        tiendaSubCol(
-          localidad,
-          "tiendas",
-          tiendaId,
-          "productos",
-          p.categoria,
-          p.categoria,
-        ),
-        p.id,
-      );
-      await updateDoc(ref, { "descuento.activo": false });
-    } catch (e) {
-      console.warn("No se pudo desactivar descuento vencido:", e.message);
-    }
+    
     p.descuento = { ...p.descuento, activo: false };
     syncMainListCard(p.id);
   }
