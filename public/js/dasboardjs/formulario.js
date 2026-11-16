@@ -64,11 +64,20 @@ details.r summary .sub{overflow-wrap:anywhere}
 .loc{margin:0;padding:10px 0;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
 details.fold{margin-top:14px}
 details.fold>summary{cursor:pointer;color:var(--p2);padding:6px 0}
+/* campañas físicas */
+.intro{color:var(--muted);margin:6px 0 20px;max-width:760px;line-height:1.55}
+.fc p.sub{margin:0;font-size:13px;line-height:1.5}
+.lnk{display:flex;gap:8px;margin-bottom:6px}.lnk .in{margin:0;font-size:12.5px}
+.lnkid{color:var(--muted);font-size:12.5px;margin:6px 0 0}
+.prd{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:13px}
+.chip.warn{background:rgba(229,72,77,.14);color:#e5484d}
+.exp{color:var(--muted);font-size:12.5px;margin:6px 0 0}
 </style>`,
 );
 
 /* Imagen OG ya optimizada (WebP) que se sube al guardar */
 let ogBlob = null;
+let expDirty = false;
 
 /* Marca real del negocio */
 const lighten = (h, p = 0.3) => {
@@ -125,6 +134,50 @@ async function tienda() {
 const fcol = async () => {
   await tienda();
   return formulariosCol(T.loc, T.id);
+};
+/* Campañas físicas: colección propia dentro de la tienda (misma pantalla de Formularios) */
+const ccol = async () => collection(await tienda(), "campanas_fisicas");
+const esCamp = (f) => f?.modo === "campana";
+const fmtD = (ms) =>
+  ms
+    ? new Date(ms).toLocaleString("es-PE", {
+        dateStyle: "short",
+        timeStyle: "short",
+      })
+    : "";
+const money = (n) => "S/ " + (+n || 0).toFixed(2);
+
+/* ---------- Campañas: constantes ---------- */
+const TIPOS_C = ["Volante", "Afiche", "Tarjeta", "QR en local", "Evento", "Otro"];
+const DEST = { carrito: { label: "Carrito" } }; // por ahora solo carrito
+const EXP = {
+  ninguna: "Sin caducidad",
+  hoy: "Hoy (hasta las 23:59)",
+  manana: "Mañana (hasta las 23:59)",
+  dias: "En X días",
+  horas: "En X horas",
+};
+const calcExp = (e) => {
+  const n = new Date(),
+    v = Math.max(1, Math.floor(+e.n || 1));
+  if (e.modo === "hoy") return n.setHours(23, 59, 59, 999);
+  if (e.modo === "manana") {
+    n.setDate(n.getDate() + 1);
+    return n.setHours(23, 59, 59, 999);
+  }
+  if (e.modo === "dias") return Date.now() + v * 864e5;
+  if (e.modo === "horas") return Date.now() + v * 36e5;
+  return 0;
+};
+const estadoC = (f) =>
+  f.status !== "activo"
+    ? "Borrador"
+    : f.expiraEn && f.expiraEn < Date.now()
+      ? "Vencida"
+      : "Activo";
+const chipC = (f) => {
+  const e = estadoC(f);
+  return `<span class="chip ${e === "Activo" ? "ok" : e === "Vencida" ? "warn" : "off"}">${e}</span>`;
 };
 
 /* ---------- Reglas de preguntas ---------- */
@@ -256,15 +309,20 @@ function check(f) {
   return "";
 }
 
+/* Campañas:
+   campanas_fisicas/{id}  → configuración + stats {visits, registros, compras, ingresos, dias}
+   campanas_fisicas/{id}/eventos/{auto} →
+     { at, tipo:"visita"|"registro"|"compra", user, who, mail, tel, pedidoId,
+       items:[{nombre,cant,precio}], total } */
 const DB = {
   brand: async () => {
     const s = await getDoc(await tienda());
     TD = s.data() || {};
     return brandFrom(TD);
   },
-  forms: async () =>
-    (await getDocs(await fcol())).docs.map((d) => {
-      const f = { id: d.id, ...d.data() },
+  forms: async () => {
+    const fs = (await getDocs(await fcol())).docs.map((d) => {
+      const f = { id: d.id, ...d.data(), modo: "formulario" },
         s = f.stats || {};
       f.stats = {
         visits: s.visits || 0,
@@ -274,7 +332,24 @@ const DB = {
         pasos: s.pasos || {},
       };
       return f;
-    }),
+    });
+    const cs = (await getDocs(await ccol())).docs.map((d) => {
+      const f = { id: d.id, ...d.data(), modo: "campana" },
+        s = f.stats || {};
+          f.stats = {
+        visits: s.visits || 0,
+        registros: s.registros || 0,
+        compras: s.compras || 0,
+        ingresos: s.ingresos || 0,
+        byDay: last7(s.dias),
+        pagos: s.pagos || {},
+        seg: s.seg_n ? Math.round(s.seg_total / s.seg_n) : 0,
+      };
+      f.exp = f.exp || { modo: "ninguna", n: 1 };
+      return f;
+    });
+    return [...fs, ...cs];
+  },
   responses: async (id) =>
     (
       await getDocs(
@@ -301,17 +376,51 @@ const DB = {
           : "",
       };
     }),
+  events: async (id) =>
+    (
+      await getDocs(
+        query(
+          collection(doc(await ccol(), id), "eventos"),
+          orderBy("at", "desc"),
+          limit(1000),
+        ),
+      )
+    ).docs.map((d) => {
+      const x = d.data(),
+        ms = x.at?.toMillis ? x.at.toMillis() : +x.at || 0;
+      return {
+        ...x,
+        id: d.id,
+        tipo: x.tipo || "visita",
+        who: x.who || "Anónimo",
+        items: Array.isArray(x.items) ? x.items : [],
+        total: +x.total || 0,
+        ms,
+        date: fmtD(ms),
+      };
+    }),
   save: async (f, onProgress) => {
-    const c = await fcol(),
+    const camp = esCamp(f),
+      c = camp ? await ccol() : await fcol(),
       data = structuredClone(f);
     delete data.stats;
     delete data.id;
     data.og = data.og || { title: "", desc: "", image: "" };
     const r = f.id === "nuevo" ? doc(c) : doc(c, f.id);
+    if (camp) {
+      data.destino = "carrito";
+      if (expDirty || (!data.expiraEn && data.exp.modo !== "ninguna"))
+        data.expiraEn = calcExp(data.exp);
+      if (data.exp.modo === "ninguna") data.expiraEn = 0;
+      if (f.id === "nuevo") {
+        data.creadoEn = Date.now();
+        data.stats = { visits: 0, registros: 0, compras: 0, ingresos: 0 };
+      }
+    }
     if (ogBlob) {
       const url = await subirWebp(
         storage,
-        `tiendas/${T.id}/formulario/${r.id}/og.webp`,
+        `tiendas/${T.id}/${camp ? "campana" : "formulario"}/${r.id}/og.webp`,
         ogBlob,
         onProgress,
       );
@@ -320,7 +429,7 @@ const DB = {
       data.og.image = "";
     }
     let cupRef = null;
-    if (data.discount?.on) {
+    if (!camp && data.discount?.on) {
       cupRef = tiendaCuponDoc(T.loc, T.id, data.discount.code);
       if (!(await getDoc(cupRef)).exists())
         throw new Error("El cupón ya no existe");
@@ -329,14 +438,22 @@ const DB = {
     if (cupRef)
       await updateDoc(cupRef, { soloFormulario: true, formularioId: r.id });
     ogBlob = null;
-    return { id: r.id, og: data.og };
+    expDirty = false;
+    return { id: r.id, og: data.og, expiraEn: data.expiraEn };
   },
   link: (f) => {
     const d = TD.dominio || TD.dominio_web,
       a = TD.alias || TD.alias_tienda;
-    if (d) return `https://${d}/form/${f.id}`;
-    if (a) return `https://geinztech.com/perfil/${a}/form/${f.id}`;
-    return `https://geinztech.com/form/${f.id}?id=${T.id}&localidad=${T.loc}`;
+    if (esCamp(f)) {
+      const q = `camp=${encodeURIComponent(f.id)}`;
+      if (d) return `https://${d}/carrito?${q}`;
+      if (a) return `https://geinztech.com/perfil/${a}/carrito?${q}`;
+      return `https://geinztech.com/carrito?id=${T.id}&localidad=${T.loc}&${q}`;
+    }
+    const p = "form";
+    if (d) return `https://${d}/${p}/${f.id}`;
+    if (a) return `https://geinztech.com/perfil/${a}/${p}/${f.id}`;
+    return `https://geinztech.com/${p}/${f.id}?id=${T.id}&localidad=${T.loc}`;
   },
 };
 const TYPES = {
@@ -380,12 +497,12 @@ const nrm = (s) =>
     .toLowerCase();
 const uniq = (a) => [...new Set(a)];
 
-/* Respuestas en caché (se cargan una vez por formulario) */
+/* Respuestas / eventos en caché (se cargan una vez por formulario o campaña) */
 let RC = { id: null, rows: [] };
 async function getR(force) {
   if (F.id === "nuevo") return [];
   if (!force && RC.id === F.id) return RC.rows;
-  const rows = await DB.responses(F.id);
+  const rows = esCamp(F) ? await DB.events(F.id) : await DB.responses(F.id);
   RC = { id: F.id, rows };
   return rows;
 }
@@ -406,6 +523,8 @@ const FL0 = {
   sort: "new",
 };
 let FL = { ...FL0 };
+const FC0 = { q: "", from: "", to: "", tipo: "", user: "", sort: "new" };
+let FC = { ...FC0 };
 let SHOWN = 50;
 
 const matchAns = (v, opt) => {
@@ -434,6 +553,32 @@ function applyF(R) {
     if (f.prov && r.z.prov !== f.prov) return false;
     if (f.dist && r.z.dist !== f.dist) return false;
     if (f.qid && f.qopt && !matchAns(r.a?.[f.qid], f.qopt)) return false;
+    return true;
+  });
+  if (f.sort === "old") out.sort((a, b) => a.ms - b.ms);
+  else if (f.sort === "name")
+    out.sort((a, b) => nrm(a.who).localeCompare(nrm(b.who)));
+  else out.sort((a, b) => b.ms - a.ms);
+  return out;
+}
+function applyC(R) {
+  const f = FC,
+    q = nrm(f.q),
+    from = f.from ? new Date(f.from + "T00:00:00").getTime() : 0,
+    to = f.to ? new Date(f.to + "T23:59:59.999").getTime() : Infinity;
+  const out = R.filter((r) => {
+    if (
+      q &&
+      !nrm(
+        [r.who, r.mail, r.tel, r.pedidoId, r.items.map((i) => i.nombre).join(" ")].join(" "),
+      ).includes(q)
+    )
+      return false;
+    if (from && r.ms < from) return false;
+    if (r.ms > to) return false;
+    if (f.tipo && r.tipo !== f.tipo) return false;
+    if (f.user === "reg" && !r.user) return false;
+    if (f.user === "anon" && r.user) return false;
     return true;
   });
   if (f.sort === "old") out.sort((a, b) => a.ms - b.ms);
@@ -686,32 +831,57 @@ async function initZonas() {
   };
 }
 
+/* ===================== LISTA (formularios + campañas) ===================== */
 function list() {
   F = null;
   ogBlob = null;
+  expDirty = false;
   RC = { id: null, rows: [] };
   $("#app").innerHTML =
-    `<div class="top"><div><h1>Formularios y encuestas</h1><p class="sub">Entra a uno para ver todo lo que ha pasado.</p></div><div style="display:flex;gap:8px"><button class="btn" id="rfl">↻ Actualizar</button><button class="btn pri" id="nw">Nuevo formulario</button></div></div>
-  ${forms.length ? "" : '<div class="card"><h2>Aún no tienes formularios</h2><p class="sub" style="margin:0">Crea el primero con “Nuevo formulario” y aparecerá aquí.</p></div>'}<div class="grid">${forms
-    .map(
-      (
-        f,
-      ) => `<button class="fc" data-id="${f.id}"><span class="chip ${f.status === "activo" ? "ok" : "off"}">${f.status === "activo" ? "Activo" : "Borrador"}</span> <span class="chip">${esc(f.kind)}</span>
+    `<div class="top"><div><h1>Formularios y campañas</h1><p class="sub">Entra a uno para ver todo lo que ha pasado.</p></div><div style="display:flex;gap:8px"><button class="btn" id="rfl">↻ Actualizar</button><button class="btn pri" id="nw">Crear</button></div></div>
+  ${forms.length ? "" : '<div class="card"><h2>Aún no tienes nada creado</h2><p class="sub" style="margin:0">Pulsa “Crear” para hacer un formulario o una campaña física.</p></div>'}<div class="grid">${forms
+    .map((f) =>
+      esCamp(f)
+        ? `<button class="fc" data-id="${f.id}" data-m="campana">${chipC(f)} <span class="chip">Campaña · ${esc(f.kind)}</span>
+  <h3>${esc(f.title)}</h3><dl><div><dt>Visitas</dt><dd>${f.stats.visits}</dd></div><div><dt>Compras</dt><dd>${f.stats.compras}</dd></div><div><dt>Conversión</dt><dd>${pct(f.stats.compras, f.stats.visits)}</dd></div></dl></button>`
+        : `<button class="fc" data-id="${f.id}" data-m="formulario"><span class="chip ${f.status === "activo" ? "ok" : "off"}">${f.status === "activo" ? "Activo" : "Borrador"}</span> <span class="chip">${esc(f.kind)}</span>
   <h3>${esc(f.title)}</h3><dl><div><dt>Respuestas</dt><dd>${f.stats.done}</dd></div><div><dt>Finalización</dt><dd>${pct(f.stats.done, f.stats.visits)}</dd></div></dl></button>`,
     )
     .join("")}</div>`;
   $(".grid").onclick = (e) => {
     const b = e.target.closest(".fc");
     if (b) {
-      F = structuredClone(forms.find((x) => x.id === b.dataset.id));
+      F = structuredClone(
+        forms.find((x) => x.id === b.dataset.id && x.modo === b.dataset.m),
+      );
+      if (esCamp(F)) F.exp = F.exp || { modo: "ninguna", n: 1 };
       tab = "resumen";
       FL = { ...FL0 };
+      FC = { ...FC0 };
       detail();
     }
   };
-  $("#nw").onclick = () => {
+  $("#nw").onclick = elegir;
+  $("#rfl").onclick = async () => {
+    forms = await DB.forms();
+    list();
+  };
+}
+
+/* Qué quieres crear: formulario o campaña física */
+function elegir() {
+  $("#app").innerHTML =
+    `<button class="link" id="bk">← Todos</button>
+  <div class="top"><div><h1>¿Qué quieres crear?</h1></div></div>
+  <div class="grid">
+    <button class="fc" id="pF"><span class="chip">Formulario</span><h3>Formulario o encuesta</h3><p class="sub">Preguntas, registro de usuarios y descuento al finalizar.</p></button>
+    <button class="fc" id="pC"><span class="chip">Campaña física</span><h3>Campaña física</h3><p class="sub">Si tienes un negocio virtual o quieres expandirte y probar nuevas experiencias, GINZ te permite crear links con accesos directos y medir métricas.</p></button>
+  </div>`;
+  $("#bk").onclick = list;
+  $("#pF").onclick = () => {
     F = {
       id: "nuevo",
+      modo: "formulario",
       status: "borrador",
       kind: "Encuesta",
       title: "Nuevo formulario",
@@ -726,19 +896,34 @@ function list() {
     tab = "editar";
     detail();
   };
-  $("#rfl").onclick = async () => {
-    forms = await DB.forms();
-    list();
+  $("#pC").onclick = () => {
+    F = {
+      id: "nuevo",
+      modo: "campana",
+      status: "borrador",
+      kind: "Volante",
+      title: "Nueva campaña",
+      sub: "",
+      destino: "carrito",
+      exp: { modo: "dias", n: 7 },
+      expiraEn: 0,
+      og: { title: "", desc: "", image: "" },
+      stats: { visits: 0, registros: 0, compras: 0, ingresos: 0, byDay: [0, 0, 0, 0, 0, 0, 0] },
+    };
+    expDirty = true;
+    tab = "editar";
+    detail();
   };
 }
 function detail() {
+  const C = esCamp(F);
   $("#app").innerHTML =
-    `<button class="link" id="bk">← Todos los formularios</button>
-  <div class="top"><div><h1>${esc(F.title)}</h1><p class="sub">${esc(F.kind)} · ${F.status === "activo" ? "Activo" : "Borrador"}</p></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="rf"${tab === "editar" || F.id === "nuevo" ? " hidden" : ""}>↻ Actualizar</button><button class="btn" id="vf"${F.id === "nuevo" ? " disabled" : ""}>Ver formulario</button></div></div>
+    `<button class="link" id="bk">← Todos los formularios y campañas</button>
+  <div class="top"><div><h1>${esc(F.title)}</h1><p class="sub">${C ? "Campaña física · " + esc(F.kind) + " · " + estadoC(F) + " · Destino: " + DEST[F.destino || "carrito"].label : esc(F.kind) + " · " + (F.status === "activo" ? "Activo" : "Borrador")}</p></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="rf"${tab === "editar" || F.id === "nuevo" ? " hidden" : ""}>↻ Actualizar</button><button class="btn" id="vf"${F.id === "nuevo" ? " disabled" : ""}>${C ? "Probar enlace" : "Ver formulario"}</button></div></div>
   <div class="tabs" id="tb">${[
     ["resumen", "Resumen"],
-    ["respuestas", "Respuestas"],
+    ["respuestas", C ? "Actividad" : "Respuestas"],
     ["editar", "Editar"],
   ]
     .map(
@@ -767,7 +952,7 @@ async function refrescar() {
   b.textContent = "Actualizando…";
   try {
     forms = await DB.forms();
-    const fresh = forms.find((x) => x.id === F.id);
+    const fresh = forms.find((x) => x.id === F.id && x.modo === F.modo);
     if (fresh) F.stats = fresh.stats;
     await getR(true);
     await ({ resumen, respuestas }[tab] || (() => {}))();
@@ -781,6 +966,7 @@ async function refrescar() {
   }
 }
 async function resumen() {
+  if (esCamp(F)) return resumenC();
   $("#body").innerHTML = '<p class="sub">Cargando…</p>';
   let R = [];
   try {
@@ -822,6 +1008,7 @@ async function resumen() {
 }
 
 async function respuestas() {
+  if (esCamp(F)) return actividadC();
   $("#body").innerHTML = '<p class="sub">Cargando…</p>';
   let all = [];
   try {
@@ -1083,46 +1270,8 @@ function descargarCsv(rows) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
-function editar() {
-  step = 0;
-  ans = {};
-  ansO = {};
-  F.discount.zonas = F.discount.zonas || [];
-  $("#body").innerHTML = `<div class="split"><div>
-  <div class="card"><h2>Cabecera</h2><div class="row"><div><label class="f">Tipo</label><select class="in" id="fKind">${["Encuesta", "Formulario", "Feedback", "Sorteo"].map((k) => `<option>${k}</option>`).join("")}</select></div><div><label class="f">Estado</label><select class="in" id="fSt"><option value="activo">Activo</option><option value="borrador">Borrador</option></select></div></div>
-  <label class="f">Título</label><input class="in" id="fTitle" maxlength="120"><label class="f">Texto de bienvenida</label><textarea class="in" id="fSub" rows="2" maxlength="400"></textarea>
-  <p class="sub" style="margin:0;font-size:12.5px">Logo y colores vienen del negocio en la base de datos.</p></div>
-  <div class="card"><h2>Al compartir el enlace</h2><div class="og" id="ogPrev"></div>
- <label class="f">Imagen vertical (se optimiza sola a WebP 1080 × 1350, sin recortar)</label>
-  <div style="display:flex;gap:8px;margin-bottom:12px"><label class="btn" style="cursor:pointer">Subir imagen<input type="file" id="ogFile" accept="image/*" hidden></label><button class="btn" id="ogDel">Quitar</button></div>
-  <p class="sub" id="ogMsg" style="margin:-4px 0 10px;font-size:12.5px"></p>
-  <label class="f">Título al compartir</label><input class="in" id="ogT" placeholder="Si lo dejas vacío, usa el título del formulario">
-  <label class="f">Descripción</label><textarea class="in" id="ogD" rows="2" placeholder="Si lo dejas vacío, usa el texto de bienvenida"></textarea></div>
-  <div class="card"><h2>Preguntas</h2><div id="qs"></div><button class="add" id="addQ">Agregar pregunta</button></div>
-  <div class="card"><h2>Al finalizar</h2>
-  <div class="sw"><div>Pedir registro<small>Nombre, correo y teléfono</small></div><button class="tg" id="tReg" aria-label="Pedir registro"></button></div>
-  <div id="regBox" class="qcfg" style="padding:10px 0;border-top:1px solid var(--line)"></div>
-  <div class="sw"><div>Dar un descuento<small>Se muestra al enviar</small></div><button class="tg" id="tDis" aria-label="Dar descuento"></button></div>
-  <div class="row" id="disBox" style="margin-top:10px"><div><label class="f">Descuento (%)</label><input class="in" id="dPct" type="number" disabled></div><div><label class="f">Cupón (de tu lista)</label><select class="in" id="dCode">${cupOpts()}</select></div></div>
-  <div id="zonaBox" style="margin-top:6px">
-    <label class="f">¿Dónde está disponible el descuento?</label>
-    <div class="zch" id="zChips"></div>
-    <div class="zrow"><select class="in" id="zDep"></select><select class="in" id="zProv" disabled></select><select class="in" id="zDist" disabled></select></div>
-    <button class="add" id="zAdd" type="button">Agregar zona</button>
-    <p class="sub" id="zMsg" style="margin:8px 0 0;font-size:12.5px;color:#e5484d"></p>
-    <p class="sub" style="margin:8px 0 0;font-size:12.5px">Si lo dejas vacío vale en todas partes. Si agregas zonas, quien se registre desde otra zona verá “oferta no disponible en tu zona” y su cupón se le envía por WhatsApp. En ese caso el formulario pide ubicación y WhatsApp automáticamente.</p>
-  </div>
-  <div class="sw"><div>Solo usuarios registrados<small>Cuentas ya existentes en tu SaaS</small></div><button class="tg" id="tUsr" aria-label="Solo usuarios registrados"></button></div></div>
-  <button class="btn pri" id="sv">Guardar cambios</button>
-  <div class="upbar" id="upBar"><i id="upFill"></i></div>
-  <p class="svmsg" id="svMsg" role="alert"></p></div>
-  <div><div class="dev"><div class="pub" id="pub"></div></div><p class="hint">Vista previa interactiva</p></div></div>`;
-  F.og = F.og || { title: "", desc: "", image: "" };
-  sync();
-  qs();
-  pub();
-  og();
-  initZonas();
+/* ---------- Compartido: imagen OG y botón Guardar ---------- */
+function bindOg() {
   $("#ogT").value = F.og.title || "";
   $("#ogD").value = F.og.desc || "";
   $("#ogT").oninput = (e) => {
@@ -1165,6 +1314,102 @@ function editar() {
       $("#ogMsg").textContent = err.message || "No se pudo procesar la imagen.";
     }
   };
+}
+/* pre(): valida y prepara F, devuelve un texto de error o "" · after(): repinta tras guardar */
+function bindSave(pre, after) {
+  $("#sv").onclick = async () => {
+    const b = $("#sv"),
+      m = $("#svMsg"),
+      bar = $("#upBar"),
+      fill = $("#upFill"),
+      subiendo = !!ogBlob;
+    m.textContent = "";
+    const err = pre();
+    if (err) {
+      m.textContent = err;
+      return;
+    }
+    b.disabled = true;
+    b.textContent = subiendo ? "Subiendo imagen… 0%" : "Guardando…";
+    if (subiendo) {
+      fill.style.width = "0%";
+      bar.style.display = "block";
+    }
+    try {
+      const s = await DB.save(F, (p) => {
+        fill.style.width = p + "%";
+        b.textContent = p < 100 ? `Subiendo imagen… ${p}%` : "Guardando…";
+      });
+      F.id = s.id;
+      F.og = s.og;
+      if (esCamp(F)) F.expiraEn = s.expiraEn;
+      const i = forms.findIndex((x) => x.id === s.id && x.modo === F.modo);
+      i < 0 ? forms.push(F) : (forms[i] = F);
+      after();
+      og();
+      $("#ogMsg").textContent = "";
+      const vf = $("#vf");
+      if (vf) vf.disabled = false;
+      b.textContent = "Guardado";
+    } catch (e) {
+      console.error(e);
+      m.textContent = subiendo
+        ? "No se pudo subir la imagen o guardar. Revisa tu conexión e inténtalo de nuevo."
+        : "No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.";
+      b.textContent = "Guardar cambios";
+    }
+    bar.style.display = "none";
+    b.disabled = false;
+    setTimeout(
+      () => $("#sv") && ($("#sv").textContent = "Guardar cambios"),
+      2500,
+    );
+  };
+}
+
+/* ===================== EDITAR FORMULARIO ===================== */
+function editar() {
+  if (esCamp(F)) return editarC();
+  step = 0;
+  ans = {};
+  ansO = {};
+  F.discount.zonas = F.discount.zonas || [];
+  $("#body").innerHTML = `<div class="split"><div>
+  <div class="card"><h2>Cabecera</h2><div class="row"><div><label class="f">Tipo</label><select class="in" id="fKind">${["Encuesta", "Formulario", "Feedback", "Sorteo"].map((k) => `<option>${k}</option>`).join("")}</select></div><div><label class="f">Estado</label><select class="in" id="fSt"><option value="activo">Activo</option><option value="borrador">Borrador</option></select></div></div>
+  <label class="f">Título</label><input class="in" id="fTitle" maxlength="120"><label class="f">Texto de bienvenida</label><textarea class="in" id="fSub" rows="2" maxlength="400"></textarea>
+  <p class="sub" style="margin:0;font-size:12.5px">Logo y colores vienen del negocio en la base de datos.</p></div>
+  <div class="card"><h2>Al compartir el enlace</h2><div class="og" id="ogPrev"></div>
+ <label class="f">Imagen vertical (se optimiza sola a WebP 1080 × 1350, sin recortar)</label>
+  <div style="display:flex;gap:8px;margin-bottom:12px"><label class="btn" style="cursor:pointer">Subir imagen<input type="file" id="ogFile" accept="image/*" hidden></label><button class="btn" id="ogDel">Quitar</button></div>
+  <p class="sub" id="ogMsg" style="margin:-4px 0 10px;font-size:12.5px"></p>
+  <label class="f">Título al compartir</label><input class="in" id="ogT" placeholder="Si lo dejas vacío, usa el título del formulario">
+  <label class="f">Descripción</label><textarea class="in" id="ogD" rows="2" placeholder="Si lo dejas vacío, usa el texto de bienvenida"></textarea></div>
+  <div class="card"><h2>Preguntas</h2><div id="qs"></div><button class="add" id="addQ">Agregar pregunta</button></div>
+  <div class="card"><h2>Al finalizar</h2>
+  <div class="sw"><div>Pedir registro<small>Nombre, correo y teléfono</small></div><button class="tg" id="tReg" aria-label="Pedir registro"></button></div>
+  <div id="regBox" class="qcfg" style="padding:10px 0;border-top:1px solid var(--line)"></div>
+  <div class="sw"><div>Dar un descuento<small>Se muestra al enviar</small></div><button class="tg" id="tDis" aria-label="Dar descuento"></button></div>
+  <div class="row" id="disBox" style="margin-top:10px"><div><label class="f">Descuento (%)</label><input class="in" id="dPct" type="number" disabled></div><div><label class="f">Cupón (de tu lista)</label><select class="in" id="dCode">${cupOpts()}</select></div></div>
+  <div id="zonaBox" style="margin-top:6px">
+    <label class="f">¿Dónde está disponible el descuento?</label>
+    <div class="zch" id="zChips"></div>
+    <div class="zrow"><select class="in" id="zDep"></select><select class="in" id="zProv" disabled></select><select class="in" id="zDist" disabled></select></div>
+    <button class="add" id="zAdd" type="button">Agregar zona</button>
+    <p class="sub" id="zMsg" style="margin:8px 0 0;font-size:12.5px;color:#e5484d"></p>
+    <p class="sub" style="margin:8px 0 0;font-size:12.5px">Si lo dejas vacío vale en todas partes. Si agregas zonas, quien se registre desde otra zona verá “oferta no disponible en tu zona” y su cupón se le envía por WhatsApp. En ese caso el formulario pide ubicación y WhatsApp automáticamente.</p>
+  </div>
+  <div class="sw"><div>Solo usuarios registrados<small>Cuentas ya existentes en tu SaaS</small></div><button class="tg" id="tUsr" aria-label="Solo usuarios registrados"></button></div></div>
+  <button class="btn pri" id="sv">Guardar cambios</button>
+  <div class="upbar" id="upBar"><i id="upFill"></i></div>
+  <p class="svmsg" id="svMsg" role="alert"></p></div>
+  <div><div class="dev"><div class="pub" id="pub"></div></div><p class="hint">Vista previa interactiva</p></div></div>`;
+  F.og = F.og || { title: "", desc: "", image: "" };
+  sync();
+  qs();
+  pub();
+  og();
+  initZonas();
+  bindOg();
   [
     ["fTitle", "title"],
     ["fSub", "sub"],
@@ -1223,58 +1468,19 @@ function editar() {
     qs();
     pub();
   };
-  $("#sv").onclick = async () => {
-    const b = $("#sv"),
-      m = $("#svMsg"),
-      bar = $("#upBar"),
-      fill = $("#upFill"),
-      subiendo = !!ogBlob;
-    m.textContent = "";
-    const err = check(F);
-    if (err) {
-      m.textContent = err;
-      return;
-    }
-    b.disabled = true;
-    b.textContent = subiendo ? "Subiendo imagen… 0%" : "Guardando…";
-    if (subiendo) {
-      fill.style.width = "0%";
-      bar.style.display = "block";
-    }
-    try {
+  bindSave(
+    () => {
+      const err = check(F);
+      if (err) return err;
       F.title = F.title.trim();
       F.regCampos = regC();
       F.questions = F.questions.map(normQ);
       F.discount.code = String(F.discount.code).trim();
       F.discount.zonas = F.discount.zonas || [];
-      const s = await DB.save(F, (p) => {
-        fill.style.width = p + "%";
-        b.textContent = p < 100 ? `Subiendo imagen… ${p}%` : "Guardando…";
-      });
-      F.id = s.id;
-      F.og = s.og;
-      const i = forms.findIndex((x) => x.id === s.id);
-      i < 0 ? forms.push(F) : (forms[i] = F);
-      qs();
-      og();
-      $("#ogMsg").textContent = "";
-      const vf = $("#vf");
-      if (vf) vf.disabled = false;
-      b.textContent = "Guardado";
-    } catch (e) {
-      console.error(e);
-      m.textContent = subiendo
-        ? "No se pudo subir la imagen o guardar. Revisa tu conexión e inténtalo de nuevo."
-        : "No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.";
-      b.textContent = "Guardar cambios";
-    }
-    bar.style.display = "none";
-    b.disabled = false;
-    setTimeout(
-      () => $("#sv") && ($("#sv").textContent = "Guardar cambios"),
-      2500,
-    );
-  };
+      return "";
+    },
+    () => qs(),
+  );
 
   $("#qs").addEventListener("input", (e) => {
     const card = e.target.closest(".q");
@@ -1533,6 +1739,343 @@ function pub() {
   });
 }
 
+/* ===================== CAMPAÑAS FÍSICAS ===================== */
+async function resumenC() {
+  $("#body").innerHTML = '<p class="sub">Cargando…</p>';
+  let R = [];
+  try {
+    R = await getR();
+  } catch (e) {
+    console.error(e);
+    $("#body").innerHTML = '<p class="sub">No se pudieron cargar los datos.</p>';
+    return;
+  }
+  const s = F.stats,
+    mx = Math.max(...s.byDay, 1),
+    comp = R.filter((r) => r.tipo === "compra"),
+    compReg = comp.filter((r) => r.user).length;
+  const prod = new Map();
+  comp.forEach((r) =>
+    r.items.forEach((i) => {
+      const e = prod.get(i.nombre) || { n: 0, t: 0 },
+        c = +i.cant || 1;
+      e.n += c;
+      e.t += (+i.precio || 0) * c;
+      prod.set(i.nombre, e);
+    }),
+  );
+  const top = [...prod].sort((a, b) => b[1].n - a[1].n).slice(0, 8),
+    tm = top[0]?.[1].n || 1;
+  const PAGO = { yape: "Yape", plin: "Plin", efectivo: "Efectivo", visa_mastercard: "Visa / Mastercard", agora: "Agora" };
+  const pg = Object.entries(s.pagos || {}).sort((a, b) => b[1] - a[1]),
+    pgT = pg.reduce((a, [, n]) => a + n, 0) || 1;
+  const tk = s.compras ? s.ingresos / s.compras : 0;
+  const mm = (x) => (x >= 60 ? `${Math.floor(x / 60)} min ${x % 60} s` : `${x} s`);
+  $("#body").innerHTML =
+    `<div class="kpis"><div class="kpi"><span>Visitas</span><b>${s.visits}</b></div><div class="kpi"><span>Registros</span><b>${s.registros}</b></div><div class="kpi"><span>Compras</span><b>${s.compras}</b></div><div class="kpi"><span>Ingresos</span><b>${money(s.ingresos)}</b></div><div class="kpi"><span>Conversión a compra</span><b>${pct(s.compras, s.visits)}</b></div><div class="kpi"><span>Ticket promedio</span><b>${money(tk)}</b></div><div class="kpi"><span>Tiempo hasta comprar</span><b>${s.seg ? mm(s.seg) : "—"}</b></div><div class="kpi"><span>Pago más usado</span><b>${pg[0] ? PAGO[pg[0][0]] || pg[0][0] : "—"}</b></div><div class="kpi"><span>Producto estrella</span><b style="font-size:16px">${top[0] ? esc(String(top[0][0]).slice(0, 22)) : "—"}</b></div></div>
+  <div class="two" style="margin-bottom:16px">
+    <div class="card" style="margin:0"><h2>Embudo</h2>${[
+      ["Visitas", s.visits],
+      ["Registros", s.registros],
+      ["Compras", s.compras],
+    ]
+      .map(([t, v]) => {
+        const p = s.visits ? Math.min(100, Math.round((v / s.visits) * 100)) : 0;
+        return `<div class="bar"><span>${t}</span><div><i style="width:${p}%"></i></div><u>${p}%</u></div>`;
+      })
+      .join("")}
+      <p class="sub" style="font-size:12.5px;margin-top:12px">Compradores registrados: ${compReg} · anónimos: ${comp.length - compReg}</p></div>
+    <div class="card" style="margin:0"><h2>Visitas por día (7 días)</h2><div class="cols">${s.byDay.map((d) => `<i style="height:${Math.max((d / mx) * 100, 3)}%" title="${d}"></i>`).join("")}</div></div>
+  </div>
+  ${dayHours(R)}
+  <div class="two" style="margin-bottom:16px">
+  <div class="card" style="margin:0"><h2>Productos más comprados</h2>${
+    top.length
+      ? top
+          .map(
+            ([n, e]) =>
+              `<div class="bar"><span title="${esc(n)}">${esc(String(n).slice(0, 30))}</span><div><i style="width:${Math.max((e.n / tm) * 100, 3)}%"></i></div><u style="width:auto;min-width:80px">${e.n} · ${money(e.t)}</u></div>`,
+          )
+          .join("")
+      : '<p class="sub">Aún no hay compras registradas.</p>'
+  }</div>
+  <div class="card" style="margin:0"><h2>Métodos de pago</h2>${
+    pg.length
+      ? pg
+          .map(([k, n]) => {
+            const p = Math.round((n / pgT) * 100);
+            return `<div class="bar"><span>${esc(PAGO[k] || k)}</span><div><i style="width:${p}%"></i></div><u>${p}%</u></div>`;
+          })
+          .join("")
+      : '<p class="sub">Aún no hay compras registradas.</p>'
+  }</div></div>
+  ${R.length >= 1000 ? '<p class="sub">Se analizan los últimos 1000 eventos.</p>' : ""}`;
+}
+
+async function actividadC() {
+  $("#body").innerHTML = '<p class="sub">Cargando…</p>';
+  let all = [];
+  try {
+    all = await getR();
+  } catch (e) {
+    console.error(e);
+    $("#body").innerHTML = '<p class="sub">No se pudieron cargar los datos.</p>';
+    return;
+  }
+  $("#body").innerHTML = `<div class="card"><h2>Filtros</h2>
+  <div class="flt" id="flt">
+    <input class="in full" data-f="q" type="search" placeholder="Buscar por nombre, correo, WhatsApp, pedido o producto…" value="${esc(FC.q)}">
+    <div><label class="f">Desde</label><input class="in" data-f="from" type="date" value="${esc(FC.from)}"></div>
+    <div><label class="f">Hasta</label><input class="in" data-f="to" type="date" value="${esc(FC.to)}"></div>
+    <div><label class="f">Evento</label><select class="in" data-f="tipo"><option value="">Todos</option><option value="visita">Visitas</option><option value="registro">Registros</option><option value="compra">Compras</option></select></div>
+    <div><label class="f">Usuario</label><select class="in" data-f="user"><option value="">Todos</option><option value="reg">Registrados</option><option value="anon">Anónimos</option></select></div>
+    <div><label class="f">Ordenar</label><select class="in" data-f="sort"><option value="new">Más recientes</option><option value="old">Más antiguos</option><option value="name">Nombre A-Z</option></select></div>
+  </div>
+  <div class="fbar" style="margin-top:12px">
+    <button class="btn" data-q="0">Hoy</button><button class="btn" data-q="7">7 días</button><button class="btn" data-q="30">30 días</button>
+    <button class="btn" id="fReset">Limpiar filtros</button>
+    <button class="btn" id="fReload">Actualizar</button>
+    <button class="btn pri" id="fCsv">Descargar CSV</button>
+  </div></div>
+  <p class="cnt" id="rcount"></p><div id="rsum"></div><div id="rlist"></div>`;
+  const fl = $("#flt");
+  ["tipo", "user", "sort"].forEach((k) => {
+    fl.querySelector(`[data-f="${k}"]`).value = FC[k];
+  });
+  const TL = { visita: "Visita", registro: "Registro", compra: "Compra" };
+  function paintR() {
+    const rows = applyC(all),
+      v = rows.filter((r) => r.tipo === "visita").length,
+      g = rows.filter((r) => r.tipo === "registro").length,
+      c = rows.filter((r) => r.tipo === "compra"),
+      ing = c.reduce((a, r) => a + r.total, 0);
+    $("#rcount").textContent =
+      `${rows.length} de ${all.length} eventos` + (all.length >= 1000 ? " (últimos 1000)" : "");
+    $("#rsum").innerHTML =
+      `<div class="kpis"><div class="kpi"><span>Visitas</span><b>${v}</b></div><div class="kpi"><span>Registros</span><b>${g}</b></div><div class="kpi"><span>Compras</span><b>${c.length}</b></div><div class="kpi"><span>Ingresos</span><b>${money(ing)}</b></div></div>`;
+    $("#rlist").innerHTML =
+      rows
+        .slice(0, SHOWN)
+        .map(
+          (r) => `<details class="r"><summary><span><b>${esc(r.who)}</b> <span class="sub">${esc(r.mail || "Sin registro")}${r.tel ? " · " + esc(r.tel) : ""}</span></span>
+  <span><span class="chip ${r.tipo === "compra" ? "ok" : ""}">${TL[r.tipo] || esc(r.tipo)}</span> <span class="chip ${r.user ? "ok" : "off"}">${r.user ? "Registrado" : "Anónimo"}</span> ${r.tipo === "compra" ? `<span class="chip">${money(r.total)}</span> ` : ""}<span class="sub">${esc(r.date)}</span></span></summary>
+  <div class="rb">${
+    r.tipo === "compra"
+      ? `${r.pedidoId ? `<p><small>Pedido</small>${esc(r.pedidoId)}</p>` : ""}<p><small>Qué compró</small>${
+          r.items.length
+            ? r.items
+                .map(
+                  (i) =>
+                    `<span class="prd"><span>${esc(i.nombre)} × ${+i.cant || 1}</span><span>${money((+i.precio || 0) * (+i.cant || 1))}</span></span>`,
+                )
+                .join("")
+            : "Sin detalle"
+        }<p><small>Total</small>${money(r.total)}</p><p><small>Pago</small>${esc(r.metodo || "—")}</p><p><small>Tiempo hasta comprar</small>${r.seg ? (r.seg >= 60 ? Math.floor(r.seg / 60) + " min " + (r.seg % 60) + " s" : r.seg + " s") : "—"}</p>`
+      : `<p><small>Evento</small>${TL[r.tipo] || esc(r.tipo)}</p>`
+  }<p><small>Usuario</small>${r.user ? "Cuenta registrada" : "No se registró"}</p></div></details>`,
+        )
+        .join("") || '<p class="sub">No hay eventos con esos filtros.</p>';
+    if (rows.length > SHOWN)
+      $("#rlist").insertAdjacentHTML(
+        "beforeend",
+        `<button class="btn more" id="fMore">Ver más (${rows.length - SHOWN} restantes)</button>`,
+      );
+    paintR.rows = rows;
+  }
+  let tq;
+  fl.addEventListener("input", (e) => {
+    if (e.target.dataset.f === "q") {
+      FC.q = e.target.value;
+      SHOWN = 50;
+      clearTimeout(tq);
+      tq = setTimeout(paintR, 250);
+    }
+  });
+  fl.addEventListener("change", (e) => {
+    const k = e.target.dataset.f;
+    if (!k || k === "q") return;
+    FC[k] = e.target.value;
+    SHOWN = 50;
+    paintR();
+  });
+  $("#body").addEventListener("click", async (e) => {
+    const qb = e.target.closest("[data-q]");
+    if (qb) {
+      const d = new Date(),
+        f = new Date();
+      f.setDate(d.getDate() - +qb.dataset.q);
+      const iso = (x) =>
+        x.getFullYear() +
+        "-" +
+        String(x.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(x.getDate()).padStart(2, "0");
+      FC.from = iso(f);
+      FC.to = iso(d);
+      fl.querySelector('[data-f="from"]').value = FC.from;
+      fl.querySelector('[data-f="to"]').value = FC.to;
+      SHOWN = 50;
+      paintR();
+      return;
+    }
+    if (e.target.id === "fMore") {
+      SHOWN += 50;
+      paintR();
+    }
+    if (e.target.id === "fReset") {
+      FC = { ...FC0 };
+      SHOWN = 50;
+      actividadC();
+    }
+    if (e.target.id === "fReload") {
+      await getR(true);
+      actividadC();
+    }
+    if (e.target.id === "fCsv") descargarCsvC(paintR.rows || []);
+  });
+  paintR();
+}
+function descargarCsvC(rows) {
+  const c = (v) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const head = ["Fecha", "Evento", "Nombre", "Correo", "WhatsApp", "Tipo de usuario", "Pedido", "Productos", "Total"];
+  const lines = rows.map((r) =>
+    [
+      r.date,
+      r.tipo,
+      r.who,
+      r.mail,
+      r.tel,
+      r.user ? "Registrado" : "Anónimo",
+      r.pedidoId,
+      r.items.map((i) => `${i.nombre} x${+i.cant || 1}`).join(" | "),
+      r.tipo === "compra" ? r.total : "",
+    ]
+      .map(c)
+      .join(","),
+  );
+  const blob = new Blob(["\ufeff" + [head.map(c).join(","), ...lines].join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `campana-${slug(F.title) || "campana"}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function editarC() {
+  F.og = F.og || { title: "", desc: "", image: "" };
+  F.exp = F.exp || { modo: "ninguna", n: 1 };
+  $("#body").innerHTML = `<div style="max-width:760px"><div>
+  <div class="card"><h2>Campaña física</h2>
+  <div class="row"><div><label class="f">Tipo de campaña</label><select class="in" id="fKind">${TIPOS_C.map((k) => `<option>${k}</option>`).join("")}</select></div><div><label class="f">Estado</label><select class="in" id="fSt"><option value="activo">Activo</option><option value="borrador">Borrador</option></select></div></div>
+  <label class="f">Caducidad</label>
+  <div class="row"><select class="in" id="eMode">${Object.entries(EXP).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select><input class="in" id="eN" type="number" min="1" step="1" aria-label="Cantidad"></div>
+  <p class="exp" id="eTxt"></p>
+  <label class="f" style="margin-top:12px">Título</label><input class="in" id="fTitle" maxlength="120">
+  <label class="f">Texto de bienvenida</label><textarea class="in" id="fSub" rows="2" maxlength="400"></textarea>
+  <p class="sub" style="margin:0;font-size:12.5px">Logo y colores vienen del negocio en la base de datos.</p></div>
+
+  <div class="card"><h2>Destino</h2>
+  <label class="f">Al abrir el enlace, la persona va a…</label>
+  <select class="in" id="fDest">${Object.entries(DEST).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select>
+  <p class="sub" style="margin:0;font-size:12.5px">Por ahora solo está disponible el carrito. Cada campaña tiene un ID único para medir visitas, registros y compras.</p></div>
+
+  <div class="card"><h2>Enlace de la campaña</h2>
+  <div class="lnk"><input class="in" id="lkIn" readonly><button class="btn" id="lkCp" type="button">Copiar</button></div>
+  <p class="lnkid" id="lkId"></p></div>
+
+  <div class="card"><h2>Al compartir el enlace</h2><div class="og" id="ogPrev"></div>
+  <label class="f">Imagen vertical (se optimiza sola a WebP 1080 × 1350, sin recortar)</label>
+  <div style="display:flex;gap:8px;margin-bottom:12px"><label class="btn" style="cursor:pointer">Subir imagen<input type="file" id="ogFile" accept="image/*" hidden></label><button class="btn" id="ogDel">Quitar</button></div>
+  <p class="sub" id="ogMsg" style="margin:-4px 0 10px;font-size:12.5px"></p>
+  <label class="f">Título al compartir</label><input class="in" id="ogT" placeholder="Si lo dejas vacío, usa el título de la campaña">
+  <label class="f">Descripción</label><textarea class="in" id="ogD" rows="2" placeholder="Si lo dejas vacío, usa el texto de bienvenida"></textarea></div>
+
+  <button class="btn pri" id="sv">Guardar cambios</button>
+  <div class="upbar" id="upBar"><i id="upFill"></i></div>
+  <p class="svmsg" id="svMsg" role="alert"></p></div>
+  </div>`;
+  syncC();
+  pubC();
+  og();
+  bindOg();
+  [
+    ["fTitle", "title"],
+    ["fSub", "sub"],
+  ].forEach(
+    ([i, k]) =>
+      ($("#" + i).oninput = (e) => {
+        F[k] = e.target.value;
+        pubC();
+      }),
+  );
+  [
+    ["fKind", "kind"],
+    ["fSt", "status"],
+    ["fDest", "destino"],
+  ].forEach(
+    ([i, k]) =>
+      ($("#" + i).onchange = (e) => {
+        F[k] = e.target.value;
+        pubC();
+      }),
+  );
+  $("#eMode").onchange = (e) => {
+    F.exp.modo = e.target.value;
+    expDirty = true;
+    syncC();
+    pubC();
+  };
+  $("#eN").oninput = (e) => {
+    F.exp.n = Math.max(1, Math.floor(+e.target.value || 1));
+    expDirty = true;
+    expTxt();
+    pubC();
+  };
+  $("#lkCp").onclick = async () => {
+    if (F.id === "nuevo") return;
+    try {
+      await navigator.clipboard.writeText(DB.link(F));
+      $("#lkCp").textContent = "¡Copiado!";
+    } catch {
+      $("#lkIn").select();
+    }
+    setTimeout(() => ($("#lkCp").textContent = "Copiar"), 1800);
+  };
+  bindSave(
+    () => {
+      if (!F.title.trim()) return "Escribe un título para la campaña.";
+      F.title = F.title.trim();
+      return "";
+    },
+    () => syncC(),
+  );
+}
+function expTxt() {
+  const e = F.exp,
+    nuevo = expDirty || !F.expiraEn,
+    ms = nuevo ? calcExp(e) : F.expiraEn;
+  $("#eTxt").textContent =
+    e.modo === "ninguna"
+      ? "La campaña no vence."
+      : `${nuevo ? "Vencerá" : ms < Date.now() ? "Venció" : "Vence"} el ${fmtD(ms)}${expDirty ? " (se cuenta desde que guardes)" : ""}.`;
+}
+function syncC() {
+  $("#fTitle").value = F.title;
+  $("#fSub").value = F.sub;
+  $("#fKind").value = F.kind;
+  $("#fSt").value = F.status;
+  $("#fDest").value = F.destino || "carrito";
+  $("#eMode").value = F.exp.modo;
+  $("#eN").value = F.exp.n || 1;
+  $("#eN").style.display = ["dias", "horas"].includes(F.exp.modo) ? "" : "none";
+  $("#lkIn").value = F.id === "nuevo" ? "Se genera al guardar" : DB.link(F);
+  $("#lkCp").disabled = F.id === "nuevo";
+  $("#lkId").textContent = F.id === "nuevo" ? "" : `ID único: ${F.id}`;
+  expTxt();
+}
+function pubC() {}
 $("#app").innerHTML = '<p class="sub">Cargando…</p>';
 (async () => {
   try {

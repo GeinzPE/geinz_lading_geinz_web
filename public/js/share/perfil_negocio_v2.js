@@ -779,6 +779,20 @@ import {
   getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 import { db, auth, storage } from "../db/db.js";
+import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFunctions,
+  httpsCallable,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+
+// Cloud Functions v2 (misma región que en functions/index.js)
+const _functions = getFunctions(getApp(), "southamerica-east1");
+async function cf(nombre, data) {
+  const r = await httpsCallable(_functions, nombre)(data);
+  return r.data;
+}
+const _msgErr = (e, def) =>
+  e?.code?.startsWith("functions/") && e.message ? e.message : def;
 import {
   tiendaDoc,
   tiendaCol,
@@ -2366,15 +2380,6 @@ function bindFollowButton({ localidad, id }, biz) {
       return;
     }
 
-    const favoritoRef = doc(
-      db,
-      "Trabajadores_Usuarios_Drivers",
-      "users",
-      "users",
-      uid,
-      "favoritos",
-      id,
-    );
     const clienteRef = doc(
       tiendaSubCol(localidad, "tiendas", id, "clientes"),
       uid,
@@ -2391,70 +2396,30 @@ function bindFollowButton({ localidad, id }, biz) {
 
     btn.onclick = async () => {
       if (isBusy) return;
-
       const nextState = !isFollowing;
 
-      // Si va a dejar de seguir y tiene puntos, pedir confirmación primero
+      // Si deja de seguir y tiene puntos, confirmar primero
       if (!nextState && _currentPuntos > 0) {
-        openUnfollowConfirmModal(() => ejecutarUnfollow());
+        openUnfollowConfirmModal(() => ejecutarToggle(false));
         return;
       }
-
       await ejecutarToggle(nextState);
 
       async function ejecutarToggle(next) {
         isBusy = true;
         setFollowUI(next);
-        if (next)
-          (btn.classList.add("pulse"),
-            setTimeout(() => btn.classList.remove("pulse"), 500));
-
-        try {
-          if (next) {
-            asegurarNotificaciones(uid, { gesto: true }); const ubicacion = biz.ubicacion || {};
-            const yaExiste = await getDoc(clienteRef);
-            const dataCliente = {
-              id: uid,
-              id_usuario: uid,
-              fecha_inicio: serverTimestamp(),
-              ultimo_consumo: serverTimestamp(),
-            };
-            if (!yaExiste.exists()) dataCliente.puntos = 0;
-
-            await Promise.all([
-              setDoc(favoritoRef, {
-                id_tienda_lugar: id,
-                img_tienda_lugar: biz.img_tienda?.logo_tienda || "",
-                latitud: ubicacion.latitud ?? null,
-                longitud: ubicacion.longitud ?? null,
-                localidad_lugar_tienda: localidad,
-                nombre_lugar_tienda: biz.nombre_tienda || biz.nombre || "",
-                timesLap_local: String(Date.now()),
-              }),
-              setDoc(clienteRef, dataCliente, { merge: true }),
-            ]);
-          } else {
-            await ejecutarUnfollow();
-          }
-        } catch (e) {
-          console.error("Error al actualizar seguidor:", e);
-          setFollowUI(!next);
-          showToast("No se pudo actualizar, intenta de nuevo");
-        } finally {
-          isBusy = false;
+        if (next) {
+          btn.classList.add("pulse");
+          setTimeout(() => btn.classList.remove("pulse"), 500);
+          asegurarNotificaciones(uid, { gesto: true });
         }
-      }
-
-      async function ejecutarUnfollow() {
-        isBusy = true;
-        setFollowUI(false);
         try {
-          await Promise.all([deleteDoc(favoritoRef), deleteDoc(clienteRef)]);
-          renderPuntosBadge(0);
+          await cf("seguirNegocio", { localidad, id, seguir: next });
+          if (!next) renderPuntosBadge(0);
         } catch (e) {
-          console.error("Error al dejar de seguir:", e);
-          setFollowUI(true);
-          showToast("No se pudo actualizar, intenta de nuevo");
+          console.error("seguirNegocio:", e);
+          setFollowUI(!next);
+          showToast(_msgErr(e, "No se pudo actualizar, intenta de nuevo"));
         } finally {
           isBusy = false;
         }
@@ -2522,81 +2487,17 @@ function bindMesaReservaEvents() {
       const listaMesas = Array.isArray(_mesaSeleccionada)
         ? _mesaSeleccionada
         : [_mesaSeleccionada];
-      const reservaData = {
-        nombre,
-        personas,
-        hora,
-        uid: auth.currentUser.uid,
-        creado_en: serverTimestamp(),
-      };
       let grupoIdUsado = null;
 
       try {
-        if (listaMesas.length > 1) {
-          grupoIdUsado = doc(
-            tiendaSubCol(
-              _params.localidad,
-              "tiendas",
-              _params.id,
-              "grupos_mesas",
-            ),
-          ).id;
-          const mesasInfo = listaMesas.map((m) => ({
-            id: m.id,
-            nombre: m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`,
-            numero: m.numero_mesa,
-          }));
-          await setDoc(
-            tiendaSubDoc(
-              _params.localidad,
-              "tiendas",
-              _params.id,
-              "grupos_mesas",
-              grupoIdUsado,
-            ),
-            {
-              estado: "reserva_pendiente",
-              mesas: mesasInfo,
-              reserva: reservaData,
-              creado_en: serverTimestamp(),
-            },
-          );
-          await Promise.all(
-            listaMesas.map((m) =>
-              setDoc(
-                tiendaSubDoc(
-                  _params.localidad,
-                  "tiendas",
-                  _params.id,
-                  "mesas",
-                  m.id,
-                ),
-                {
-                  estado: "reserva_pendiente",
-                  grupoId: grupoIdUsado,
-                  reserva: reservaData,
-                },
-                { merge: true },
-              ),
-            ),
-          );
-        } else {
-          await setDoc(
-            tiendaSubDoc(
-              _params.localidad,
-              "tiendas",
-              _params.id,
-              "mesas",
-              listaMesas[0].id,
-            ),
-            {
-              estado: "reserva_pendiente",
-              grupoId: null,
-              reserva: reservaData,
-            },
-            { merge: true },
-          );
-        }
+        const r = await cf("reservarMesa", {
+          localidad: _params.localidad,
+          id: _params.id,
+          mesaIds: listaMesas.map((m) => m.id),
+          hora,
+          personas,
+        });
+        grupoIdUsado = r.grupoId || null;
 
         finalizarProgresoReserva(submitBtn, true);
         showToast(
@@ -2605,22 +2506,18 @@ function bindMesaReservaEvents() {
         closeMesaReservaModal();
 
         mostrarBotonFlotanteReserva({
-          nombre,
+          nombre: r.nombre || nombre,
           personas,
           hora,
           creadoEn: { toDate: () => new Date() },
-          mesas: listaMesas.map((m) => ({
-            id: m.id,
-            nombre: m.nombre_alias || m.mesaNombre,
-            numero_mesa: m.numero_mesa,
-          })),
+          mesas: r.mesas,
           grupoId: grupoIdUsado,
         });
         setTimeout(abrirVerReservaModal, 320);
       } catch (err) {
         console.error("Error al enviar solicitud de reserva:", err);
         finalizarProgresoReserva(submitBtn, false);
-        setError("No se pudo enviar la solicitud, intenta de nuevo");
+        setError(_msgErr(err, "No se pudo enviar la solicitud, intenta de nuevo"));
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }
@@ -2774,20 +2671,21 @@ async function _getSegmento() {
 }
 
 /* evento: vistas | clics_detalle | clics_comprar | clics_whatsapp | clics_compartir | clics_carrito */
-const _statBuf = new Map(); // promoId -> { "estadisticas.x.y": n }
+const _statBuf = new Map(); // promoId -> { evento: n }
 let _statTimer = null;
 let _statPending = 0;
 const STAT_FLUSH_MS = 60000;
 const STAT_FLUSH_MAX = 25;
 
-/* evento: vistas | clics_detalle | clics_comprar | clics_whatsapp | clics_compartir | clics_carrito */
+/* evento: vistas | clics_detalle | clics_comprar | clics_whatsapp | clics_compartir | clics_carrito
+   El segmento (género, edad, hora, día) lo calcula el SERVIDOR. */
 async function trackPromo(promoId, evento) {
   if (!promoId || !_params?.id) return;
-  const hoy = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Lima",
-  }).format(new Date());
 
   if (evento === "vistas") {
+    const hoy = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Lima",
+    }).format(new Date());
     const k = `geinz_pv_${promoId}_${hoy}`;
     try {
       if (localStorage.getItem(k)) return;
@@ -2795,30 +2693,8 @@ async function trackPromo(promoId, evento) {
     } catch { }
   }
 
-  const seg = await _getSegmento();
-  if (seg.esDueno) return;
-
-  const hora = Number(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "America/Lima",
-      hour: "2-digit",
-      hourCycle: "h23",
-    }).format(new Date()),
-  );
-  const g = evento === "vistas" ? "seg_vistas" : "seg_clics";
-
-  const paths = [
-    `estadisticas.${evento}`,
-    `estadisticas.por_dia.${hoy}.${evento}`,
-    `estadisticas.por_hora.${hora}.${evento}`,
-    `estadisticas.${g}.genero.${seg.genero}`,
-    `estadisticas.${g}.edad.${seg.edad}`,
-    `estadisticas.${g}.localidad.${seg.localidad}`,
-    `estadisticas.${g}.acceso.${seg.logeado ? "registrado" : "anonimo"}`,
-  ];
-
   const entry = _statBuf.get(promoId) || {};
-  paths.forEach((p) => (entry[p] = (entry[p] || 0) + 1));
+  entry[evento] = (entry[evento] || 0) + 1;
   _statBuf.set(promoId, entry);
   _statPending++;
 
@@ -2831,31 +2707,18 @@ function flushStats() {
   _statTimer = null;
   if (!_statBuf.size || !_params?.id) return;
 
-  const lote = [..._statBuf.entries()];
+  const lote = [..._statBuf.entries()].map(([promoId, eventos]) => ({
+    promoId,
+    eventos,
+  }));
   _statBuf.clear();
   _statPending = 0;
 
-  lote.forEach(([promoId, campos]) => {
-    const upd = {};
-    Object.entries(campos).forEach(([path, n]) => (upd[path] = increment(n)));
-    const ref = tiendaSubDoc(
-      _params.localidad,
-      "tiendas",
-      _params.id,
-      "promociones_geinz",
-      promoId,
-    );
-    updateDoc(ref, upd).catch((e) => {
-      console.warn("track:", e.message);
-      // Si la promo ya no existe o no hay permiso, no tiene sentido reintentar
-      if (e.code === "permission-denied" || e.code === "not-found") return;
-      const back = _statBuf.get(promoId) || {};
-      Object.entries(campos).forEach(
-        ([p, n]) => (back[p] = (back[p] || 0) + n),
-      );
-      _statBuf.set(promoId, back);
-    });
-  });
+  cf("registrarEstadisticasPromo", {
+    localidad: _params.localidad,
+    id: _params.id,
+    lote,
+  }).catch((e) => console.warn("track:", e.message));
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -8526,22 +8389,20 @@ async function submitReview() {
       urls.push(url);
     }
 
-    const reviewRef = tiendaSubDoc(
-      _params.localidad,
-      "tiendas",
-      _params.id,
-      "review",
-      uid,
-    );
+    const res = await cf("enviarReview", {
+      localidad: _params.localidad,
+      id: _params.id,
+      calificacion: _reviewCalificacion,
+      descripcion: desc,
+      urls,
+    });
     const nuevaReviewData = {
       calificacion: _reviewCalificacion,
       descripcion: desc,
       id_user: uid,
-      nombre_usuario: nombre,
+      nombre_usuario: res.nombre_usuario || nombre,
       lista_img_url: urls,
-      timestamp: serverTimestamp(),
     };
-    await setDoc(reviewRef, nuevaReviewData, { merge: true });
 
     // Se refleja al instante solo para este usuario (sin realtime global)
     const reviewLocal = {
@@ -8592,14 +8453,10 @@ async function eliminarMiReview() {
   }
 
   try {
-    const reviewRef = tiendaSubDoc(
-      _params.localidad,
-      "tiendas",
-      _params.id,
-      "review",
-      uid,
-    );
-    await deleteDoc(reviewRef);
+    await cf("eliminarReview", {
+      localidad: _params.localidad,
+      id: _params.id,
+    });
 
     // Se actualiza al instante solo para este usuario (sin realtime global)
     _misReview = null;
@@ -8693,46 +8550,31 @@ async function enviarReviewRapida({
 }) {
   const uid = auth.currentUser?.uid;
   const rid = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+  const logeado = !!uid && !anonimo;
   const urls = [];
   if (foto) {
     const blob = dataURLtoBlobReview(
       await comprimirImagenReview(foto, 900, 0.8),
     );
-    const ruta =
-      uid && !anonimo
-        ? `tiendas/${_params.id}/review/${uid}/${rid}`
-        : `tiendas/${_params.id}/review_pendientes/${rid}`;
+    const ruta = logeado
+      ? `tiendas/${_params.id}/review/${uid}/${rid}`
+      : `tiendas/${_params.id}/review_pendientes/${rid}`;
     const sRef = storageRef(storage, ruta);
     await uploadBytes(sRef, blob, { contentType: "image/jpeg" });
     urls.push(await getDownloadURL(sRef));
   }
 
-  if (uid && !anonimo) {
-    const ref = tiendaSubDoc(
-      _params.localidad,
-      "tiendas",
-      _params.id,
-      "review",
-      uid,
-    );
-    const yaSnap = await getDoc(ref);
-    const darBonus = !yaSnap.exists();
+  const base = { localidad: _params.localidad, id: _params.id };
 
-    await setDoc(
-      ref,
-      {
-        calificacion,
-        descripcion,
-        id_user: uid,
-        telefono,
-        nombre_usuario: await getUserDisplayName(uid),
-        lista_img_url: urls,
-        timestamp: serverTimestamp(),
-      },
-      { merge: true },
-    );
-
-    // la Cloud Function suma los puntos; refresca el badge cuando ya llegaron
+  if (logeado) {
+    const r = await cf("enviarReview", {
+      ...base,
+      calificacion,
+      descripcion,
+      telefono,
+      urls,
+    });
+    const darBonus = r.esNueva === true;
     if (darBonus) {
       const antes = _currentPuntos;
       [3000, 7000, 12000, 20000].forEach((ms) =>
@@ -8749,24 +8591,16 @@ async function enviarReviewRapida({
     cargarReviewsPagina(_params, true);
     return { bonus: darBonus };
   }
-  await setDoc(
-    tiendaSubDoc(
-      _params.localidad,
-      "tiendas",
-      _params.id,
-      "review_pendientes",
-      rid,
-    ),
-    {
-      calificacion,
-      descripcion,
-      lista_img_url: urls,
-      nombre_usuario: nombre || "Anónimo",
-      telefono,
-      estado: "pendiente",
-      timestamp: serverTimestamp(),
-    },
-  );
+
+  await cf("enviarReviewAnonima", {
+    ...base,
+    rid,
+    calificacion,
+    descripcion,
+    nombre: nombre || "Anónimo",
+    telefono,
+    urls,
+  });
   return { bonus: false };
 }
 
@@ -10459,19 +10293,24 @@ const BC_CSS = `
   .bc-days{margin-top:6px;font-size:12.5px;font-weight:700;color:rgb(var(--dr),var(--dg),var(--db));}
   .bc-ok{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#4ade80;margin-bottom:8px;}
   .bc-note{margin:0 0 12px;font-size:13px;line-height:1.5;color:#c4c4cc;}
+  .bc-wa{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px 14px;border-radius:14px;font-weight:800;font-size:13px;color:#fff;text-decoration:none;box-sizing:border-box;background:#25D366;box-shadow:0 10px 24px -8px rgba(37,211,102,.55);transition:transform .18s ease,filter .18s ease;}
+  .bc-wa:hover{transform:translateY(-2px);filter:brightness(1.06);}
+  .bc-wa i{font-size:16px;}
   @media (min-width:900px){
     .bc-inner{flex-direction:row;align-items:center;justify-content:space-between;padding:34px 40px;gap:40px;}
     .bc-form{width:340px;flex-shrink:0;}
   }
 `;
 
-let _cumple = {
-  uid: null,
+const _CUMPLE_VACIO = (uid = null) => ({
+  uid,
   loaded: false,
   fnac: "",
   guardado: false,
   editando: false,
-};
+  desbloqueoMs: 0,
+});
+let _cumple = _CUMPLE_VACIO();
 
 function _bcFmt(fnac) {
   const [d, m] = String(fnac || "")
@@ -10497,25 +10336,20 @@ function _bcDias(fnac) {
 }
 
 async function cargarCumpleUsuario(uid) {
-  _cumple = { uid, loaded: false, fnac: "", guardado: false, editando: false };
+  _cumple = _CUMPLE_VACIO(uid);
   try {
-    const [u, c] = await Promise.all([
-      getDoc(data_user_logeado(uid)),
-      getDoc(
-        tiendaSubDoc(
-          _params.localidad,
-          "tiendas",
-          _params.id,
-          "cumpleanos",
-          uid,
-        ),
-      ),
-    ]);
-    const fu = u.exists() ? u.data().fecha_nac || "" : "";
+    const c = await getDoc(
+      tiendaSubDoc(_params.localidad, "tiendas", _params.id, "cumpleanos", uid),
+    );
     if (c.exists()) {
-      _cumple.fnac = c.data().fecha_nac || fu;
-      _cumple.guardado = true;
-    } else _cumple.fnac = fu; // ya tiene fecha en su perfil: solo confirma
+      const d = c.data();
+      _cumple.fnac = d.fecha_nac || "";
+      _cumple.guardado = !!_cumple.fnac;
+      const reg = d.registrado_en?.toMillis?.();
+      _cumple.desbloqueoMs =
+        d.desbloqueo_en?.toMillis?.() ??
+        (reg ? reg + 365 * 864e5 : Infinity); // docs viejos sin campo
+    }
   } catch (e) {
     console.warn("Cumpleaños:", e.message);
   }
@@ -10542,38 +10376,45 @@ async function guardarCumple(btn) {
   btn.disabled = true;
   btn.textContent = "Guardando…";
   try {
-    const nombre = await getUserDisplayName(uid);
-    await Promise.all([
-      updateDoc(data_user_logeado(uid), { fecha_nac: fnac }),
-      setDoc(
-        tiendaSubDoc(
-          _params.localidad,
-          "tiendas",
-          _params.id,
-          "cumpleanos",
-          uid,
-        ),
-        {
-          id_usuario: uid,
-          nombre,
-          fecha_nac: fnac,
-          dia: d,
-          mes: m,
-          registrado_en: serverTimestamp(),
-        },
-        { merge: true },
-      ),
-    ]);
-    _segCache = null;
-    _cumple = { uid, loaded: true, fnac, guardado: true, editando: false };
+    const r = await cf("guardarCumpleanos", {
+      localidad: _params.localidad,
+      id: _params.id,
+      fecha_nac: fnac,
+    });
+    _cumple = {
+      uid,
+      loaded: true,
+      fnac,
+      guardado: true,
+      editando: false,
+      desbloqueoMs: r.desbloqueo_ms,
+    };
     showToast("¡Cumpleaños registrado! 🎂");
     renderBannerCumple(_bizRef);
   } catch (e) {
     console.error("Guardar cumpleaños:", e);
     btn.disabled = false;
-    btn.textContent = "Guardar mi cumpleaños";
-    setErr("No se pudo guardar, intenta de nuevo");
+    btn.textContent = _cumple.editando
+      ? "Actualizar fecha"
+      : "Guardar mi cumpleaños";
+    setErr(_msgErr(e, "No se pudo guardar, intenta de nuevo"));
   }
+}
+
+// Abre WhatsApp del negocio pidiendo cambiar la fecha de cumpleaños (incluye el ID del usuario)
+function urlWhatsappCumple() {
+  let num = String(_waNumeroNegocio || "").replace(/\D/g, "");
+  if (!num) return null;
+  if (num.length === 9) num = "51" + num; // Perú
+  const uid = auth.currentUser?.uid || "";
+  const nombre =
+    _reviewUserNameCache[uid] || auth.currentUser?.displayName || "";
+  const msg =
+    `Hola ${_bizNombre || ""}, soy ${nombre}.\n` +
+    `Mi ID de usuario es: ${uid}\n` +
+    `Quiero cambiar mi fecha de cumpleaños (actualmente ${_bcFmt(_cumple.fnac)}).\n` +
+    `Motivo del cambio: `;
+  return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
 }
 
 function renderBannerCumple(biz) {
@@ -10596,14 +10437,7 @@ function renderBannerCumple(biz) {
   }
 
   const user = auth.currentUser;
-  if (!user && _cumple.uid)
-    _cumple = {
-      uid: null,
-      loaded: false,
-      fnac: "",
-      guardado: false,
-      editando: false,
-    };
+  if (!user && _cumple.uid) _cumple = _CUMPLE_VACIO();
   if (user && _cumple.uid !== user.uid) {
     cargarCumpleUsuario(user.uid).then(() => renderBannerCumple(_bizRef));
   }
@@ -10620,6 +10454,7 @@ function renderBannerCumple(biz) {
   );
   const perk = escapeHtml(String(cfg.beneficio || "").trim());
 
+  const negocio = escapeHtml(_bizNombre || "el negocio");
   let caja;
   if (!user) {
     caja = `<p class="bc-note">Inicia sesión para registrar tu fecha de nacimiento y recibir tus sorpresas de cumpleaños.</p>
@@ -10634,14 +10469,22 @@ function renderBannerCumple(biz) {
         : dias === 1
           ? "Falta 1 día"
           : `Faltan ${dias} días`;
+    const puedeCambiar = Date.now() >= _cumple.desbloqueoMs;
+    const waUrl = puedeCambiar ? null : urlWhatsappCumple();
+    const pie = puedeCambiar
+      ? `<button type="button" class="bc-link" data-bc="editar">Cambiar fecha</button>`
+      : waUrl
+        ? `<p class="bc-note" style="margin:10px 0 8px;font-size:12px">🔒 Tu fecha ya está registrada y no se puede cambiar desde aquí.</p>
+           <a class="bc-wa" href="${escapeHtml(waUrl)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> Conversa con ${negocio} para cambiarla</a>`
+        : `<p class="bc-note" style="margin:10px 0 0;font-size:12px">🔒 Para cambiar tu fecha de cumpleaños habla con <b>${negocio}</b>.</p>`;
     caja = `<div class="bc-ok">✓ Registrado</div>
       <div class="bc-date-big">${escapeHtml(_bcFmt(_cumple.fnac))}</div>
       <div class="bc-days">${aviso}</div>
-      <button type="button" class="bc-link" data-bc="editar">Cambiar fecha</button>`;
+      ${pie}`;
   } else {
     const hoy = new Date().toISOString().slice(0, 10);
     caja = `<label class="bc-label" for="bcFecha">Fecha de nacimiento</label>
-      <input class="bc-input" id="bcFecha" type="date" max="${hoy}" value="${_fnacToInput(_cumple.fnac)}">
+      <input class="bc-input" id="bcFecha" type="date" max="${hoy}" value="${_cumple.editando ? _fnacToInput(_cumple.fnac) : ""}">
       <p class="bc-err" id="bcErr"></p>
       <button type="button" class="bc-btn" data-bc="guardar">${_cumple.editando ? "Actualizar fecha" : "Guardar mi cumpleaños"}</button>
       ${_cumple.editando ? `<button type="button" class="bc-link" data-bc="cancelar">Cancelar</button>` : ""}`;
@@ -11444,13 +11287,12 @@ async function guardarDatosUserPanel(btn) {
   btn.disabled = true;
   btn.textContent = "Guardando…";
   try {
-    const payload = { nombre, apellido };
-    if (fnac) payload.fecha_nac = fnac;
-    if (st.raw.nombre_completo !== undefined)
-      payload.nombre_completo = `${nombre} ${apellido}`.trim();
-
-    await updateDoc(data_user_logeado(uid), payload);
-    Object.assign(st.raw, payload);
+    const r = await cf("actualizarPerfil", {
+      nombre,
+      apellido,
+      fecha_nac: fnac,
+    });
+    Object.assign(st.raw, r.payload);
 
     delete _userProfileCache[uid];
     delete _reviewUserNameCache[uid];
@@ -11470,7 +11312,7 @@ async function guardarDatosUserPanel(btn) {
     console.error("Guardar datos:", e);
     btn.disabled = false;
     btn.textContent = "Guardar";
-    setErr("No se pudo guardar, intenta de nuevo");
+    setErr(_msgErr(e, "No se pudo guardar, intenta de nuevo"));
   }
 }
 

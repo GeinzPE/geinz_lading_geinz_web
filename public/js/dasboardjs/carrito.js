@@ -4,7 +4,6 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  collection,
   getDocs,
   addDoc,
   serverTimestamp,
@@ -69,10 +68,24 @@ const crearPedidoFn = httpsCallable(
   "crearPedido",
   { timeout: 30000 },
 );
+const registrarEventoCampanaFn = httpsCallable(
+  getFunctions(getApp(), FUNCTIONS_REGION),
+  "registrarEventoCampana",
+  { timeout: 10000 },
+);
 // Se reutiliza si falla la RED (el reintento no duplica) y se renueva cuando el servidor responde
 let claveEnvio = null;
 
-async function enviarPedidoSeguro({ items, nombre, whatsapp, direccion, vuelto, nota, totalCliente, tokenSeguimiento }) {
+async function enviarPedidoSeguro({
+  items,
+  nombre,
+  whatsapp,
+  direccion,
+  vuelto,
+  nota,
+  totalCliente,
+  tokenSeguimiento,
+}) {
   if (!claveEnvio) claveEnvio = crypto.randomUUID().replace(/-/g, "");
   const bannerCupon =
     cuponAplicado?.origen === "banner" && cuponAplicado._bannerId
@@ -98,7 +111,10 @@ async function enviarPedidoSeguro({ items, nombre, whatsapp, direccion, vuelto, 
       whatsapp,
       tipo_entrega: tipoEntrega,
       direccion,
-      ubicacion: clienteLat != null && clienteLng != null ? { lat: clienteLat, lng: clienteLng } : null,
+      ubicacion:
+        clienteLat != null && clienteLng != null
+          ? { lat: clienteLat, lng: clienteLng }
+          : null,
     },
     pago: { metodo: metodoPago, vuelto },
     nota,
@@ -106,6 +122,8 @@ async function enviarPedidoSeguro({ items, nombre, whatsapp, direccion, vuelto, 
     token_seguimiento: tokenSeguimiento,
     totalCliente,
     mesa: false,
+    campanaId: campanaIdActiva(),
+    campanaDesde: leerCampana()?.ts || 0,
   };
   try {
     const { data } = await crearPedidoFn(payload);
@@ -113,7 +131,11 @@ async function enviarPedidoSeguro({ items, nombre, whatsapp, direccion, vuelto, 
     return data || { ok: false, motivo: "error_generico" };
   } catch (err) {
     console.error("crearPedido (red/servidor):", err);
-    return { ok: false, motivo: "red", mensaje: "Sin conexión con el servidor, intenta de nuevo" };
+    return {
+      ok: false,
+      motivo: "red",
+      mensaje: "Sin conexión con el servidor, intenta de nuevo",
+    };
   }
 }
 function statsCuponUpdate(pedido) {
@@ -149,6 +171,7 @@ let aliasNegocio = null;
 let promoParam = null; // ?promo=ID que llega desde el botón "Comprar" de la landing
 let promosGlobal = []; // promociones ya normalizadas (con precio)
 let cuponParam = null; // código que viene en ?cupon=
+let campanaParam = null;
 let cuponAplicado = null; // datos del cupón ya validado y en uso
 let ofertaParam = null;
 let filtroInicialParam = null; // ?filtro=ofertas viene del "Ver todas" de la landing
@@ -353,6 +376,7 @@ async function resolverParamsCarrito() {
   cuponParam = qs.get("cupon") || null;
   promoParam = qs.get("promo") || null;
   filtroInicialParam = qs.get("filtro") || null; // ← AGREGAR
+  campanaParam = qs.get("camp") || null;
 }
 /* ══════════════ Estado (todo en memoria, sin re-fetch) ══════════════ */
 let productosGlobal = []; // catálogo completo, se pide una sola vez
@@ -1771,7 +1795,11 @@ function calcCanje(cupon, producto) {
   if (tipo === "cantidad") {
     const compra = Number(cupon.descuento?.compraUnidades) || 1;
     const paga = Number(cupon.descuento?.pagaUnidades) || compra;
-    return { cantidad: compra, total: +(paga * base + extraUnit * compra).toFixed(2), tipo };
+    return {
+      cantidad: compra,
+      total: +(paga * base + extraUnit * compra).toFixed(2),
+      tipo,
+    };
   }
   return {
     cantidad: 1,
@@ -2230,7 +2258,7 @@ function cuponBarHTML(subtotal) {
     (s, i) => s + (i.cuponCodigos || [1]).length,
     0,
   );
-   const visibles = canjesPanelAbierto
+  const visibles = canjesPanelAbierto
     ? lineas
     : lineas.slice(0, CANJES_VISIBLES);
   const filas = visibles
@@ -2714,6 +2742,7 @@ function renderMetodosPago(biz) {
   setCollapseOpen(efectivoCollapse, metodoPagoKey === "efectivo");
 }
 function aplicarModeloNegocio(biz) {
+  if (esCampana()) return;
   // En modo mesa (QR / dine-in) no aplica
   if (mesaId) return;
   if (biz?.delivery?.hace === false) return;
@@ -2797,6 +2826,7 @@ function getPuntoEntrega() {
 }
 
 function seleccionarEntrega(val) {
+  if (esCampana()) return;
   tipoEntrega = val;
   document.querySelectorAll("#entregaToggle .toggle-opt").forEach((o) => {
     const active = o.dataset.val === val;
@@ -2810,6 +2840,8 @@ function seleccionarEntrega(val) {
 }
 
 function actualizarDireccionPorEntrega() {
+  if (esCampana()) return;
+
   const dir = document.getElementById("direccionCollapse");
   if (!dir) return;
   const soloDeliveryBn =
@@ -2831,6 +2863,8 @@ function actualizarDireccionPorEntrega() {
 }
 
 function aplicarPuntoEntrega() {
+  if (esCampana()) return;
+
   const toggle = document.getElementById("entregaToggle");
   if (!toggle) return;
   const punto = getPuntoEntrega();
@@ -2866,7 +2900,7 @@ function aplicarPuntoEntrega() {
 function pintarPuntoEntrega() {
   let el = document.getElementById("puntoEntregaInfo");
   const punto = getPuntoEntrega();
-  if (tipoEntrega !== TIPO_PUNTO || !punto) {
+  if ((tipoEntrega !== TIPO_PUNTO && !esCampana()) || !punto) {
     el?.classList.add("hidden");
     return;
   }
@@ -3172,14 +3206,13 @@ function prepararCheckoutInvitado() {
       if (wa && !wa.value.trim()) wa.value = g.whatsapp || "";
     }
   } catch {}
-  // Si está logeado, intenta prellenar con el teléfono de su perfil
-  if (!esInvitado && wa && !wa.value.trim()) {
-    wa.value =
-      usuarioLogeado.whatsapp ||
-      usuarioLogeado.telefono ||
-      usuarioLogeado.celular ||
-      "";
-  }
+// Si está logeado, prellena con el número de su perfil
+if (!esInvitado && wa && !wa.value.trim()) {
+  const c = usuarioLogeado.contacto || {};
+  const num = String(c.numero_user ?? "").replace(/\D/g, "");
+  const cod = String(c.cod_telefonico ?? "").replace(/\D/g, "");
+  wa.value = num ? (cod && cod !== "51" ? cod + num : num) : "";
+}
 }
 /* Busca el número de WhatsApp del negocio probando los campos más comunes */
 function getBizWhatsapp() {
@@ -4008,7 +4041,7 @@ function refrescarResumenCheckout() {
 }
 
 function tiempoEstimadoPedido() {
-  if (mesaId) return null;
+  if (mesaId || esCampana()) return null;
   const t = bizData?.tiempos_estimados;
   if (!t || t.activo === false) return null;
   const tipo = tipoEntrega === "Delivery" ? "delivery" : "recojo";
@@ -4062,8 +4095,12 @@ function injectDeliveryStyles() {
 }
 
 function pintarDeliveryInfo() {
+  if (esCampana()) {
+    refrescarResumenCheckout();
+    return;
+  }
   if (delivDesactivado()) return;
-    pintarProgresoGratis();
+  pintarProgresoGratis();
   injectDeliveryStyles();
   let el = document.getElementById("deliveryInfo");
   if (!el) {
@@ -5329,7 +5366,7 @@ function actualizarResumenOpciones(p) {
     </div>`;
     })
     .join("");
-const unit = canjeEditCtx
+  const unit = canjeEditCtx
     ? extrasDeSeleccion(p, seleccionOpciones)
     : calcPrecioFinal(p, seleccionOpciones);
   box.innerHTML = `
@@ -5369,7 +5406,9 @@ function actualizarEstadoBotonConfirmar(p) {
   } else if (canjeEditCtx) {
     const ex = extrasDeSeleccion(productoParaOpciones, seleccionOpciones);
     btn.textContent =
-      ex > 0 ? `Guardar opciones · extras +S/ ${ex.toFixed(2)}` : "Guardar opciones";
+      ex > 0
+        ? `Guardar opciones · extras +S/ ${ex.toFixed(2)}`
+        : "Guardar opciones";
   } else {
     btn.textContent = `${textoBase} · S/ ${precio.toFixed(2)}`;
   }
@@ -5399,11 +5438,15 @@ function abrirOptionsModalCanje(entry, p) {
   // para un canje las variantes son opcionales siempre
   const pCanje = {
     ...p,
-    condiciones: (p.condiciones || []).map((c) => ({ ...c, obligatoria: false })),
+    condiciones: (p.condiciones || []).map((c) => ({
+      ...c,
+      obligatoria: false,
+    })),
   };
   canjeEditCtx = { key: entry.cartKey, codigo: (entry.cuponCodigos || [])[0] };
   abrirOptionsModal(pCanje, entry.seleccion, entry.cartKey);
-  document.getElementById("optionsProdNombre").textContent = `${p.nombre} · 🎁 canje`;
+  document.getElementById("optionsProdNombre").textContent =
+    `${p.nombre} · 🎁 canje`;
 
   const n = (entry.cuponCodigos || []).length;
   if (n > 1) {
@@ -5587,7 +5630,7 @@ function updateCartUI() {
   renderCuponBar(subtotal);
   pintarAdicionalesCarrito();
   pintarProgresoGratis();
-  pintarProgresoMinimoCupon();   // ← NUEVA
+  pintarProgresoMinimoCupon(); // ← NUEVA
   if (bizData) pintarDeliveryInfo();
   const cartCountEl = document.getElementById("cartCount");
   cartCountEl.textContent = count;
@@ -5909,6 +5952,7 @@ function ocultarTodoDelivery() {
   clienteLng = null;
 }
 function aplicarDisponibilidadDelivery() {
+  if (esCampana()) return;
   if (!delivDesactivado()) return;
   ocultarTodoDelivery();
 }
@@ -5933,6 +5977,7 @@ function openCheckout() {
   aplicarDisponibilidadDelivery(); // ← AGREGAR
   aplicarPuntoEntrega();
   actualizarDireccionPorEntrega();
+  aplicarModoCampana();
   checkoutOverlay.classList.add("show");
   requestAnimationFrame(() => checkoutModal.classList.add("show"));
   document.body.style.overflow = "hidden";
@@ -6005,7 +6050,7 @@ function renderCheckoutSummary() {
     })() +
     (() => {
       const hay = [...carrito.values()].some((i) => promoDeliveryGratis(i));
-      return hay && tipoEntrega !== "Delivery" && !mesaId
+      return hay && tipoEntrega !== "Delivery" && !mesaId && !esCampana()
         ? `<div class="step-summary-row" style="color:#fcd34d"><span>🚚 Tienes delivery gratis: elige "Delivery" para aprovecharlo</span></div>`
         : "";
     })();
@@ -6159,10 +6204,25 @@ document
     });
 
     if (!resultado.ok) {
+            if (resultado.motivo === "campana_invalida") {
+        mostrarCampanaNoDisponible();
+        return;
+      }
       btn.disabled = false;
       btn.innerHTML = textoOriginal;
-      showToast("⚠️ " + (resultado.mensaje || "No se pudo guardar tu pedido, intenta de nuevo"));
-      if (["precio_cambio", "producto_no_disponible", "promo_no_disponible", "opcion_invalida"].includes(resultado.motivo)) {
+      showToast(
+        "⚠️ " +
+          (resultado.mensaje ||
+            "No se pudo guardar tu pedido, intenta de nuevo"),
+      );
+      if (
+        [
+          "precio_cambio",
+          "producto_no_disponible",
+          "promo_no_disponible",
+          "opcion_invalida",
+        ].includes(resultado.motivo)
+      ) {
         setTimeout(() => location.reload(), 2200); // el carrito se restaura con precios frescos
       }
       return;
@@ -6556,7 +6616,6 @@ async function purgarDescuentosVencidos() {
   if (!vencidos.length) return;
 
   for (const p of vencidos) {
-    
     p.descuento = { ...p.descuento, activo: false };
     syncMainListCard(p.id);
   }
@@ -6570,8 +6629,7 @@ function purgarOfertasVencidas({ mostrarToast = false } = {}) {
   const ahora = Date.now();
   const vencidas = promosGlobal.filter(
     (p) =>
-      p.esOfertaTiempo &&
-      ((p.expiraEn && p.expiraEn <= ahora) || !diaOk(p)),
+      p.esOfertaTiempo && ((p.expiraEn && p.expiraEn <= ahora) || !diaOk(p)),
   );
   if (!vencidas.length) return false;
   vencidas.forEach((p) => {
@@ -6633,9 +6691,11 @@ async function loadOfertasActivas() {
         return;
       }
       if (!diaOk(data)) {
-  console.log(`[OFERTAS] ${docSnap.id} descartada: hoy no es uno de sus días`);
-  return;
-}
+        console.log(
+          `[OFERTAS] ${docSnap.id} descartada: hoy no es uno de sus días`,
+        );
+        return;
+      }
       if (fh.activo === false) {
         console.log(
           `[OFERTAS] ${docSnap.id} descartada: datos_hora_fecha.activo === false`,
@@ -6692,7 +6752,7 @@ async function loadOfertasActivas() {
         nombre: (nombreMA || titulo || descripcion || "Oferta").slice(0, 80),
         descripcion,
         categoria: "momentaneas⏰",
-                dias: Array.isArray(data.dias) ? data.dias : null,  
+        dias: Array.isArray(data.dias) ? data.dias : null,
         destacado: !!esp && data.destacarEspecial === true,
         destacadoTexto: esp ? String(esp.titulo || "").trim() : "",
         destacadoGrad: grad ? grad.css : "",
@@ -6836,14 +6896,13 @@ function pintarProgresoGratis() {
     const ok = sub >= c.monto;
     const pct = Math.min(100, (sub / c.monto) * 100);
     box.className = "hint-box" + (ok ? " ok" : "");
-   box.innerHTML = ok
-  ? `<p class="hint-txt">🚚 ¡Ya tienes delivery gratis por tu compra!</p>`
-  : `<p class="hint-txt">🚚 Te faltan <b>S/ ${(c.monto - sub).toFixed(2)}</b> para delivery gratis</p>
+    box.innerHTML = ok
+      ? `<p class="hint-txt">🚚 ¡Ya tienes delivery gratis por tu compra!</p>`
+      : `<p class="hint-txt">🚚 Te faltan <b>S/ ${(c.monto - sub).toFixed(2)}</b> para delivery gratis</p>
      <div class="hint-track"><div class="hint-fill" style="width:${pct}%"></div></div>`;
   });
 }
 /* ══════════ Progreso de compra mínima del cupón ══════════ */
-
 
 function pintarProgresoMinimoCupon() {
   const c = cuponAplicado;
@@ -7652,7 +7711,9 @@ async function restaurarCarritoPersistido() {
     });
     restauro = true;
   });
-  Object.entries(data.varCanje || {}).forEach(([c, s]) => varianteCanje.set(c, s));
+  Object.entries(data.varCanje || {}).forEach(([c, s]) =>
+    varianteCanje.set(c, s),
+  );
   if (data.cupon && !cuponAplicado) await buscarYAplicarCupon(data.cupon);
 
   return restauro;
@@ -7665,6 +7726,7 @@ function limpiarCarritoPersistido() {
 }
 
 function abrirLoginPopup() {
+    try { sessionStorage.setItem("geinz_camp_login", "1"); } catch {}
   guardarCarritoParaLogin();
 
   const root = document.documentElement.style;
@@ -8088,6 +8150,7 @@ async function init() {
     hidePageLoader();
     return;
   }
+  capturarCampana();
 
   // ── Todas las lecturas salen a la vez ──
   const bizP = loadTienda();
@@ -8106,7 +8169,7 @@ async function init() {
     pedidoP,
     usuarioP,
   ]);
-
+  if (esCampana() && !(await iniciarCampana())) return;
   productosGlobal = productos;
   productosPorId = new Map(productos.map((p) => [p.id, p]));
   promosGlobal.forEach((p) => productosPorId.set(p.id, p));
@@ -8114,6 +8177,7 @@ async function init() {
   document.getElementById("totalCount").textContent = catalogoGlobal.length;
   bindCuponInputs();
   tipoTiendaFisica = await tipoP;
+
   await renderTienda(biz);
   if (cuponParam) await buscarYAplicarCupon(cuponParam, { desdeLink: true });
   if (cuponParam) {
@@ -8129,7 +8193,7 @@ async function init() {
   aplicarDisponibilidadDelivery();
   aplicarPuntoEntrega();
   renderMetodosPago(biz);
-
+  aplicarModoCampana();
   horarioEstado = evaluarHorarioNegocio(bizData, new Date());
   pintarBannerHorario(horarioEstado);
 
@@ -8180,5 +8244,167 @@ async function init() {
     if (!mesaId) openCheckout();
   }
   if (ofertaParam) aplicarOfertaDesdeLink(ofertaParam);
+}
+/* ══════════ Campañas físicas (el servidor cuenta todo) ══════════ */
+const RE_CAMP = /^[A-Za-z0-9]{10,40}$/;
+const CAMP_KEY = () => `geinz_camp_${tiendaId}`;
+const CAMP_TTL = 24 * 3600 * 1000;
+const CAMP_ENTREGA = "Campaña física";
+
+function leerCampana() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(CAMP_KEY()) || "null");
+    if (!d || Date.now() - d.ts > CAMP_TTL) {
+      sessionStorage.removeItem(CAMP_KEY());
+      return null;
+    }
+    return d;
+  } catch {
+    return null;
+  }
+}
+function guardarCampana(d) {
+  try {
+    sessionStorage.setItem(CAMP_KEY(), JSON.stringify(d));
+  } catch {}
+}
+const campanaIdActiva = () => (mesaId ? null : leerCampana()?.id || null);
+const esCampana = () => !mesaId && !!tiendaId && !!leerCampana();
+
+async function enviarEventoCampana(tipo) {
+  const c = leerCampana();
+  if (!c) return null;
+  try {
+    const { data } = await registrarEventoCampanaFn({
+      tiendaPath: tiendaDoc(localidad, "tiendas", tiendaId).path,
+      campanaId: c.id,
+      tipo,
+      dev: getDeviceId(),
+    });
+    return data;
+  } catch (e) {
+    console.warn("campaña:", e.message);
+    return null;
+  }
+}
+
+/* Sincrónico: guarda la campaña del link ANTES de pintar la pantalla */
+function capturarCampana() {
+  if (mesaId || !tiendaId) return;
+  const volviendoLogin = sessionStorage.getItem("geinz_camp_login");
+  sessionStorage.removeItem("geinz_camp_login");
+  if (!campanaParam || !RE_CAMP.test(campanaParam)) {
+    // sin ?camp=: solo se conserva si es recarga o vuelta del login
+    const nav = performance.getEntriesByType("navigation")[0]?.type;
+    if (nav !== "reload" && !volviendoLogin) sessionStorage.removeItem(CAMP_KEY());
+    return;
+  }
+  const prev = leerCampana();
+  if (!prev || prev.id !== campanaParam)
+    guardarCampana({
+      id: campanaParam,
+      ts: Date.now(),
+      vis: false,
+      anon: false,
+      reg: false,
+    });
+  const u = new URL(location.href);
+  u.searchParams.delete("camp");
+  history.replaceState(null, "", u.pathname + u.search + u.hash);
+}
+async function iniciarCampana() {
+  if (!esCampana()) return true;
+  let c = leerCampana();
+  if (!c.vis) {
+    c.anon = !usuarioLogeado;
+    const r = await enviarEventoCampana("visita");
+    if (r && ["vencida", "no_existe"].includes(r.motivo)) {
+      mostrarCampanaNoDisponible();
+      return false;
+    }
+    if (r?.ok) {
+      c.vis = true;
+      guardarCampana(c);
+    }
+  }
+  c = leerCampana();
+  if (c && usuarioLogeado && c.anon && !c.reg) {
+    const r = await enviarEventoCampana("registro");
+    if (r?.ok) {
+      c.reg = true;
+      guardarCampana(c);
+    }
+  }
+  return true;
+}
+
+/* Modo campaña: solo nombre + WhatsApp + pago, banner dorado, sin delivery/punto */
+function aplicarModoCampana() {
+  if (!esCampana()) return;
+  tipoEntrega = CAMP_ENTREGA;
+  [
+    "direccionCollapse",
+    "deliveryInfo",
+    "soloDeliveryBanner",
+    "obtenerUbicacionBtn",
+    "ubicacionStatus",
+  ].forEach((id) =>
+    document.getElementById(id)?.style.setProperty("display", "none", "important"),
+  );
+
+  // Tipo de entrega: una sola opción, "Punto de entrega"
+  const ef = document.getElementById("entregaField");
+  ef?.classList.remove("hidden");
+  ef?.style.removeProperty("display");
+  const tg = document.getElementById("entregaToggle");
+  if (tg) {
+    tg.innerHTML = `<div class="toggle-opt active" data-val="${CAMP_ENTREGA}" style="background:rgb(var(--dr),var(--dg),var(--db))">📍 Punto de entrega</div>`;
+    tg.style.setProperty("grid-template-columns", "1fr");
+  }
+  pintarPuntoEntrega(); // nombre, referencia y mapa del punto
+
+  if (document.getElementById("campBanner")) return;
+  if (!document.getElementById("campBannerStyle")) {
+    const st = document.createElement("style");
+    st.id = "campBannerStyle";
+    st.textContent = `
+    .camp-banner{position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:12px 16px;border-radius:18px;
+      background:linear-gradient(135deg,#1a1408 0%,#2a200c 55%,#1a1408 100%);
+      border:1px solid rgba(245,210,122,.55);
+      box-shadow:0 10px 30px -12px rgba(201,151,58,.55), inset 0 0 0 1px rgba(255,236,179,.06);}
+    .camp-banner::after{content:"";position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(105deg,transparent 35%,rgba(255,236,179,.14) 50%,transparent 65%);
+      background-size:250% 100%;animation:campShine 3.6s linear infinite;}
+    @keyframes campShine{0%{background-position:150% 0}100%{background-position:-150% 0}}
+    .camp-banner-ico{flex-shrink:0;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;
+      background:linear-gradient(135deg,#f5d27a,#c9973a);box-shadow:0 4px 14px -3px rgba(201,151,58,.7);}
+    .camp-banner-t{margin:0;font-size:13.5px;font-weight:800;letter-spacing:.02em;
+      background:linear-gradient(90deg,#fff3c4,#f5d27a,#e0b04f);-webkit-background-clip:text;background-clip:text;color:transparent;}
+    .camp-banner-s{margin:2px 0 0;font-size:11.5px;color:#cdbb8a;line-height:1.35;}`;
+    document.head.appendChild(st);
+  }
+  const b = document.createElement("div");
+  b.id = "campBanner";
+  b.className = "camp-banner";
+  b.innerHTML = `<div class="camp-banner-ico">✨</div>
+    <div style="position:relative;z-index:1;min-width:0;">
+      <p class="camp-banner-t">Beneficio exclusivo por tiempo limitado</p>
+      <p class="camp-banner-s">Elige tus favoritos y haz tu pedido en segundos. ¡Hoy te lo mereces!</p>
+    </div>`;
+  const main = document.querySelector("main .min-w-0");
+  if (main) main.prepend(b); 
+}
+
+function mostrarCampanaNoDisponible() {
+  try { sessionStorage.removeItem(CAMP_KEY()); } catch {}
+  hidePageLoader();
+  document.getElementById("pedidoLoader")?.classList.add("hidden");
+  const ov = document.createElement("div");
+  ov.style.cssText =
+    "position:fixed;inset:0;z-index:99999;background:#050505;color:#fff;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center;";
+  ov.innerHTML = `<div style="max-width:340px;"><div style="font-size:46px;">🔗</div>
+    <p style="font-weight:800;font-size:18px;margin:10px 0 6px;">Este link no está disponible</p>
+    <p style="font-size:13.5px;color:#a1a1aa;line-height:1.5;">La campaña terminó o todavía no está activa. Pídele al negocio un link actualizado.</p></div>`;
+  document.body.appendChild(ov);
 }
 init();
