@@ -1106,18 +1106,98 @@ function playSoundOnce(url) {
            mesa física: { id: "mesa_2", nombre: "Mesa 2", numero: 2 }. Si ese
            campo no existe (o no tiene número), el pedido es de WhatsApp.
            Ya no dependemos del ID del documento para saber el origen. */
+const CANJE_DA_PUNTOS = false;
+
+// Todos los cupones del pedido (el servidor manda p.cupones; antes solo p.cupon)
+function cuponesDePedido(p) {
+  const arr =
+    Array.isArray(p?.cupones) && p.cupones.length
+      ? p.cupones
+      : p?.cupon
+        ? [p.cupon]
+        : [];
+  return arr.filter(Boolean);
+}
+function lineasCanje(p) {
+  return (Array.isArray(p?.productos) ? p.productos : []).filter(
+    (it) => it.esCanje === true,
+  );
+}
+// Un pedido puede tener varias cosas a la vez (canje + descuento + cupón)
+function categoriasCupon(p) {
+  const cups = cuponesDePedido(p);
+  const out = [];
+  if (
+    cups.some((c) => c.origen === "fidelizacion" && c.tipo === "producto") ||
+    (!cups.length && lineasCanje(p).length)
+  )
+    out.push("canje_puntos");
+  if (cups.some((c) => c.origen === "fidelizacion" && c.tipo !== "producto"))
+    out.push("descuento_fidelizacion");
+  if (cups.some((c) => c.origen !== "fidelizacion"))
+    out.push("cupon_descuento");
+  return out;
+}
 function getTipoCuponPedido(p) {
-  const c = p?.cupon;
-  if (!c) return null;
-  const esFidelizacion = c.origen === "fidelizacion";
-  const productos = Array.isArray(p.productos) ? p.productos : [];
-  // Canje de puntos "puro": vino de fidelización, es un producto canjeado,
-  // y no hay nada más en el carrito
-  if (esFidelizacion && c.tipo === "producto" && productos.length === 1) {
-    return "canje_puntos";
+  return categoriasCupon(p)[0] || null; // canje > descuento fidelización > cupón
+}
+
+function textoBeneficioCupon(c) {
+  const d = c?.descuento || {};
+  switch (c?.tipoBeneficio) {
+    case "monto":
+      return `Descuento de ${fmtMoney(d.monto)} en el producto`;
+    case "porcentaje":
+      return `${Number(d.porcentaje) || 0}% de descuento en el producto`;
+    case "cantidad":
+      return `Lleva ${d.compraUnidades ?? "?"} · paga ${d.pagaUnidades ?? "?"}`;
+    default:
+      return "Producto GRATIS con puntos";
   }
-  if (esFidelizacion) return "descuento_fidelizacion"; // % o monto pagado con puntos
-  return "cupon_descuento"; // cupón normal del negocio, no fidelización
+}
+
+// Un bloque por producto canjeado, con todo lo que el negocio necesita saber
+function detalleCanjesPedido(p) {
+  const porCodigo = new Map(cuponesDePedido(p).map((c) => [c.codigo, c]));
+  return lineasCanje(p).map((it) => {
+    const codigos =
+      Array.isArray(it.cuponCodigos) && it.cuponCodigos.length
+        ? it.cuponCodigos
+        : it.cuponCodigo
+          ? [it.cuponCodigo]
+          : [];
+    const cs = codigos.map((c) => porCodigo.get(c)).filter(Boolean);
+    const pagado = Number(it.subtotal) || 0;
+    const normal =
+      cs.length && cs.every((c) => c.precioOriginal != null)
+        ? cs.reduce(
+            (s, c) =>
+              s +
+              Number(c.precioOriginal) *
+                (c.tipoBeneficio === "cantidad"
+                  ? Number(c.descuento?.compraUnidades) || 1
+                  : 1),
+            0,
+          )
+        : null;
+    return {
+      it,
+      codigos,
+      unidades: Number(it.cantidad) || 0,
+      pagado,
+      normal,
+      ahorro: normal != null ? Math.max(0, normal - pagado) : null,
+      puntos: cs
+        .filter((c) => c.origen === "fidelizacion")
+        .reduce((s, c) => s + (Number(c.costoPuntos) || 0), 0),
+      beneficio: cs[0] ? textoBeneficioCupon(cs[0]) : "Canje con cupón",
+    };
+  });
+}
+function puntosGastadosPedido(p) {
+  return cuponesDePedido(p)
+    .filter((c) => c.origen === "fidelizacion")
+    .reduce((s, c) => s + (Number(c.costoPuntos) || 0), 0);
 }
 function getOrigen(p) {
   const mesa = p && p.mesa;
@@ -3160,15 +3240,21 @@ const ICONOS_PAGO = { "Yape / Plin": "📱", Efectivo: "💵" };
 function detalleCuponHtml(p) {
   const tipo = getTipoCuponPedido(p);
   if (!tipo) return "";
-  const c = p.cupon || {};
-  const productos = Array.isArray(p.productos) ? p.productos : [];
-  const prodCanjeado =
-    productos.find((it) => it.esCanje) ||
-    (c.productoId ? productos.find((it) => it.id === c.productoId) : null);
-  const descuento = Number(p.descuentoCupon) || 0;
+  const cups = cuponesDePedido(p);
   const total = Number(p.total) || 0;
-  const subtotal = Number(p.subtotal) || total + descuento;
-  const porcentajeEfectivo = subtotal > 0 ? (descuento / subtotal) * 100 : 0;
+  const subtotal = Number(p.subtotal) || 0;
+  const descuento = Number(p.descuentoCupon) || 0;
+  const deliv = Number(p.delivery?.costo) || 0;
+  const canjes = detalleCanjesPedido(p);
+  const puntosGastados = puntosGastadosPedido(p);
+  const manual = cups.find((c) => c.tipo !== "producto") || null;
+  const pagadoCanjes = canjes.reduce((s, x) => s + x.pagado, 0);
+  const otros = (Array.isArray(p.productos) ? p.productos : []).filter(
+    (it) => !it.esCanje,
+  );
+  const ahorroTotal = canjes.length && canjes.every((x) => x.ahorro != null)
+    ? canjes.reduce((s, x) => s + x.ahorro, 0)
+    : null;
 
   const map = {
     canje_puntos: {
@@ -3191,151 +3277,144 @@ function detalleCuponHtml(p) {
     },
   };
   const cfg = map[tipo];
+  const fila = (l, v, estilo = "") =>
+    `<div class="dm-cupon-row"${estilo ? ` style="${estilo}"` : ""}><span>${l}</span><span>${v}</span></div>`;
+  const SEP =
+    "border-top:1px dashed rgba(255,255,255,.14);padding-top:6px;margin-top:4px;";
 
-  const filas = [];
+  /* ── Un recuadro por producto canjeado ── */
+  const bloquesCanje = canjes
+    .map((x) => {
+      const ops = opcionesDetalleLineas(x.it);
+      const gratis = x.pagado <= 0.004;
+      return `
+      <div style="border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.06);border-radius:12px;padding:10px 12px;margin-bottom:10px;">
+        <div style="font-weight:800;font-size:13px;color:#fde68a;margin-bottom:4px;">👉 ENTREGAR: ${x.unidades}× ${escapeHtml(x.it.nombre)}</div>
+        ${ops.map((o) => `<div class="dm-prod-cat" style="color:#a78bfa;">• ${escapeHtml(o)}</div>`).join("")}
+        <div style="margin-top:6px;">
+          ${fila("Beneficio canjeado", escapeHtml(x.beneficio))}
+          ${x.normal != null ? fila("Precio normal", `<span style="text-decoration:line-through;color:var(--ink-faint);">${fmtMoney(x.normal)}</span>`) : ""}
+          ${fila("Paga por este producto", gratis ? `<b style="color:#4ade80;">GRATIS</b>` : `<b>${fmtMoney(x.pagado)}</b>`)}
+          ${x.ahorro != null && x.ahorro > 0.004 ? fila("Ahorro del cliente", `<b style="color:#4ade80;">-${fmtMoney(x.ahorro)}</b>`) : ""}
+          ${x.puntos > 0 ? fila("Puntos descontados", `<b style="color:#fbbf24;">-${x.puntos} pts</b>`) : ""}
+          ${x.codigos.length ? fila(x.codigos.length > 1 ? "Cupones" : "Cupón", `<span class="mono">${x.codigos.map((c) => escapeHtml(c)).join(", ")}</span>`) : ""}
+        </div>
+      </div>`;
+    })
+    .join("");
 
-  if (c.codigo) {
-    filas.push(`
-      <div class="dm-cupon-row">
-        <span>Código de cupón</span>
-        <span class="mono" style="letter-spacing:.05em;">${escapeHtml(c.codigo)}</span>
-      </div>`);
+  /* ── Descuento manual (% / monto / envío gratis), si lo hay ── */
+  let bloqueManual = "";
+  if (manual) {
+    const tipoTxt = manual.envioGratis
+      ? "Envío gratis"
+      : manual.tipoDescuentoManual === "porcentaje"
+        ? `${manual.porcentajeManual || 0}% sobre el subtotal`
+        : manual.tipoDescuentoManual === "monto"
+          ? `Monto fijo de ${fmtMoney(manual.montoManual || 0)}`
+          : "Descuento";
+    bloqueManual = `
+      <div style="margin-bottom:6px;">
+        <div class="dm-prod-cat" style="font-weight:800;margin-bottom:4px;">${manual.origen === "fidelizacion" ? "⭐ Descuento canjeado con puntos" : "🎟️ Cupón del negocio"}</div>
+        ${manual.codigo ? fila("Código de cupón", `<span class="mono">${escapeHtml(manual.codigo)}</span>`) : ""}
+        ${fila("Tipo de descuento", tipoTxt)}
+        ${Number(manual.compraMinima) > 0 ? fila("Compra mínima", fmtMoney(manual.compraMinima)) : ""}
+        ${descuento > 0 ? fila("Descuento aplicado", `<b style="color:#4ade80;">-${fmtMoney(descuento)}</b>`) : ""}
+      </div>`;
   }
 
-  filas.push(`
-    <div class="dm-cupon-row">
-      <span>Origen</span>
-      <span>${c.origen === "fidelizacion" ? "Programa de fidelización" : "Cupón del negocio"}</span>
-    </div>`);
+  /* ── Resumen de dinero ── */
+  const resumen = [];
+  if (canjes.length && otros.length)
+    resumen.push(
+      fila(
+        `Resto del pedido (${otros.length} producto${otros.length === 1 ? "" : "s"}, se cobra normal)`,
+        fmtMoney(Math.max(0, subtotal - pagadoCanjes)),
+      ),
+    );
+  resumen.push(fila("Subtotal", fmtMoney(subtotal)));
+  if (descuento > 0)
+    resumen.push(
+      fila("Descuento por cupón", `<span style="color:#4ade80;">-${fmtMoney(descuento)}</span>`),
+    );
+  if (deliv > 0) resumen.push(fila("Delivery", fmtMoney(deliv)));
+  resumen.push(
+    fila(
+      `<b>Total a cobrar al cliente</b>`,
+      `<b>${fmtMoney(total)}</b>`,
+      SEP,
+    ),
+  );
+  if (puntosGastados > 0)
+    resumen.push(
+      fila(
+        "Puntos usados por el cliente",
+        `<b style="color:#fbbf24;">-${puntosGastados} pts</b>`,
+      ),
+    );
+  if (ahorroTotal != null && ahorroTotal > 0.004)
+    resumen.push(
+      fila(
+        "Ahorro total del cliente",
+        `<b style="color:#4ade80;">${fmtMoney(ahorroTotal)}</b>`,
+      ),
+    );
 
-  if (tipo === "canje_puntos" && prodCanjeado) {
-    const varianteTxt = prodCanjeado.opciones
-      ? Object.entries(prodCanjeado.opciones)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · ")
+  const mixto =
+    canjes.length && otros.length
+      ? `<span style="font-weight:600;font-size:11px;color:var(--ink-dim);"> · pedido mixto</span>`
       : "";
-
-    filas.push(`
-    <div class="dm-cupon-row">
-      <span>Producto canjeado</span>
-      <span>${escapeHtml(prodCanjeado.nombre)}</span>
-    </div>`);
-
-    if (varianteTxt) {
-      filas.push(`
-      <div class="dm-cupon-row">
-        <span>Variante entregada</span>
-        <span style="font-weight:700;">${escapeHtml(varianteTxt)}</span>
-      </div>`);
-    }
-
-    if (c.tipoBeneficio === "cantidad" && c.descuento) {
-      const compra = c.descuento.compraUnidades || "?";
-      const paga = c.descuento.pagaUnidades || "?";
-      const precioUnit = Number(c.precioOriginal) || 0;
-      filas.push(`
-      <div class="dm-cupon-row">
-        <span>Promoción canjeada</span>
-        <span style="font-weight:800;color:#fbbf24;">Lleva ${compra} · paga ${paga}</span>
-      </div>`);
-      filas.push(`
-      <div class="dm-cupon-row">
-        <span>Precio normal (${compra} unidades)</span>
-        <span style="text-decoration:line-through;color:var(--ink-faint);">${fmtMoney(precioUnit * compra)}</span>
-      </div>`);
-      filas.push(`
-      <div class="dm-cupon-row" style="border-top:1px dashed rgba(74,222,128,.25);padding-top:6px;margin-top:2px;">
-        <span style="font-weight:800;">Total que paga el cliente</span>
-        <span style="font-weight:800;">${fmtMoney(precioUnit * paga)}</span>
-      </div>`);
-    } else {
-      filas.push(`
-      <div class="dm-cupon-row">
-        <span>Precio normal del producto</span>
-        <span style="text-decoration:line-through;color:var(--ink-faint);">${fmtMoney(prodCanjeado.precio_unitario || prodCanjeado.precio || 0)}</span>
-      </div>`);
-    }
-
-    filas.push(`
-    <div class="dm-cupon-row" style="border-top:1px dashed rgba(251,191,36,.25);padding-top:6px;margin-top:2px;">
-      <span style="font-weight:800;">Puntos que se descuentan al cliente</span>
-      <span style="color:#fbbf24;font-weight:800;">-${Number(c.costoPuntos) || 0} pts</span>
-    </div>`);
-  } else {
-    // ── Descuento % o monto fijo sobre el subtotal ──
-    if (c.tipo === "producto" && c.productoId) {
-      filas.push(`
-        <div class="dm-cupon-row">
-          <span>Tipo de descuento</span>
-          <span>Producto de regalo</span>
-        </div>`);
-    } else if (c.tipoDescuentoManual) {
-      filas.push(`
-        <div class="dm-cupon-row">
-          <span>Tipo de descuento</span>
-          <span>${c.tipoDescuentoManual === "porcentaje" ? `${c.porcentajeManual || 0}% sobre el subtotal` : `Monto fijo de ${fmtMoney(c.montoManual || 0)}`}</span>
-        </div>`);
-    }
-
-    filas.push(`
-      <div class="dm-cupon-row">
-        <span>Subtotal sin descuento</span>
-        <span>${fmtMoney(subtotal)}</span>
-      </div>`);
-    filas.push(`
-      <div class="dm-cupon-row" style="border-top:1px dashed rgba(74,222,128,.25);padding-top:6px;margin-top:2px;">
-        <span style="font-weight:800;">Descuento aplicado</span>
-        <span style="color:#4ade80;font-weight:800;">-${fmtMoney(descuento)} (${porcentajeEfectivo.toFixed(1)}%)</span>
-      </div>`);
-    filas.push(`
-      <div class="dm-cupon-row">
-        <span style="font-weight:800;">Total a cobrar al cliente</span>
-        <span style="font-weight:800;">${fmtMoney(total)}</span>
-      </div>`);
-
-    if (tipo === "descuento_fidelizacion" && c.costoPuntos) {
-      filas.push(`
-        <div class="dm-cupon-row" style="border-top:1px dashed rgba(167,139,250,.25);padding-top:6px;margin-top:2px;">
-          <span>Puntos usados por el cliente</span>
-          <span style="color:#fbbf24;font-weight:800;">-${c.costoPuntos} pts</span>
-        </div>`);
-    }
-  }
+  const aviso = canjes.length
+    ? "⚠️ El cliente ya pagó este canje con puntos: entrega el producto tal como se indica arriba. Si rechazas el pedido, los puntos se le devuelven."
+    : "⚠️ Verifica este descuento antes de aceptar el pedido, ya se aplicó automáticamente en el total.";
 
   return `
     <div class="dm-cupon-card" style="background:${cfg.bg};border:1px solid ${cfg.bd};">
-      <p style="color:${cfg.col};font-weight:800;font-size:12.5px;margin-bottom:8px;">${cfg.titulo}</p>
-      ${filas.join("")}
-      <p style="font-size:10.5px;color:var(--ink-faint);margin-top:8px;">
-        ⚠️ Verifica este descuento antes de aceptar el pedido, ya se aplicó automáticamente en el total.
-      </p>
+      <p style="color:${cfg.col};font-weight:800;font-size:12.5px;margin-bottom:8px;">${cfg.titulo}${mixto}</p>
+      ${bloquesCanje}
+      ${bloqueManual}
+      ${resumen.join("")}
+      <p style="font-size:10.5px;color:var(--ink-faint);margin-top:8px;">${aviso}</p>
     </div>`;
 }
+function canjeResumenCardHtml(p) {
+  const canjes = detalleCanjesPedido(p);
+  if (!canjes.length) return "";
+  const pts = puntosGastadosPedido(p);
+  const nombres = canjes.map((x) => `${x.unidades}× ${x.it.nombre}`).join(", ");
+  return `<div class="oc-canje-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 Canje: ${escapeHtml(nombres)}${pts ? ` · −${pts} pts` : ""}</div>`;
+}
+// Precio de una línea en la lista de productos del detalle
+function precioLineaHtml(it) {
+  const sub =
+    Number(it.subtotal ?? Number(it.precio_unitario || 0) * Number(it.cantidad || 0)) || 0;
+  if (it.esCanje && sub <= 0.004)
+    return `<span style="color:#4ade80;">GRATIS</span>`;
+  return `S/ ${sub.toFixed(2)}`;
+}
+// Etiqueta bajo el nombre del producto canjeado
+function canjeLineaBadgeHtml(it) {
+  if (!it.esCanje) return "";
+  const codigos =
+    Array.isArray(it.cuponCodigos) && it.cuponCodigos.length
+      ? it.cuponCodigos
+      : it.cuponCodigo
+        ? [it.cuponCodigo]
+        : [];
+  return `<div style="font-size:10.5px;font-weight:800;color:#fbbf24;margin-top:2px;">🎁 Canjeado con puntos${codigos.length ? " · cupón " + codigos.map((c) => escapeHtml(c)).join(", ") : ""}</div>`;
+}
 function cuponTagHtml(p) {
-  const tipo = getTipoCuponPedido(p);
-  if (!tipo) return "";
   const map = {
-    canje_puntos: {
-      ico: "🎁",
-      label: "Canje de puntos",
-      bg: "rgba(251,191,36,.15)",
-      col: "#fbbf24",
-    },
-    descuento_fidelizacion: {
-      ico: "⭐",
-      label: "Descuento fidelización",
-      bg: "rgba(124,92,255,.15)",
-      col: "#a78bfa",
-    },
-    cupon_descuento: {
-      ico: "🎟️",
-      label: "Cupón de descuento",
-      bg: "rgba(34,197,94,.15)",
-      col: "#4ade80",
-    },
+    canje_puntos: { ico: "🎁", label: "Canje de puntos", bg: "rgba(251,191,36,.15)", col: "#fbbf24" },
+    descuento_fidelizacion: { ico: "⭐", label: "Descuento fidelización", bg: "rgba(124,92,255,.15)", col: "#a78bfa" },
+    cupon_descuento: { ico: "🎟️", label: "Cupón de descuento", bg: "rgba(34,197,94,.15)", col: "#4ade80" },
   };
-  const cfg = map[tipo];
-  return `<span class="oc-cupon-tag" style="background:${cfg.bg};color:${cfg.col};">${cfg.ico} ${cfg.label}</span>`;
+  return categoriasCupon(p)
+    .map((t) => {
+      const c = map[t];
+      return `<span class="oc-cupon-tag" style="background:${c.bg};color:${c.col};">${c.ico} ${c.label}</span>`;
+    })
+    .join("");
 }
 function origenTagHtml(p) {
   const origen = getOrigen(p);
@@ -3387,7 +3466,8 @@ async function calcularPuntosPedidoAsync(pedidoId, p) {
   try {
     const productos = Array.isArray(p.productos) ? p.productos : [];
     let total = 0;
-    for (const it of productos) {
+     for (const it of productos) {
+      if (it.esCanje && !CANJE_DA_PUNTOS) continue;
       if (!it.id || !it.categoria) continue;
       const conf = await obtenerPuntosProducto(it.categoria, it.id);
       if (conf?.activo && Number(conf.cantidad) > 0) {
@@ -3405,6 +3485,7 @@ async function calcularPuntosPedidoAsync(pedidoId, p) {
    por calcularPuntosPedidoAsync(). Si el producto aún no se consultó,
    devuelve 0 (se repintará solo cuando la caché tenga el dato real). */
 function getPuntosItemDesdeCache(it) {
+  if (it.esCanje && !CANJE_DA_PUNTOS) return 0;
   if (!it.id || !it.categoria) return 0;
   const conf = productoPuntosCache.get(`${it.categoria}::${it.id}`);
   if (conf?.activo && Number(conf.cantidad) > 0) {
@@ -3601,6 +3682,7 @@ function buildCard(id, p) {
     ${p.cliente_en_local ? `<div style="font-size:11px;font-weight:800;color:#ec4899;margin-top:2px;">${textoLlegada(p)}</div>` : ""}
            ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}
        ${Number(p.descuentoCupon) > 0 ? `<div class="oc-descuento-line" style="font-size:11px;font-weight:700;color:#4ade80;margin-top:2px;">🏷️ Descuento aplicado: -${fmtMoney(p.descuentoCupon)}</div>` : ""}
+       ${canjeResumenCardHtml(p)}
       ${p.tiempo_estimado ? `<div style="font-size:11px;font-weight:700;color:#a78bfa;margin-top:2px;">⏱️ ${p.tiempo_estimado.min}–${p.tiempo_estimado.max} min</div>` : ""}
        <div class="oc-summary">
    <span class="oc-summary-left">${origenTagHtml(p)}${cuponTagHtml(p)}</span>
@@ -5101,7 +5183,6 @@ function renderDetail(id) {
   }
 
   const fechaHora = [p.fecha, p.hora].filter(Boolean).join(" · ");
-
   const prodRows =
     productos
       .map((it) => {
@@ -5111,17 +5192,17 @@ function renderDetail(id) {
       <div>
         <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
         ${it.categoria ? `<div class="dm-prod-cat">${escapeHtml(it.categoria)}</div>` : ""}
+        ${canjeLineaBadgeHtml(it)}
         ${opcionesDetalleHtmlLineas(it)}
         <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
         ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
       </div>
-      <div class="dm-prod-price">S/ ${Number(it.subtotal ?? it.precio_unitario * it.cantidad ?? 0).toFixed(2)}</div>
+      <div class="dm-prod-price">${precioLineaHtml(it)}</div>
     </div>
   `;
       })
       .join("") ||
     `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Sin productos registrados</p>`;
-
   const autoNote =
     estado === "rechazado" && p.auto_rechazado
       ? `<div class="dm-meta-item full"><div class="dm-meta-label">⏱️ Motivo</div><div class="dm-meta-value">Rechazado automáticamente por superar ${autoRejectMinutes} min sin pasar a "En proceso"</div></div>`
@@ -5418,52 +5499,53 @@ async function descontarStockPedido(pedido) {
    - Guarda además un historial de compras en clientes/{uid}/historial para que la
      tienda vea qué compró cada cliente y quién invierte más. */
 async function devolverPuntosCuponSiAplica(pedidoId, pedido) {
-  const cupon = pedido?.cupon;
-  if (!cupon || cupon.origen !== "fidelizacion") return;
-  if (pedido.puntos_cupon_devueltos) return;
+  if (!pedido || pedido.puntos_cupon_devueltos) return;
   const uid = pedido.cliente?.id_cliente;
-  const puntos = Number(cupon.costoPuntos) || 0;
+  const cups = cuponesDePedido(pedido).filter(
+    (c) => c.origen === "fidelizacion" && c.codigo,
+  );
+  const puntos = cups.reduce((s, c) => s + (Number(c.costoPuntos) || 0), 0);
   if (!uid || puntos <= 0) return;
 
   try {
-    await updateDoc(clienteDoc(localidad, tiendaId, uid), {
+    const batch = writeBatch(db);
+    batch.update(clienteDoc(localidad, tiendaId, uid), {
       puntos: increment(puntos),
     });
-    if (cupon.codigo) {
-      await updateDoc(clienteCuponDoc(localidad, tiendaId, uid, cupon.codigo), {
-        usado: false,
-        estado: "activo",
-        pedidoId: null,
-      }).catch(() => {});
-    }
-    // NUEVO: registro en el historial de puntos del cliente
-    await addDoc(
-      tiendaSubCol(
-        localidad,
-        "tiendas",
-        tiendaId,
-        "clientes",
-        uid,
-        "historial",
-      ),
-      {
-        tipo: "devolucion",
-        fecha: serverTimestamp(),
-        puntos: puntos, // positivo
-        concepto: `Pedido rechazado #${pedidoId.slice(0, 6).toUpperCase()} · puntos devueltos`,
-        pedidoId,
-        codigoCupon: cupon.codigo || null,
-      },
+    cups.forEach((c) => {
+      batch.set(
+        clienteCuponDoc(localidad, tiendaId, uid, c.codigo),
+        {
+          estado: "cancelado",
+          canceladoEn: serverTimestamp(),
+          devueltoPorPedido: pedidoId,
+        },
+        { merge: true },
+      );
+    });
+    const histRef = doc(
+      tiendaSubCol(localidad, "tiendas", tiendaId, "clientes", uid, "historial"),
     );
-    await updateDoc(
+    batch.set(histRef, {
+      tipo: "devolucion",
+      fecha: serverTimestamp(),
+      puntos,
+      concepto: `Pedido rechazado #${pedidoId.slice(0, 6).toUpperCase()} · puntos devueltos`,
+      pedidoId,
+      codigosCupon: cups.map((c) => c.codigo),
+    });
+    batch.update(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pedidoId),
       { puntos_cupon_devueltos: true },
     );
+    await batch.commit();
     showToast(`↩️ Se devolvieron ${puntos} puntos al cliente`);
   } catch (err) {
     console.error("No se pudieron devolver los puntos del cupón:", err);
+    showToast("⚠️ No se pudieron devolver los puntos, revisa el pedido", true);
   }
 }
+
 async function acreditarPuntosCliente(
   uid,
   tiendaId,

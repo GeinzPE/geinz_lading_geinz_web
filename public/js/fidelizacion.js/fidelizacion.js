@@ -80,6 +80,8 @@ let ui = null;
 let horarioEstado = { abierto: true, mensaje: "" };
 let horarioCheckInterval = null;
 let brandDarkHex = "#2e1065";
+let PRODUCTOS_CACHE = [];
+let CANJES_USADOS = {}; // { idRecompensa: veces que ya la canjeó este cliente }
 const qrState = { code: null, colorReady: false, rendered: false };
 let _esperandoToken = new URLSearchParams(window.location.hash.slice(1)).has(
   "wl_token",
@@ -920,21 +922,41 @@ function pintarPuntosDOM(n) {
 
 /* Solo lo que la UI necesita para pintar. El canje real lo hace el servidor
    leyendo el premio por su id, así que aquí ya no viaja nada sensible. */
+function restantesDe(p) {
+  const lim = Number(p.limiteCanjesPorCliente) || 0;
+  if (!lim) return null; // sin límite
+  return Math.max(0, lim - Number(CANJES_USADOS[p.id] || 0));
+}
+
 function premiosParaUI(productos) {
   return productos
     .filter((p) => p.disponible !== false)
-    .map((p) => ({
-      id: p.id,
-      nombre: p.nombre || "Producto",
-      costoPuntos: Number(p.costoPuntos ?? 0),
-      imagenUrl: p.imagenUrl || "",
-      detalle: [plano(textoBeneficio(p)), textoVariante(p)]
-        .filter(Boolean)
-        .join(" · "),
-      categoria: rfCategoriaDe(p),
-      unico: p.origen !== "catalogo",
-      origen: p.origen,
-    }));
+    .map((p) => {
+      const restantes = restantesDe(p);
+      return {
+        id: p.id,
+        nombre: p.nombre || "Producto",
+        costoPuntos: Number(p.costoPuntos ?? 0),
+        imagenUrl: p.imagenUrl || "",
+        detalle: [
+          plano(textoBeneficio(p)),
+          textoVariante(p),
+          restantes === 0
+            ? `Ya tienes ${p.limiteCanjesPorCliente} sin usar · úsalos para canjear de nuevo`
+            : restantes !== null
+              ? `Puedes canjear ${restantes} más`
+              : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        categoria: rfCategoriaDe(p),
+        unico: p.origen !== "catalogo",
+        origen: p.origen,
+        restantes,
+        maxCantidad: restantes,
+        limiteAlcanzado: restantes === 0,
+      };
+    });
 }
 
 /* ══════════════ Historial paginado (para el módulo UI) ══════════════ */
@@ -994,16 +1016,21 @@ async function cargarCuponesActivos(uid) {
       orderBy("creado", "desc"),
     );
     const snap = await getDocs(q);
-    ui?.setCupones(
-      snap.docs.map((d) => {
-        const c = d.data();
-        return {
-          id: d.id,
-          ...c,
-          nombre: c.nombre || c.productoNombre || "Cupón",
-        };
-      }),
-    );
+    const cupones = snap.docs.map((d) => {
+      const c = d.data();
+      return {
+        id: d.id,
+        ...c,
+        nombre: c.nombre || c.productoNombre || "Cupón",
+      };
+    });
+    // cuántos cupones SIN USAR tiene de cada premio (eso es lo que cuenta para el límite)
+    CANJES_USADOS = {};
+    cupones.forEach((c) => {
+      const pid = c.descuentoId || c.productoId;
+      if (pid) CANJES_USADOS[pid] = (CANJES_USADOS[pid] || 0) + 1;
+    });
+    ui?.setCupones(cupones);
   } catch (e) {
     console.warn("No se pudieron cargar los cupones activos:", e);
   }
@@ -1025,8 +1052,8 @@ async function onCancelarCuponUI(cupon) {
   pintarPuntosDOM(puntos);
   ui?.setPuntos(puntos);
   await cargarCuponesActivos(UID_ACTUAL);
+  ui?.setPremios(premiosParaUI(PRODUCTOS_CACHE));
 }
-
 /* ══════════════ Canje ══════════════ */
 function urlCarrito() {
   if (ES_DOMINIO_PROPIO) return "/carrito";
@@ -1095,6 +1122,17 @@ async function onCanjearUI(items) {
     .map((it) => ({ id: it.premio.id, cantidad: Number(it.cantidad) || 1 }));
   if (!lineas.length) throw new Error("No elegiste ningún premio");
 
+  for (const l of lineas) {
+    const p = PRODUCTOS_CACHE.find((x) => x.id === l.id);
+    const r = p ? restantesDe(p) : null;
+    if (r !== null && l.cantidad > r) {
+      throw new Error(
+        r === 0
+          ? `Ya tienes ${p.limiteCanjesPorCliente} de "${p.nombre}" sin usar`
+          : `Solo puedes canjear ${r} más de "${p.nombre}" por ahora`,
+      );
+    }
+  }
   canjeBloqueado = true;
   overlayCanje("Procesando tu canje…");
 
@@ -1193,6 +1231,7 @@ async function cargarDatos(uid) {
       "Cliente Frecuente";
 
     const puntos = Number(cliente.puntos ?? 0);
+    PRODUCTOS_CACHE = productos;
     const nivel = calcularNivel(puntos);
     const codigo = cliente.id || clienteSnap.id;
     const clienteDesde = formatearFechaInicio(cliente.fecha_inicio);
@@ -1235,8 +1274,8 @@ async function cargarDatos(uid) {
       });
     }
     ui.setPuntos(puntos);
+    await cargarCuponesActivos(uid);
     ui.setPremios(premiosParaUI(productos));
-    cargarCuponesActivos(uid);
 
     if (!tiltFlipIniciado) {
       initTilt();

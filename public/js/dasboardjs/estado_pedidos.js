@@ -518,29 +518,48 @@ el("pago-voucher-input")?.addEventListener("change", async (e) => {
     e.target.value = "";
   }
 });
+// Todos los cupones del pedido (el servidor manda cupones[]; antes solo cupon)
+function cuponesDe(data) {
+  const arr =
+    Array.isArray(data?.cupones) && data.cupones.length
+      ? data.cupones
+      : data?.cupon
+        ? [data.cupon]
+        : [];
+  return arr.filter(Boolean);
+}
 
 function calcularAhorroCupon(data) {
-  const c = data.cupon;
-  if (!c) return 0;
+  const cups = cuponesDe(data);
+  if (!cups.length) return 0;
 
-  // Cupón manual (% o monto): el carrito ya guardó el descuento calculado
-  if (Number(data.descuentoCupon) > 0) return Number(data.descuentoCupon);
+  let total = 0;
 
-  // Cupón de producto (canje): el descuento va dentro del precio de la línea
-  if (c.tipo === "producto") {
-    const orig = Number(c.precioOriginal);
-    if (!Number.isFinite(orig)) return 0;
+  // Cupones de producto (canje): el descuento va dentro del precio de la línea
+  cups
+    .filter((c) => c.tipo === "producto")
+    .forEach((c) => {
+      const orig = Number(c.precioOriginal);
+      if (!Number.isFinite(orig)) return;
+      if (c.tipoBeneficio === "cantidad") {
+        const compra = Number(c.descuento?.compraUnidades) || 1;
+        const paga = Number(c.descuento?.pagaUnidades) || compra;
+        total += Math.max(0, (compra - paga) * orig);
+      } else {
+        const final =
+          c.precioFinalEstimado != null ? Number(c.precioFinalEstimado) : orig;
+        total += Math.max(0, orig - final);
+      }
+    });
 
-    if (c.tipoBeneficio === "cantidad") {
-      const compra = Number(c.descuento?.compraUnidades) || 1;
-      const paga = Number(c.descuento?.pagaUnidades) || compra;
-      return +Math.max(0, (compra - paga) * orig).toFixed(2);
-    }
-    const final =
-      c.precioFinalEstimado != null ? Number(c.precioFinalEstimado) : orig;
-    return +Math.max(0, orig - final).toFixed(2);
-  }
-  return 0;
+  // Cupón manual (% o monto): el carrito ya guardó el descuento, se suma una sola vez
+  if (
+    cups.some((c) => c.tipo !== "producto") &&
+    Number(data.descuentoCupon) > 0
+  )
+    total += Number(data.descuentoCupon);
+
+  return +total.toFixed(2);
 }
 
 function renderResumenCupon(data) {
@@ -548,7 +567,7 @@ function renderResumenCupon(data) {
   if (!wrap) return;
 
   const total = Number(data.total || 0);
-  const ahorro = data.cupon ? calcularAhorroCupon(data) : 0;
+  const ahorro = calcularAhorroCupon(data);
   const sumaLineas = (data.productos || []).reduce(
     (s, p) => s + Number(p.subtotal || 0),
     0,
@@ -579,8 +598,11 @@ function renderResumenCupon(data) {
 
   el("resumen-cupon-row").classList.toggle("hidden", ahorro <= 0);
   if (ahorro > 0) {
+    const cups = cuponesDe(data);
     el("resumen-cupon-label").textContent =
-      `🎟️ Cupón ${data.cupon?.codigo || ""}`.trim();
+      cups.length > 1
+        ? `🎟️ Cupones (${cups.length})`
+        : `🎟️ Cupón ${cups[0]?.codigo || ""}`.trim();
     el("resumen-descuento").textContent = `− S/ ${ahorro.toFixed(2)}`;
   }
 
@@ -1748,7 +1770,13 @@ function renderPedido(data) {
   // Pago
   el("pago-metodo").textContent = data.pago?.metodo || "—";
   el("pedido-total").textContent = Number(data.total || 0).toFixed(2);
-  cuponCanjeActual = data.cupon?.origen === "fidelizacion" ? data.cupon : null;
+  const fid = cuponesDe(data).filter((c) => c.origen === "fidelizacion");
+  cuponCanjeActual = fid.length
+    ? {
+        codigo: fid.map((c) => c.codigo).join(", "),
+        costoPuntos: fid.reduce((s, c) => s + (Number(c.costoPuntos) || 0), 0),
+      }
+    : null;
   renderResumenCupon(data);
   // Puntos de fidelización
   renderPuntos(data, estadoActual, esRechazado);
@@ -1778,7 +1806,10 @@ function renderPedido(data) {
     nombre.textContent = p.nombre || "";
     const detalle = document.createElement("p");
     detalle.className = "detalle";
-    detalle.textContent = `${p.cantidad || 1} × S/ ${Number(p.precio_unitario || 0).toFixed(2)}`;
+    const gratis = p.esCanje && Number(p.subtotal || 0) <= 0.004;
+    detalle.textContent = gratis
+      ? `${p.cantidad || 1} × Gratis`
+      : `${p.cantidad || 1} × S/ ${Number(p.precio_unitario || 0).toFixed(2)}`;
     info.append(nombre, detalle);
 
     // Opciones elegidas, una línea por opción marcada
@@ -1801,7 +1832,9 @@ function renderPedido(data) {
     }
     const subtotal = document.createElement("span");
     subtotal.className = "subtotal font-mono";
-    subtotal.textContent = `S/ ${Number(p.subtotal || 0).toFixed(2)}`;
+    subtotal.textContent = gratis
+      ? "GRATIS"
+      : `S/ ${Number(p.subtotal || 0).toFixed(2)}`;
 
     row.append(img, info, subtotal);
     frag.appendChild(row);

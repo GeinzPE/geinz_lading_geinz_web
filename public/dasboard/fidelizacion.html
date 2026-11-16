@@ -2440,6 +2440,11 @@
                     pones 50, un cliente con 80 puntos podrá canjearlo y le quedarán 30. Debe ser un número acorde a
                     cuánto suelen acumular tus clientes por compra.</div>
                 </div>
+                <div class="field">
+                  <label>Máximo de canjes por cliente (opcional)</label>
+                  <input type="number" id="limiteCanjesCatalogo" placeholder="Ej: 5" min="1" step="1">
+                  <div class="desc">Cuántos de este beneficio puede tener un cliente sin usar a la vez. Cuando los usa en un pedido, puede canjear de nuevo. Déjalo vacío si no quieres límite.</div>
+                </div>
                 <div class="actions-row">
                   <button class="btn btn-primary" id="btnAgregarDesdeCatalogo">Agregar desde catálogo</button>
                 </div>
@@ -2515,6 +2520,11 @@
                   <label>Costo en puntos</label>
                   <input type="number" id="descCosto" placeholder="Ej: 50" min="0">
                   <div class="desc">Cuántos puntos necesita el cliente para canjear esta recompensa.</div>
+                </div>
+                <div class="field">
+                  <label>Máximo de canjes por cliente (opcional)</label>
+                  <input type="number" id="limiteCanjesManual" placeholder="Ej: 5" min="1" step="1">
+                  <div class="desc">Cuántas veces puede canjear esta recompensa un mismo cliente. Déjalo vacío si no quieres límite.</div>
                 </div>
                 <div class="actions-row">
                   <button class="btn btn-primary" id="btnAgregarDescuento">Agregar producto</button>

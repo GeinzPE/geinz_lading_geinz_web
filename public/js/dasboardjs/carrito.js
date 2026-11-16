@@ -1737,32 +1737,59 @@ function cuponesProductoActivos() {
   return out;
 }
 
+/* ══ Opciones de un canje: las elige el cliente en el carrito ══ */
+const varianteCanje = new Map(); // codigo -> selección elegida en el carrito
+let canjesPanelAbierto = false;
+const CANJES_VISIBLES = 3;
+let canjeEditCtx = null; // { key, codigo } mientras se editan las opciones de un canje
+
+const fijoPorDueno = (c) =>
+  !!c?.varianteElegida && Object.keys(c.varianteElegida).length > 0;
+const selCanje = (c) =>
+  fijoPorDueno(c) ? c.varianteElegida : varianteCanje.get(c?.codigo) || null;
+const extrasDeSeleccion = (p, sel) =>
+  sel ? +(calcPrecioOriginal(p, sel) - (Number(p.precio) || 0)).toFixed(2) : 0;
+
+function puedeEditarOpciones(it) {
+  const p = productosPorId.get(it.id);
+  if (it.esCanje)
+    return (
+      !!p?.condiciones?.length &&
+      !fijoPorDueno(cuponesProducto.get((it.cuponCodigos || [])[0]))
+    );
+  return !!(it.seleccion || p?.condiciones?.length);
+}
+
 /* cantidad y total que aporta UN cupón de producto */
 function calcCanje(cupon, producto) {
   const tipo = cupon.tipoBeneficio || "gratis";
   const base = Number(producto.precio) || 0;
+  // los extras solo se cobran si la variante la eligió el cliente
+  const extraUnit = fijoPorDueno(cupon)
+    ? 0
+    : extrasDeSeleccion(producto, selCanje(cupon));
   if (tipo === "cantidad") {
     const compra = Number(cupon.descuento?.compraUnidades) || 1;
     const paga = Number(cupon.descuento?.pagaUnidades) || compra;
-    return { cantidad: compra, total: paga * base, tipo };
+    return { cantidad: compra, total: +(paga * base + extraUnit * compra).toFixed(2), tipo };
   }
   return {
     cantidad: 1,
-    total: Number(cupon.precioFinalEstimado ?? base),
+    total: +(Number(cupon.precioFinalEstimado ?? base) + extraUnit).toFixed(2),
     tipo,
   };
 }
 
-/* Un cupón de PRODUCTO → suma a una línea agrupada (mismo producto + variante + beneficio) */
+/* Un cupón de PRODUCTO → suma a una línea agrupada (mismo producto + opciones + beneficio) */
 async function agregarProductoDeCupon(cupon) {
   const producto = productosPorId.get(cupon.productoId);
   if (!producto) {
     showToast("⚠️ El producto de este cupón ya no está disponible");
     return false;
   }
+  const sel = selCanje(cupon);
   const { cantidad, total, tipo } = calcCanje(cupon, producto);
-  const varSig = JSON.stringify(cupon.varianteElegida || null);
-  const key = `cupon__${cupon.productoId}__${tipo}__${varSig}`;
+  const key = `cupon__${cupon.productoId}__${tipo}__${cartKeyFor(cupon.productoId, sel)}`;
   const ex = carrito.get(key);
 
   if (ex) {
@@ -1778,10 +1805,11 @@ async function agregarProductoDeCupon(cupon) {
       totalCanje: total,
       cantidad,
       cartKey: key,
-      seleccion: cupon.varianteElegida || null,
+      seleccion: sel,
       cuponCodigo: cupon.codigo,
       cuponCodigos: [cupon.codigo],
       esCanje: true,
+      variantesEnCarrito: !fijoPorDueno(cupon) && !!sel,
       canjeTipoBeneficio: tipo,
       canjeDetalle: cupon.descuento || null,
     });
@@ -1790,30 +1818,82 @@ async function agregarProductoDeCupon(cupon) {
   return true;
 }
 
-/* quita códigos de una línea agrupada y recalcula (o la borra si queda vacía) */
-function quitarCodigosDeLinea(key, codigos) {
+function recalcularLineaCanje(key, codigos) {
   const it = carrito.get(key);
   if (!it) return;
-  const resto = (it.cuponCodigos || []).filter((c) => !codigos.includes(c));
-  codigos.forEach((c) => cuponesProducto.delete(c));
-  if (!resto.length) {
-    carrito.delete(key);
-    return;
-  }
+  const prod = productosPorId.get(it.id) || it;
   let cant = 0,
     tot = 0;
-  resto.forEach((c) => {
-    const r = calcCanje(cuponesProducto.get(c) || {}, it);
+  codigos.forEach((c) => {
+    const r = calcCanje(cuponesProducto.get(c) || {}, prod);
     cant += r.cantidad;
     tot += r.total;
   });
-  it.cuponCodigos = resto;
-  it.cuponCodigo = resto[0];
+  it.cuponCodigos = codigos;
+  it.cuponCodigo = codigos[0];
   it.cantidad = cant;
   it.totalCanje = tot;
   it.precio = tot / cant;
 }
 
+/* quita códigos de una línea agrupada y recalcula (o la borra si queda vacía) */
+function quitarCodigosDeLinea(key, codigos) {
+  const it = carrito.get(key);
+  if (!it) return;
+  const resto = (it.cuponCodigos || []).filter((c) => !codigos.includes(c));
+  codigos.forEach((c) => {
+    cuponesProducto.delete(c);
+    varianteCanje.delete(c);
+  });
+  if (!resto.length) {
+    carrito.delete(key);
+    return;
+  }
+  recalcularLineaCanje(key, resto);
+}
+
+function lineaDeCodigo(c) {
+  for (const [k, it] of carrito)
+    if (it.esCanje && (it.cuponCodigos || []).includes(c)) return k;
+  return null;
+}
+
+/* Cambia las opciones de UN cupón: lo saca de su línea y lo re-agrupa con las nuevas */
+function aplicarVarianteCanje(key, codigo, sel) {
+  const it = carrito.get(key);
+  const cupon = cuponesProducto.get(codigo);
+  const p = it && productosPorId.get(it.id);
+  if (!it || !cupon || !p) return false;
+  const nueva = sel && Object.keys(sel).length ? sel : null;
+  const sig = cartKeyFor(p.id, nueva);
+  if (sig === cartKeyFor(p.id, selCanje(cupon))) return true; // sin cambios
+
+  if (nueva) {
+    const { stock, label } = getStockInfo(p, nueva);
+    if (stock !== null) {
+      const yaHay = [...carrito.values()]
+        .filter((x) => x.id === p.id && cartKeyFor(x.id, x.seleccion) === sig)
+        .reduce((s, x) => s + x.cantidad, 0);
+      const { cantidad } = calcCanje(cupon, p);
+      if (yaHay + cantidad > stock) {
+        const det = label ? ` de "${label}"` : "";
+        showToast(
+          stock <= 0
+            ? `Sin stock disponible${det}`
+            : `Solo hay ${stock} disponible(s)${det}`,
+        );
+        return false;
+      }
+    }
+  }
+  const resto = (it.cuponCodigos || []).filter((c) => c !== codigo);
+  if (resto.length) recalcularLineaCanje(key, resto);
+  else carrito.delete(key);
+  if (nueva) varianteCanje.set(codigo, nueva);
+  else varianteCanje.delete(codigo);
+  agregarProductoDeCupon(cupon);
+  return true;
+}
 function quitarGrupoCanje(key) {
   const it = carrito.get(key);
   if (!it) return;
@@ -2150,7 +2230,10 @@ function cuponBarHTML(subtotal) {
     (s, i) => s + (i.cuponCodigos || [1]).length,
     0,
   );
-  const filas = lineas
+   const visibles = canjesPanelAbierto
+    ? lineas
+    : lineas.slice(0, CANJES_VISIBLES);
+  const filas = visibles
     .map((it) => {
       const codigos = it.cuponCodigos || [it.cuponCodigo];
       const n = it.cantidad;
@@ -2182,7 +2265,12 @@ function cuponBarHTML(subtotal) {
             : ""
         }
       </div>
-      ${filas}
+      <div style="${canjesPanelAbierto ? "max-height:200px;overflow-y:auto;" : ""}">${filas}</div>
+      ${
+        lineas.length > CANJES_VISIBLES
+          ? `<button type="button" class="cupon-more-btn" style="display:block;width:100%;padding:8px 0 10px;font-size:11.5px;font-weight:700;color:${rgb};background:none;border:none;border-top:1px solid rgba(255,255,255,.06);cursor:pointer;">${canjesPanelAbierto ? "Ver menos ▴" : `Ver ${lineas.length - CANJES_VISIBLES} más ▾`}</button>`
+          : ""
+      }
     </div>`;
 
   return manual + panel;
@@ -2201,6 +2289,12 @@ function renderCuponBar(subtotal) {
     });
     const all = el.querySelector(".cupon-all-btn");
     if (all) all.onclick = quitarTodosLosCanjes;
+    const more = el.querySelector(".cupon-more-btn");
+    if (more)
+      more.onclick = () => {
+        canjesPanelAbierto = !canjesPanelAbierto;
+        renderCuponBar(subtotalCarritoBruto());
+      };
   });
 }
 
@@ -3719,7 +3813,13 @@ function seleccionATexto(sel) {
 }
 // Detalle línea por línea con costo extra de cada opción (carrito y checkout)
 function opcionesDetalleHTML(it) {
-  if (!it.seleccion) return "";
+  if (!it.seleccion) {
+    if (it.esCanje && puedeEditarOpciones(it)) {
+      const n = (it.cuponCodigos || []).length;
+      return `<span class="block" style="color:#fcd34d;">✎ ${n > 1 ? `${n} canjes sin opciones` : "Sin opciones elegidas"} (opcional) · toca el lápiz</span>`;
+    }
+    return "";
+  }
   const p = productosPorId.get(it.id);
   const filas = [];
   Object.entries(it.seleccion).forEach(([condNombre, v]) => {
@@ -3727,7 +3827,9 @@ function opcionesDetalleHTML(it) {
     entradasDe(v).forEach(([nombreOp, cant]) => {
       const op = cond?.opciones.find((o) => o.nombre === nombreOp);
       const extraUnit =
-        !it.esCanje && op?.costoAdicional ? Number(op.costoAdicional) : 0;
+        (!it.esCanje || it.variantesEnCarrito) && op?.costoAdicional
+          ? Number(op.costoAdicional)
+          : 0;
       const extra = extraUnit
         ? ` <span class="text-gray-300">+S/ ${(extraUnit * cant).toFixed(2)}</span>`
         : "";
@@ -5227,13 +5329,15 @@ function actualizarResumenOpciones(p) {
     </div>`;
     })
     .join("");
-  const unit = calcPrecioFinal(p, seleccionOpciones);
+const unit = canjeEditCtx
+    ? extrasDeSeleccion(p, seleccionOpciones)
+    : calcPrecioFinal(p, seleccionOpciones);
   box.innerHTML = `
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9c9ca3;margin-bottom:6px;">Tu selección</div>
-    <div style="display:flex;justify-content:space-between;"><span>Precio base</span><span>S/ ${calcPrecioFinal(p, null).toFixed(2)}</span></div>
+    <div style="display:flex;justify-content:space-between;"><span>${canjeEditCtx ? "Producto canjeado" : "Precio base"}</span><span>${canjeEditCtx ? "🎁 con tus puntos" : "S/ " + calcPrecioFinal(p, null).toFixed(2)}</span></div>
     ${detalle}
     <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);">
-      <span>Precio final (c/u)</span><span>S/ ${unit.toFixed(2)}</span>
+      <span>${canjeEditCtx ? "Extras (se pagan aparte)" : "Precio final (c/u)"}</span><span>S/ ${unit.toFixed(2)}</span>
     </div>
     ${
       sugFilas
@@ -5262,6 +5366,10 @@ function actualizarEstadoBotonConfirmar(p) {
     btn.textContent = `Termina de elegir "${sugS.nombre}" para continuar`;
   } else if (falta) {
     btn.textContent = `Elige ${falta.nombre} para continuar`;
+  } else if (canjeEditCtx) {
+    const ex = extrasDeSeleccion(productoParaOpciones, seleccionOpciones);
+    btn.textContent =
+      ex > 0 ? `Guardar opciones · extras +S/ ${ex.toFixed(2)}` : "Guardar opciones";
   } else {
     btn.textContent = `${textoBase} · S/ ${precio.toFixed(2)}`;
   }
@@ -5280,14 +5388,55 @@ function cerrarOptionsModal() {
   sugeridosModal = {};
   sugAbierto = null;
   sugSel = {};
+  canjeEditCtx = null;
 }
 
 document.getElementById("closeOptionsBtn").onclick = cerrarOptionsModal;
 document.getElementById("optionsOverlay").addEventListener("click", (e) => {
   if (e.target.id === "optionsOverlay") cerrarOptionsModal();
 });
+function abrirOptionsModalCanje(entry, p) {
+  // para un canje las variantes son opcionales siempre
+  const pCanje = {
+    ...p,
+    condiciones: (p.condiciones || []).map((c) => ({ ...c, obligatoria: false })),
+  };
+  canjeEditCtx = { key: entry.cartKey, codigo: (entry.cuponCodigos || [])[0] };
+  abrirOptionsModal(pCanje, entry.seleccion, entry.cartKey);
+  document.getElementById("optionsProdNombre").textContent = `${p.nombre} · 🎁 canje`;
+
+  const n = (entry.cuponCodigos || []).length;
+  if (n > 1) {
+    const lbl = document.createElement("label");
+    lbl.style.cssText =
+      "display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:12.5px;font-weight:700;color:#e4e4e7;cursor:pointer;";
+    lbl.innerHTML = `<input type="checkbox" id="canjeAplicarTodos"> Aplicar a los ${n} canjes de este producto`;
+    document.getElementById("optionsBody").prepend(lbl);
+  }
+}
+
+function guardarOpcionesCanje() {
+  const ctx = canjeEditCtx;
+  const sel = clonarSeleccion(seleccionOpciones);
+  const id = productoParaOpciones.id;
+  const linea = carrito.get(ctx.key);
+  const todos = document.getElementById("canjeAplicarTodos")?.checked;
+  const codigos = todos && linea ? [...linea.cuponCodigos] : [ctx.codigo];
+
+  for (const c of codigos) {
+    const k = lineaDeCodigo(c);
+    if (k && !aplicarVarianteCanje(k, c, sel)) return; // el aviso ya salió; el diálogo sigue abierto
+  }
+  cerrarOptionsModal();
+  syncCartChange(id);
+  showToast("Opciones del canje guardadas");
+}
 document.getElementById("confirmOptionsBtn").onclick = () => {
   if (!productoParaOpciones) return;
+  if (canjeEditCtx) {
+    guardarOpcionesCanje();
+    return;
+  }
 
   const falta = primerGrupoIncompleto();
   if (falta) {
@@ -5576,8 +5725,7 @@ function renderCartList(wrap, items) {
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
         ${
-          !it.esCanje &&
-          (it.seleccion || productosPorId.get(it.id)?.condiciones?.length)
+          puedeEditarOpciones(it)
             ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
@@ -6099,7 +6247,10 @@ function bindCartEditDelegation(wrap) {
       const id = editBtn.dataset.id;
       const entry = carrito.get(key);
       const p = productosPorId.get(id);
-      if (entry && p) abrirOptionsModal(p, entry.seleccion, key);
+      if (entry && p) {
+        if (entry.esCanje) abrirOptionsModalCanje(entry, p);
+        else abrirOptionsModal(p, entry.seleccion, key);
+      }
       return;
     }
     const removeBtn = e.target.closest(".cart-remove-btn");
@@ -7448,6 +7599,9 @@ function persistirCarrito() {
       JSON.stringify({
         items,
         cupon: codigos.join(",") || null,
+        varCanje: Object.fromEntries(
+          [...varianteCanje].filter(([c]) => codigos.includes(c)),
+        ),
         ts: Date.now(),
       }),
     );
@@ -7498,7 +7652,8 @@ async function restaurarCarritoPersistido() {
     });
     restauro = true;
   });
-  if (data.cupon && !cuponAplicado) await buscarYAplicarCupon(data.cupon); // ← AGREGAR AQUÍ
+  Object.entries(data.varCanje || {}).forEach(([c, s]) => varianteCanje.set(c, s));
+  if (data.cupon && !cuponAplicado) await buscarYAplicarCupon(data.cupon);
 
   return restauro;
 }

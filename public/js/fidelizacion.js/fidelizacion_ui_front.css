@@ -232,3 +232,73 @@
   .fx-fly { display: none; }
   .fx-pill-btn.fx-bump { animation: none; }
 }
+
+/* ============ MÓVIL: más aire entre elementos ============ */
+@media (max-width: 767px) {
+
+  /* Título "Canjea tus puntos" + pts + botones (historial / carrito) */
+  #colRecompensas > .flex {
+    margin-bottom: 18px !important;
+    row-gap: 14px !important;
+  }
+  .fx-head-actions {
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .fx-pill-btn {
+    padding: 11px 16px;
+  }
+
+  /* Chips de categoría (Todos / Sodas / sándwich) */
+  #rewardsFiltros {
+    gap: 10px;
+    padding: 4px 2px 14px;
+    margin: 6px 0 12px;
+  }
+  .hp-chip,
+  .fx-chip {
+    padding: 8px 14px;
+  }
+
+  /* Grid de premios */
+  #rewardsGrid {
+    gap: 14px !important;
+    padding-bottom: 12px;
+  }
+
+  /* Cada tarjeta de premio */
+  .fx-card {
+    padding: 16px 14px;
+    border-radius: 20px;
+  }
+  .fx-thumb {
+    margin-bottom: 12px;
+  }
+  .fx-name {
+    margin-bottom: 2px;
+  }
+  .fx-sub {
+    margin-top: 6px;
+    -webkit-line-clamp: 3; /* antes cortaba "Te quedan 2…" */
+    line-height: 1.5;
+  }
+  .fx-cost {
+    margin: 12px 0 14px;
+  }
+  .fx-once {
+    margin-bottom: 14px;
+  }
+
+  /* Botón "Conseguir más puntos" bajo la tarjeta */
+  .mas-puntos-btn {
+    margin: 26px auto 36px;
+  }
+
+  /* Separación entre tarjeta y la sección de premios */
+  #colCarta {
+    margin-bottom: 8px;
+  }
+  #colRecompensas {
+    margin-top: 12px;
+  }
+}

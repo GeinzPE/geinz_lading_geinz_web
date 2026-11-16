@@ -75,6 +75,9 @@ export function initFidelizacionUI(opts) {
     return t;
   };
   const disponible = () => S.puntos - totalCarrito();
+  const MAX_CANT = 10; // igual que CFG.MAX_CANT del servidor
+  const tope = (p) => Math.min(MAX_CANT, p.maxCantidad ?? MAX_CANT);
+  const llegoAlTope = (p) => (S.cart.get(p.id) || 0) >= tope(p);
   const unidades = () => {
     let n = 0;
     S.cart.forEach((q) => (n += q));
@@ -205,11 +208,13 @@ export function initFidelizacionUI(opts) {
 
   /* ---------- grilla de premios ---------- */
   function actHTML(p) {
+    if (p.limiteAlcanzado)
+      return `<div class="fx-lock"><span>🔒 Límite alcanzado</span></div>`;
     const q = S.cart.get(p.id) || 0;
     if (q > 0 && p.unico)
       return `<button class="fx-added" data-m="-" aria-label="Quitar">✓ Agregado · Quitar</button>`;
     if (q > 0)
-      return `<div class="fx-step"><button data-m="-" aria-label="Quitar uno">−</button><b>${q}</b><button data-m="+" aria-label="Agregar uno" ${p.costoPuntos > disponible() ? "disabled" : ""}>+</button></div>`;
+      return `<div class="fx-step"><button data-m="-" aria-label="Quitar uno">−</button><b>${q}</b><button data-m="+" aria-label="Agregar uno" ${p.costoPuntos > disponible() || llegoAlTope(p) ? "disabled" : ""}>+</button></div>`;
     // Ya hay otro descuento manual elegido: este queda bloqueado
     if (p.unico && manualEnCarrito())
       return `<div class="fx-lock"><span>Ya elegiste un descuento</span></div>`;
@@ -264,6 +269,14 @@ export function initFidelizacionUI(opts) {
       }
       if (p.unico && manualEnCarrito()) {
         toast("Ya elegiste un descuento, quítalo para elegir otro");
+        return false;
+      }
+      if (q >= tope(p)) {
+        toast(
+          p.maxCantidad != null && q >= p.maxCantidad
+            ? `Solo te quedan ${p.maxCantidad} canje${p.maxCantidad === 1 ? "" : "s"} de "${p.nombre}"`
+            : `Máximo ${MAX_CANT} por canje`,
+        );
         return false;
       }
       if (p.costoPuntos > disponible()) {
@@ -501,7 +514,7 @@ export function initFidelizacionUI(opts) {
           const th = p.imagenUrl
             ? `<img src="${esc(p.imagenUrl)}" alt="" width="42" height="42">`
             : `<div class="fx-thumb">${IC.gift}</div>`;
-          const noMas = p.unico || p.costoPuntos > disponible();
+          const noMas = p.unico || p.costoPuntos > disponible() || llegoAlTope(p);
           return `<div class="fx-line">${th}<div class="fx-rmain"><div class="fx-rtitle">${esc(p.nombre)}</div><div class="fx-rdate">${fmt(p.costoPuntos * q)} pts${p.unico ? " · máx. 1" : ""}</div></div>
           <div class="fx-step"><button data-cm="-" data-id="${esc(id)}">−</button><b>${q}</b><button data-cm="+" data-id="${esc(id)}" ${noMas ? "disabled" : ""}>+</button></div></div>`;
         })

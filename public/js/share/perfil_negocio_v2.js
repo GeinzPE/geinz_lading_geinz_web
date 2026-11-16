@@ -1561,6 +1561,8 @@ function listenActivePromosRealtime({ localidad, id }) {
       promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
       console.log(`🟢 Total promos que pasaron el filtro: ${promos.length}`);
       renderActivePromos(promos.slice(0, 5), localidad);
+      _promosReady = true;
+      tryHideLoader();
     });
   } catch (e) {
     console.warn("No se pudieron escuchar promociones activas:", e.message);
@@ -2210,8 +2212,8 @@ async function ensureClienteRecord({ localidad, id }, uid) {
   }
 }
 async function loadPuntosCliente({ localidad, id }, uid) {
-  if (!_F.fidel) return renderPuntosBadge(0);
   try {
+    if (!_F.fidel) return renderPuntosBadge(0);
     const clienteRef = doc(
       tiendaSubCol(localidad, "tiendas", id, "clientes"),
       uid,
@@ -2219,7 +2221,6 @@ async function loadPuntosCliente({ localidad, id }, uid) {
     const snap = await getDoc(clienteRef);
     if (!snap.exists()) return renderPuntosBadge(0);
 
-    // si ya existe el doc de cliente, cuenta como seguidor (la función lo crea)
     if (!_siguiendoNegocio) {
       _siguiendoNegocio = true;
       document.getElementById("followBtn")?.classList.add("following");
@@ -2231,6 +2232,9 @@ async function loadPuntosCliente({ localidad, id }, uid) {
     renderPuntosBadge(Number(snap.data().puntos) || 0);
   } catch (e) {
     console.warn("No se pudieron cargar los puntos:", e.message);
+  } finally {
+    _puntosReady = true;
+    tryHideLoader();
   }
 }
 function renderPuntosBadge(puntos) {
@@ -2355,11 +2359,10 @@ function bindFollowButton({ localidad, id }, biz) {
       btn.onclick = () => {
         openLoginPromptModal();
       };
-      _followChecked = true; // ← nuevo
+      _followChecked = true;
       _followReady = true;
-      _reviewsReady = true;
+      _puntosReady = true; // sin usuario no hay puntos que esperar
       tryHideLoader();
-      setTimeout(hideBizLoader, 6000);
       return;
     }
 
@@ -6309,6 +6312,12 @@ let _bizAliasKey = null;
 let _colorReady = false; // ya existe más arriba, no la dupliques si ya está
 let _marcaSig = null;
 let _followReady = false;
+let _promosReady = false;
+let _catalogoReady = false;
+let _puntosReady = false;
+let _pedidosReady = false;
+let _serviciosReady = false;
+let _cartaReady = false;
 let _reviewsReady = false;
 let _bannerReady = true;
 let _currentPuntos = 0; // NUEVO: true cuando ya sabemos si el user sigue o no
@@ -6322,7 +6331,11 @@ let _F = {
   bannerGeinz: false,
 };
 function tryHideLoader() {
-  if (_colorReady && _followReady && _reviewsReady && _bannerReady) {
+  if (
+    _colorReady && _followReady && _reviewsReady && _bannerReady &&
+    _promosReady && _catalogoReady && _puntosReady && _pedidosReady &&
+    _serviciosReady && _cartaReady
+  ) {
     hideBizLoader();
   }
 }
@@ -6521,10 +6534,16 @@ function listenServiciosRealtime({ localidad, id }, cacheKey) {
       const s = snap.exists() ? snap.data() : {};
       _F = calcFlags(s);
       aplicarServicios();
+      _serviciosReady = true;
+      tryHideLoader();
       const c = _cGet(cacheKey, 24 * 3600e3);
       if (c) _cSet(cacheKey, { ...c, servicios: s });
     },
-    (e) => console.warn("servicios realtime:", e.message),
+    (e) => {
+      console.warn("servicios realtime:", e.message);
+      _serviciosReady = true;
+      tryHideLoader();
+    },
   );
 }
 
@@ -7855,9 +7874,6 @@ async function cargarResumenReviews({ localidad, id }) {
     }
   } catch (e) {
     console.warn("No se pudo cargar el resumen de reseñas:", e.message);
-  } finally {
-    _reviewsReady = true;
-    tryHideLoader();
   }
 }
 
@@ -8819,11 +8835,13 @@ function diaEspecialProximo() {
     await render(biz, true);
     renderInstallBanner();
     listenServiciosRealtime(params, ck);
-    _followReady = true;
-    _reviewsReady = true;
     await bannerPromise;
-    if (!params.wantsRegistro) hideBizLoader();
-    else setTimeout(hideBizLoader, 300); // el progreso ya cubre la pantalla
+    if (params.wantsRegistro) {
+      setTimeout(hideBizLoader, 300); // el progreso ya cubre la pantalla
+    } else {
+      tryHideLoader();
+      setTimeout(hideBizLoader, 6000); // seguro anti-bloqueo  
+    }
 
     injectReviewsStyles();
     bindReputacionBadgeClick();
@@ -8898,6 +8916,8 @@ function diaEspecialProximo() {
       ])
         .catch((e) => console.warn("reseñas:", e.message))
         .finally(() => {
+          _reviewsReady = true;
+          tryHideLoader();
           if (params.wantsReviews) irAReviews();
 
           // Volvió del login con ?resena=1 → abre el formulario de reseña
@@ -8920,6 +8940,8 @@ function diaEspecialProximo() {
         biz.alias_key,
         biz.nombre_tienda || biz.nombre,
         (secciones) => {
+          _cartaReady = true;
+          tryHideLoader();
           if (!params.wantsCarta) return;
           const esComida = (biz.categoria_tienda || "")
             .toLowerCase()
@@ -8940,6 +8962,7 @@ function diaEspecialProximo() {
       );
     } else {
       _navState.carta = false;
+      _cartaReady = true;
       updateQuickNav();
       document.getElementById("secCarta")?.style.setProperty("display", "none");
       if (params.wantsCarta) {
@@ -9387,6 +9410,8 @@ function listenCatalogoPerfil({ localidad, id }) {
         id,
         _params.alias || _bizAliasKey,
       );
+      _catalogoReady = true;
+      tryHideLoader();
       // si el diálogo está abierto y el producto cambió en el dashboard, se cierra
       if (
         _cpProd &&
@@ -9396,7 +9421,11 @@ function listenCatalogoPerfil({ localidad, id }) {
         showToast("Este producto se actualizó, ábrelo de nuevo");
       }
     },
-    (e) => console.warn("catálogo perfil:", e.message),
+    (e) => {
+      console.warn("catálogo perfil:", e.message);
+      _catalogoReady = true;
+      tryHideLoader();
+    },
   );
 }
 
@@ -11722,6 +11751,10 @@ function injectPedidoActualStyles() {
 }
 
 function iniciarPedidoActual(uid) {
+  if (_esDominioPersonalizado || !uid) {
+    _pedidosReady = true;
+    tryHideLoader();
+  }
   if (_esDominioPersonalizado) return; // ahí ya existe el panel de usuario
   if (_pwUid === (uid || null)) return;
   detenerPedidoActual();
@@ -11753,8 +11786,14 @@ function iniciarPedidoActual(uid) {
         .sort((a, b) => (b.ts?.toMillis?.() || 0) - (a.ts?.toMillis?.() || 0))
         .slice(0, 5);
       renderPedidoActual();
+      _pedidosReady = true;
+      tryHideLoader();
     },
-    (e) => console.warn("Pedido actual:", e.code, e.message),
+    (e) => {
+      console.warn("Pedido actual:", e.code, e.message);
+      _pedidosReady = true;
+      tryHideLoader();
+    },
   );
 }
 

@@ -30,6 +30,8 @@ import {
   deleteDoc,
   onSnapshot,
   increment,
+  query,
+  where,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // db ya viene inicializado desde db.js, así que si existe, estamos listos.
@@ -63,7 +65,58 @@ let historialPorCliente = {}; // clienteId -> { pedidos: [...], totalInvertido, 
 let editandoDescuentoId = null; // si no es null, el próximo "agregar" hace update en vez de create
 let variantesSeleccionadas = {};
 
-const CLIENTES_POR_PAGINA = 50;
+const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+function calcularBeneficio(precio, tipo, d = {}) {
+  if (precio == null) return { final: null, ahorro: null };
+  precio = Number(precio);
+  if (tipo === "gratis") return { final: 0, ahorro: round2(precio) };
+  if (tipo === "monto") {
+    const final = Math.max(0, precio - (Number(d.monto) || 0));
+    return { final: round2(final), ahorro: round2(precio - final) };
+  }
+  if (tipo === "porcentaje") {
+    const pct = Math.min(100, Math.max(0, Number(d.porcentaje) || 0));
+    const final = precio * (1 - pct / 100);
+    return { final: round2(final), ahorro: round2(precio - final) };
+  }
+  if (tipo === "cantidad") {
+    const compra = Number(d.compraUnidades) || 0;
+    const paga = Number(d.pagaUnidades) || 0;
+    if (!compra || paga >= compra) return { final: round2(precio), ahorro: 0 };
+    return { final: round2(precio * paga), ahorro: round2(precio * (compra - paga)) };
+  }
+  return { final: round2(precio), ahorro: 0 };
+}
+
+function leerLimite(id) {
+  const raw = document.getElementById(id).value.trim();
+  if (raw === "") return { valor: null };
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1)
+    return { error: "El máximo de canjes debe ser un número entero desde 1" };
+  return { valor: n };
+}
+
+async function contarCanjesDelCliente(clienteId, desc) {
+  let total = 0;
+  const snapCanjes = await getDocs(
+    query(canjesCol(distrito, tiendaId), where("clienteId", "==", clienteId)),
+  );
+  snapCanjes.forEach((d) => {
+    const c = d.data();
+    if (c.tipo === "canje" && c.descuentoId === desc.id) total++;
+  });
+  const snapCupones = await getDocs(
+    tiendaSubCol(distrito, "tiendas", tiendaId, "clientes", clienteId, "cupones"),
+  );
+  snapCupones.forEach((d) => {
+    const c = d.data();
+    if (c.estado === "cancelado") return;
+    if (c.descuentoId === desc.id || (desc.productoId && c.productoId === desc.productoId)) total++;
+  });
+  return total;
+}
 let paginaClientesActual = 1;
 
 function obtenerPrecioProductoParaValidar() {
@@ -407,43 +460,34 @@ document
 function actualizarPreviewPrecioFinal() {
   const wrap = document.getElementById("previewPrecioFinalCatalogo");
   const texto = document.getElementById("previewPrecioFinalTexto");
-  const prodSel = document.getElementById("prodDelCatalogo");
-  const id = prodSel.value;
+  const id = document.getElementById("prodDelCatalogo").value;
   const tipo = document.getElementById("tipoBeneficioCatalogo").value;
   if (!id || !productosCache[id] || productosCache[id].precio == null) {
     wrap.style.display = "none";
     return;
   }
   const precio = Number(productosCache[id].precio);
+  const d = {
+    monto: document.getElementById("descuentoMontoCatalogo").value,
+    porcentaje: document.getElementById("descuentoPorcentajeCatalogo").value,
+    compraUnidades: document.getElementById("descuentoCantidadCompra").value,
+    pagaUnidades: document.getElementById("descuentoCantidadPaga").value,
+  };
+  const { final, ahorro } = calcularBeneficio(precio, tipo, d);
   if (tipo === "gratis") {
     texto.textContent = `Precio original S/ ${precio.toFixed(2)} · el cliente lo lleva gratis con sus puntos`;
-    wrap.style.display = "flex";
-  } else if (tipo === "monto") {
-    const desc =
-      Number(document.getElementById("descuentoMontoCatalogo").value) || 0;
-    const final = Math.max(0, precio - desc);
-    texto.textContent = `Precio original S/ ${precio.toFixed(2)} → paga S/ ${final.toFixed(2)} (descuento S/ ${desc.toFixed(2)})`;
-    wrap.style.display = "flex";
-  } else if (tipo === "porcentaje") {
-    const pct =
-      Number(document.getElementById("descuentoPorcentajeCatalogo").value) || 0;
-    const final = Math.max(0, precio * (1 - pct / 100));
-    texto.textContent = `Precio original S/ ${precio.toFixed(2)} → paga S/ ${final.toFixed(2)} (${pct}% de descuento)`;
-    wrap.style.display = "flex";
   } else if (tipo === "cantidad") {
-    const compra =
-      Number(document.getElementById("descuentoCantidadCompra").value) || 0;
-    const paga =
-      Number(document.getElementById("descuentoCantidadPaga").value) || 0;
-    if (compra > 0 && paga > 0) {
-      texto.textContent = `Ej: ${compra}x${paga} · lleva ${compra} unidades y paga solo ${paga} (precio unitario S/ ${precio.toFixed(2)})`;
-    } else {
-      texto.textContent = `Precio unitario S/ ${precio.toFixed(2)} · define cuántas lleva y cuántas paga`;
-    }
-    wrap.style.display = "flex";
+    const compra = Number(d.compraUnidades) || 0;
+    const paga = Number(d.pagaUnidades) || 0;
+    texto.textContent =
+      compra > 0 && paga > 0 && paga < compra
+        ? `Lleva ${compra} y paga ${paga}: S/ ${final.toFixed(2)} en vez de S/ ${(precio * compra).toFixed(2)} (ahorra S/ ${ahorro.toFixed(2)})`
+        : `Precio unitario S/ ${precio.toFixed(2)} · define cuántas lleva y cuántas paga`;
+  } else {
+    texto.textContent = `Precio original S/ ${precio.toFixed(2)} → paga S/ ${final.toFixed(2)} (ahorra S/ ${ahorro.toFixed(2)})`;
   }
+  wrap.style.display = "flex";
 }
-
 /* ===================================================================
    CATÁLOGO DE PRODUCTOS (lectura desde Firestore, vía rutas.js)
    Tiendas/.../distrito/<distrito>/tiendas/<tiendaId>/productos/<categoria>/<categoria>
@@ -589,9 +633,9 @@ function renderSelectoresVariantes(condiciones, seleccionPrevia = {}) {
         .join("");
       return `
         <div class="field" style="margin-bottom:10px;">
-          <label>${escapeHtml(nombreCond)}</label>
+          <label>${escapeHtml(nombreCond)} (opcional)</label>
           <select class="field-input variante-select" data-condicion="${escapeHtml(nombreCond)}">
-            <option value="" ${previaGuardada ? "" : "selected"} disabled>Elige ${escapeHtml(nombreCond).toLowerCase()}…</option>
+            <option value="" ${previaGuardada ? "" : "selected"}>Que elija el cliente al pedir</option>
             ${optionsHtml}
           </select>
         </div>`;
@@ -603,7 +647,8 @@ function renderSelectoresVariantes(condiciones, seleccionPrevia = {}) {
     const cond = sel.dataset.condicion;
     if (sel.value) variantesSeleccionadas[cond] = sel.value;
     sel.addEventListener("change", () => {
-      variantesSeleccionadas[cond] = sel.value;
+      if (sel.value) variantesSeleccionadas[cond] = sel.value;
+      else delete variantesSeleccionadas[cond];
     });
   });
 }
@@ -677,6 +722,11 @@ document
       showToast("Ingresa el costo en puntos", true);
       return;
     }
+    const lim = leerLimite("limiteCanjesManual");
+    if (lim.error) {
+      showToast(lim.error, true);
+      return;
+    }
     if (!tiendaId) {
       showToast("Falta el id de la tienda en la URL", true);
       return;
@@ -700,6 +750,7 @@ document
         montoManual: datos.monto ?? null,
         compraMinima: datos.compraMinima || 0,
         costoPuntos: Number(costo) || 0,
+        limiteCanjesPorCliente: lim.valor,
       };
       if (editandoDescuentoId) {
         // setDoc+merge en vez de updateDoc: si el doc ya no existe, lo recrea
@@ -719,6 +770,7 @@ document
       document.getElementById("descNombre").value = "";
       document.getElementById("descValor").value = "";
       document.getElementById("descCosto").value = "";
+      document.getElementById("limiteCanjesManual").value = "";
       document.getElementById("manualPorcentaje").value = "";
       document.getElementById("manualMonto").value = "";
       document.getElementById("manualCompraMinima").value = "";
@@ -756,19 +808,7 @@ document
       return;
     }
     // Si el producto tiene variantes (helada/sin helar, etc.), exige elegir una por cada una
-    const condicionesProducto = editandoDescuentoId
-      ? descuentosCache.find((d) => d.id === editandoDescuentoId)
-          ?.condiciones || []
-      : productosCache[id]?.condiciones || [];
-    if (Array.isArray(condicionesProducto) && condicionesProducto.length) {
-      const faltante = condicionesProducto.find(
-        (c) => !variantesSeleccionadas[c.nombre],
-      );
-      if (faltante) {
-        showToast(`Elige la variante de "${faltante.nombre}"`, true);
-        return;
-      }
-    }
+
     if (!tiendaId) {
       showToast("Falta el id de la tienda en la URL", true);
       return;
@@ -777,37 +817,36 @@ document
       showToast("No se pudo conectar con la base de datos", true);
       return;
     }
-    const p = productosCache[id] || {};
+    const editando = editandoDescuentoId
+      ? descuentosCache.find((d) => d.id === editandoDescuentoId)
+      : null;
+    const p = editando ? {} : productosCache[id] || {};
     const imgUrl =
       Array.isArray(p.imagenes) && p.imagenes[0] && p.imagenes[0].url
         ? p.imagenes[0].url
         : "";
-    const precioOriginal = p.precio != null ? Number(p.precio) : null;
-    // Construye el bloque de descuento según el tipo elegido
-    let descuento = { tipo: tipoBeneficio };
-    let precioFinalEstimado = precioOriginal;
-    if (tipoBeneficio === "monto") {
-      const monto =
-        Number(document.getElementById("descuentoMontoCatalogo").value) || 0;
-      descuento.monto = monto;
-      if (precioOriginal != null)
-        precioFinalEstimado = Math.max(0, precioOriginal - monto);
-    } else if (tipoBeneficio === "porcentaje") {
-      const pct =
-        Number(document.getElementById("descuentoPorcentajeCatalogo").value) ||
-        0;
-      descuento.porcentaje = pct;
-      if (precioOriginal != null)
-        precioFinalEstimado = Math.max(0, precioOriginal * (1 - pct / 100));
-    } else if (tipoBeneficio === "cantidad") {
-      const compra =
-        Number(document.getElementById("descuentoCantidadCompra").value) || 0;
-      const paga =
-        Number(document.getElementById("descuentoCantidadPaga").value) || 0;
-      descuento.compraUnidades = compra;
-      descuento.pagaUnidades = paga;
-    } else {
-      precioFinalEstimado = 0; // gratis
+    const precioOriginal = editando
+      ? (editando.precioOriginal ?? null)
+      : p.precio != null
+        ? Number(p.precio)
+        : null;
+
+    const descuento = { tipo: tipoBeneficio };
+    if (tipoBeneficio === "monto")
+      descuento.monto = Number(document.getElementById("descuentoMontoCatalogo").value) || 0;
+    if (tipoBeneficio === "porcentaje")
+      descuento.porcentaje = Number(document.getElementById("descuentoPorcentajeCatalogo").value) || 0;
+    if (tipoBeneficio === "cantidad") {
+      descuento.compraUnidades = Number(document.getElementById("descuentoCantidadCompra").value) || 0;
+      descuento.pagaUnidades = Number(document.getElementById("descuentoCantidadPaga").value) || 0;
+    }
+    const { final: precioFinalEstimado, ahorro: ahorroEstimado } =
+      calcularBeneficio(precioOriginal, tipoBeneficio, descuento);
+
+    const lim = leerLimite("limiteCanjesCatalogo");
+    if (lim.error) {
+      showToast(lim.error, true);
+      return;
     }
 
     const restore = setBtnBusy(
@@ -820,9 +859,13 @@ document
         tipoBeneficio, // "gratis" | "monto" | "porcentaje" | "cantidad"
         descuento, // detalle según el tipo (monto, porcentaje, o compra/paga)
         precioFinalEstimado,
+        ahorroEstimado,
         costoPuntos: Number(costo) || 0,
-        varianteElegida: { ...variantesSeleccionadas }, // ej: {"Presentación":"Helada"}
-        varianteTexto: obtenerVarianteTexto(), // ej: "Presentación: Helada"
+        limiteCanjesPorCliente: lim.valor,
+        varianteElegida: Object.keys(variantesSeleccionadas).length
+          ? { ...variantesSeleccionadas }
+          : null,
+        varianteTexto: obtenerVarianteTexto(),
       };
       if (editandoDescuentoId) {
         // setDoc+merge en vez de updateDoc: si el doc ya no existe
@@ -854,6 +897,7 @@ document
         showToast("Producto agregado desde catálogo");
       }
       document.getElementById("descCostoCatalogo").value = "";
+      document.getElementById("limiteCanjesCatalogo").value = "";
       document.getElementById("descuentoMontoCatalogo").value = "";
       document.getElementById("descuentoPorcentajeCatalogo").value = "";
       document.getElementById("descuentoCantidadCompra").value = "";
@@ -926,7 +970,7 @@ async function loadDescuentos() {
           <div class="item-icon">${iconContent}</div>
           <div class="item-main">
             <div class="item-title">${escapeHtml(data.nombre)} ${origenBadge}</div>
-            <div class="item-sub">${data.costoPuntos || 0} puntos${precioTxt ? " · " + escapeHtml(String(precioTxt)) : ""}</div>
+            <div class="item-sub">${data.costoPuntos || 0} puntos${precioTxt ? " · " + escapeHtml(String(precioTxt)) : ""}${data.limiteCanjesPorCliente ? ` · máx. ${data.limiteCanjesPorCliente} por cliente` : ""}</div>
             ${data.varianteTexto ? `<div class="item-sub" style="margin-top:2px;">Entrega: ${escapeHtml(data.varianteTexto)}</div>` : ""}
           </div>
           <div class="item-remove" data-id="${d.id}" data-col="descuentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
@@ -1004,6 +1048,7 @@ function cargarDescuentoParaEditar(data) {
       variantesSeleccionadas,
     );
     document.getElementById("descCostoCatalogo").value = data.costoPuntos ?? "";
+    document.getElementById("limiteCanjesCatalogo").value = data.limiteCanjesPorCliente ?? "";
     document.getElementById("btnAgregarDesdeCatalogo").textContent =
       "Guardar cambios";
   } else {
@@ -1023,6 +1068,7 @@ function cargarDescuentoParaEditar(data) {
     document.getElementById("manualCompraMinima").value =
       data.compraMinima || "";
     document.getElementById("descCosto").value = data.costoPuntos ?? "";
+    document.getElementById("limiteCanjesManual").value = data.limiteCanjesPorCliente ?? "";
     actualizarCamposTipoDescuentoManual();
     document.getElementById("btnAgregarDescuento").textContent =
       "Guardar cambios";
@@ -1160,8 +1206,31 @@ async function confirmarCanje(clienteId, nombreCliente, puntosActuales) {
     showToast("El cliente no tiene puntos suficientes", true);
     return;
   }
+  if (desc.limiteCanjesPorCliente) {
+    try {
+      const cs = await getDocs(
+        tiendaSubCol(distrito, "tiendas", tiendaId, "clientes", clienteId, "cupones"),
+      );
+      let sinUsar = 0;
+      cs.forEach((d) => {
+        const c = d.data();
+        if (c.estado !== "activo" || c.usado) return;
+        if ((c.descuentoId || c.productoId) === desc.id) sinUsar++;
+      });
+      if (sinUsar >= desc.limiteCanjesPorCliente) {
+        showToast(
+          `${nombreCliente} ya tiene ${sinUsar} de esta recompensa sin usar`,
+          true,
+        );
+        return;
+      }
+    } catch (err) {
+      showToast("No se pudo verificar el límite: " + err.message, true);
+      return;
+    }
+  }
   try {
-    await updateDoc(clienteDoc(distrito, tiendaId, clienteId), {
+     await updateDoc(clienteDoc(distrito, tiendaId, clienteId), {
       puntos: increment(-costo),
     });
     await addDoc(canjesCol(distrito, tiendaId), {
