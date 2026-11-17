@@ -1,5 +1,6 @@
 import {
   getFirestore,
+  collection,
   doc,
   getDoc,
   setDoc,
@@ -111,6 +112,15 @@ async function enviarPedidoSeguro({
       whatsapp,
       tipo_entrega: tipoEntrega,
       direccion,
+      calle: calleSel
+        ? {
+            id: calleSel.id,
+            nombre: calleSel.nombre,
+            lat: calleSel.lat,
+            lng: calleSel.lng,
+            referencia: calleRef || "",
+          }
+        : null,
       ubicacion:
         clienteLat != null && clienteLng != null
           ? { lat: clienteLat, lng: clienteLng }
@@ -118,7 +128,10 @@ async function enviarPedidoSeguro({
     },
     pago: { metodo: metodoPago, vuelto },
     nota,
-    zona: zonaDeliverySel || null,
+    zona:
+      zonaDeliverySel === ZONA_OTRA
+        ? "Otra zona (precio por confirmar)"
+        : zonaDeliverySel || null,
     token_seguimiento: tokenSeguimiento,
     totalCliente,
     mesa: false,
@@ -758,8 +771,9 @@ function abrirPromoDetailModal(p) {
   cartKeyEnEdicion = null;
   const body = document.getElementById("pd_body");
   body.innerHTML = "";
+  const cerrado = !horarioEstado.abierto;
   const tieneOpc =
-    (p.condiciones && p.condiciones.length) ||
+    (!cerrado && p.condiciones && p.condiciones.length) ||
     sugeridosDisponibles(p).length > 0;
 
   if (tieneOpc) {
@@ -805,13 +819,15 @@ function abrirPromoDetailModal(p) {
 
   const addBtn = document.getElementById("promoDetailAddBtn");
   const sinStockPromo = productoSinStock(p);
+  const bloqueado = sinStockPromo || cerrado;
   if (tieneOpc) actualizarEstadoBotonConfirmar(p);
   else
     addBtn.textContent = `🛒 Agregar al carrito · S/ ${Number(p.precio || 0).toFixed(2)}`;
   addBtn.disabled = sinStockPromo || (tieneOpc && !!sugAbierto);
   if (sinStockPromo) addBtn.textContent = "Sin stock disponible";
-
+  else if (cerrado) addBtn.textContent = "🔒 Cerrado ahora";
   addBtn.onclick = () => {
+    if (bloqueado) return;
     if (sinStockPromo) return;
     if (!tieneOpc) {
       addToCart(p);
@@ -3206,13 +3222,13 @@ function prepararCheckoutInvitado() {
       if (wa && !wa.value.trim()) wa.value = g.whatsapp || "";
     }
   } catch {}
-// Si está logeado, prellena con el número de su perfil
-if (!esInvitado && wa && !wa.value.trim()) {
-  const c = usuarioLogeado.contacto || {};
-  const num = String(c.numero_user ?? "").replace(/\D/g, "");
-  const cod = String(c.cod_telefonico ?? "").replace(/\D/g, "");
-  wa.value = num ? (cod && cod !== "51" ? cod + num : num) : "";
-}
+  // Si está logeado, prellena con el número de su perfil
+  if (!esInvitado && wa && !wa.value.trim()) {
+    const c = usuarioLogeado.contacto || {};
+    const num = String(c.numero_user ?? "").replace(/\D/g, "");
+    const cod = String(c.cod_telefonico ?? "").replace(/\D/g, "");
+    wa.value = num ? (cod && cod !== "51" ? cod + num : num) : "";
+  }
 }
 /* Busca el número de WhatsApp del negocio probando los campos más comunes */
 function getBizWhatsapp() {
@@ -3648,6 +3664,16 @@ function productoSinStock(p) {
   if (p.grupoObligatorioAgotado) return true;
   return false;
 }
+function crearBotonDeshabilitado(texto, title = "") {
+  const btn = document.createElement("button");
+  btn.className = "btn-add pop";
+  btn.style.cssText =
+    "background:rgba(255,255,255,.06) !important;color:#9ca3af !important;border:1px solid rgba(255,255,255,.1) !important;box-shadow:none !important;width:100%;opacity:.65;cursor:not-allowed;white-space:normal;line-height:1.15;font-size:clamp(10.5px,2.9vw,13px);padding-left:6px;padding-right:6px;";
+  btn.textContent = texto;
+  if (title) btn.title = title;
+  btn.disabled = true;
+  return btn;
+}
 function crearBadgeSinStock() {
   const btn = document.createElement("button");
   btn.className =
@@ -3666,11 +3692,6 @@ function renderQtyControls(container, p, cartKey = null) {
     const cartItem = carrito.get(cartKey);
     const cantidad = cartItem?.cantidad || 0;
 
-    // Producto canjeado con puntos: cantidad fija en 1, no se toca desde
-    // aquí. Para removerlo está el botón "Quitar" de la barra del cupón,
-    // que sí libera el cupón/puntos correctamente. Si el cliente quiere
-    // más unidades, las agrega normal desde la tarjeta del catálogo
-    // (a precio completo, sumando aparte a lo que ya canjeó).
     if (cartItem?.esCanje) {
       const badge = document.createElement("span");
       badge.className =
@@ -3717,13 +3738,9 @@ function renderQtyControls(container, p, cartKey = null) {
   // Caso 2: tarjeta principal de un producto CON condiciones
   const disp = estadoDisponibilidadProducto(p);
   if (!disp.disponible && !productoEnCarrito(p.id)) {
-    const btn = document.createElement("button");
-    btn.className =
-      "btn-add pop opacity-40 cursor-not-allowed bg-white/5 text-gray-400";
-    btn.textContent = "No disponible ahora";
-    btn.title = disp.mensaje;
-    btn.disabled = true;
-    container.appendChild(btn);
+    container.appendChild(
+      crearBotonDeshabilitado("No disponible ahora", disp.mensaje),
+    );
     return;
   }
   if (!productoEnCarrito(p.id) && productoSinStock(p)) {
@@ -3735,12 +3752,7 @@ function renderQtyControls(container, p, cartKey = null) {
     const totalCantidad = variantes.reduce((s, it) => s + it.cantidad, 0);
 
     if (!horarioEstado.abierto && variantes.length === 0) {
-      const btn = document.createElement("button");
-      btn.className =
-        "btn-add pop opacity-40 cursor-not-allowed bg-white/5 text-gray-400";
-      btn.textContent = "Cerrado ahora";
-      btn.disabled = true;
-      container.appendChild(btn);
+      container.appendChild(crearBotonDeshabilitado("Cerrado ahora"));
       return;
     }
 
@@ -3752,31 +3764,30 @@ function renderQtyControls(container, p, cartKey = null) {
       btn.onclick = () => addToCart(p, null, { sugerir: true });
       container.appendChild(btn);
     } else {
-      // Más de una variante (ej. "Pecho" y "Pierna" del mismo producto) -> se manejan desde el carrito
-      const btn = document.createElement("button");
-      btn.className = "btn-add accent-grad pop";
-      btn.textContent = `${totalCantidad} en carrito · Agregar otra`;
-      btn.onclick = () => addToCart(p);
+      // Más de una variante -> se manejan desde el carrito
       if (!horarioEstado.abierto || !disp.disponible) {
-        btn.disabled = true;
-        btn.classList.add("opacity-40", "cursor-not-allowed");
-        btn.title = horarioEstado.mensaje || "Cerrado ahora";
+        container.appendChild(
+          crearBotonDeshabilitado(
+            `${totalCantidad} en carrito`,
+            horarioEstado.mensaje || "Cerrado ahora",
+          ),
+        );
+      } else {
+        const btn = document.createElement("button");
+        btn.className = "btn-add accent-grad pop";
+        btn.textContent = `${totalCantidad} en carrito · Agregar otra`;
+        btn.onclick = () => addToCart(p);
+        container.appendChild(btn);
       }
-      container.appendChild(btn);
     }
     return;
   }
 
-  // Caso 3: tarjeta principal de un producto SIN condiciones (comportamiento original)
+  // Caso 3: tarjeta principal de un producto SIN condiciones
   const cantidad = carrito.get(p.id)?.cantidad || 0;
   if (cantidad === 0) {
     if (!horarioEstado.abierto) {
-      const btn = document.createElement("button");
-      btn.className =
-        "btn-add pop opacity-40 cursor-not-allowed bg-white/5 text-gray-400";
-      btn.textContent = "Cerrado ahora";
-      btn.disabled = true;
-      container.appendChild(btn);
+      container.appendChild(crearBotonDeshabilitado("Cerrado ahora"));
       return;
     }
     const btn = document.createElement("button");
@@ -4015,6 +4026,8 @@ function calcularDeliveryCliente() {
   if (cfg.modo === "fija")
     return { costo: cfg.fija + rec, texto: cfg.texto, recargo: rec };
   if (cfg.modo === "zonas") {
+    if (zonaDeliverySel === ZONA_OTRA)
+      return { sinPrecio: true, zona: "Mi zona no está" };
     const z = cfg.zonas.find((x) => x.nombre === zonaDeliverySel);
     return z
       ? { costo: z.precio + rec, zona: z.nombre, recargo: rec }
@@ -4054,6 +4067,8 @@ function tiempoEstimadoPedido() {
 function infoDeliveryPedido() {
   if (mesaId || tipoEntrega !== "Delivery" || delivDesactivado()) return null;
   const r = calcularDeliveryCliente();
+  if (r?.sinPrecio)
+    return { costo: 0, zona: r.zona, sinPrecio: true, gratis: false, aprox: false, recargo: 0, modo: "zonas" };
   if (!r || r.costo == null) return null;
   return {
     costo: r.costo,
@@ -4094,6 +4109,46 @@ function injectDeliveryStyles() {
   document.head.appendChild(st);
 }
 
+const ZONA_OTRA = "__otra__";
+let zonaOtraConfirmada = false;
+
+function abrirDialogoZonaOtra() {
+  let m = document.getElementById("zonaOtraModal");
+  if (m) m.remove();
+  m = document.createElement("div");
+  m.id = "zonaOtraModal";
+  m.className = "login-prompt-modal";
+  m.innerHTML = `
+    <div class="login-prompt-box">
+      <div class="login-prompt-glow"></div>
+      <h3 class="login-prompt-title">🛵 Delivery por confirmar</h3>
+      <p class="login-prompt-desc">
+        Tu pedido se enviará <b>sin precio de delivery</b>. <b>${escapeHtmlCarrito(bizNombre || "El negocio")}</b>
+        evaluará tu ruta, pondrá el precio en el estado de tu pedido y te avisará.
+      </p>
+      <div class="login-prompt-actions">
+        <button type="button" class="login-prompt-btn-primary" id="zonaOtraOk">Entendido</button>
+        <button type="button" class="login-prompt-btn-secondary" id="zonaOtraNo">Elegir otra zona</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  const cerrar = () => {
+    m.classList.remove("show");
+    setTimeout(() => m.remove(), 300);
+  };
+  m.querySelector("#zonaOtraOk").onclick = () => {
+    zonaOtraConfirmada = true;
+    cerrar();
+    pintarDeliveryInfo();
+  };
+  m.querySelector("#zonaOtraNo").onclick = () => {
+    zonaDeliverySel = null;
+    zonaOtraConfirmada = false;
+    cerrar();
+    pintarDeliveryInfo();
+  };
+  requestAnimationFrame(() => m.classList.add("show"));
+}
 function pintarDeliveryInfo() {
   if (esCampana()) {
     refrescarResumenCheckout();
@@ -4143,18 +4198,20 @@ function pintarDeliveryInfo() {
   }
 
   let html = "";
-  if (cfg.tarifaActiva && cfg.modo === "zonas" && !r?.gratis) {
+    if (cfg.tarifaActiva && cfg.modo === "zonas" && !r?.gratis) {
     const opts = cfg.zonas
       .map(
         (z) =>
           `<option value="${esc(z.nombre)}"${z.nombre === zonaDeliverySel ? " selected" : ""}>${esc(z.nombre)} — ${money(z.precio + rec)}</option>`,
       )
       .join("");
+    const otraSel = zonaDeliverySel === ZONA_OTRA ? " selected" : "";
     html = `<div class="dlv-title">🛵 ¿A qué zona llevamos tu pedido?</div>
       <div class="dlv-select-wrap">
-        <select id="deliveryZonaSel" class="dlv-select"><option value="">Elige tu zona…</option>${opts}</select>
+        <select id="deliveryZonaSel" class="dlv-select"><option value="">Elige tu zona…</option>${opts}<option value="${ZONA_OTRA}"${otraSel}>📍 Mi zona no está</option></select>
       </div>
-      ${r?.costo != null ? `<div class="dlv-cost"><span>Delivery${rec > 0 ? ' <span class="dlv-muted">(incl. recargo)</span>' : ""}</span><b>${money(r.costo)}</b></div>` : ""}`;
+      ${r?.costo != null ? `<div class="dlv-cost"><span>Delivery${rec > 0 ? ' <span class="dlv-muted">(incl. recargo)</span>' : ""}</span><b>${money(r.costo)}</b></div>` : ""}
+      ${r?.sinPrecio ? `<div class="dlv-note">El negocio te confirmará el precio del delivery.</div>` : ""}`;
   } else if (!r) {
     html = `<div class="dlv-title">🛵 Delivery disponible</div><span class="dlv-muted">El costo lo confirma el negocio.</span>`;
   } else if (r.gratis) {
@@ -4177,7 +4234,9 @@ function pintarDeliveryInfo() {
   if (sel)
     sel.onchange = () => {
       zonaDeliverySel = sel.value || null;
-      pintarDeliveryInfo();
+      zonaOtraConfirmada = false;
+      if (zonaDeliverySel === ZONA_OTRA) abrirDialogoZonaOtra();
+      else pintarDeliveryInfo();
     };
   refrescarResumenCheckout();
 }
@@ -4806,6 +4865,7 @@ function textoSeleccionCompleto(sel) {
     .join(" · ");
 }
 function sugeridosDisponibles(p) {
+  if (!horarioEstado.abierto) return [];
   const cats = new Set(p.sugerencias || []);
   if (!cats.size) return [];
   return productosGlobal.filter(
@@ -5882,16 +5942,18 @@ function obtenerUbicacionCliente() {
   statusEl.classList.add("hidden");
 
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
+     (pos) => {
       clienteLat = pos.coords.latitude;
       clienteLng = pos.coords.longitude;
+      ubicDeCalle = false;
       btn.disabled = false;
       btnTexto.textContent = "Ubicación obtenida ✓";
       btn.classList.add("border-green-500/40", "text-green-400");
       statusEl.textContent = `📍 Lat: ${clienteLat.toFixed(5)}, Lng: ${clienteLng.toFixed(5)}`;
       statusEl.classList.remove("hidden");
       showToast("Ubicación agregada al pedido 📍");
-      pintarDeliveryInfo();
+     pintarDeliveryInfo();
+      seleccionarCalleCercana(clienteLat, clienteLng);
     },
     (err) => {
       clienteLat = null;
@@ -5976,6 +6038,7 @@ function openCheckout() {
   pintarDeliveryInfo();
   aplicarDisponibilidadDelivery(); // ← AGREGAR
   aplicarPuntoEntrega();
+  montarSelectorCalle(); // ← AGREGAR
   actualizarDireccionPorEntrega();
   aplicarModoCampana();
   checkoutOverlay.classList.add("show");
@@ -6036,7 +6099,7 @@ function renderCheckoutSummary() {
     (deliv
       ? `<div class="step-summary-row ${deliv.gratis ? "text-green-400" : ""}">
       <span>🛵 Delivery${deliv.zona ? ` · ${deliv.zona}` : ""}${deliv.aprox ? " (aprox.)" : ""}</span>
-      <span>${deliv.gratis ? "Gratis" : "S/ " + deliv.costo.toFixed(2)}</span>
+      <span>${deliv.sinPrecio ? "Por confirmar" : deliv.gratis ? "Gratis" : "S/ " + deliv.costo.toFixed(2)}</span>
     </div>`
       : "") +
     (() => {
@@ -6128,6 +6191,7 @@ document
       showToast("Falta tu nombre");
       return;
     }
+        if (await pedirCalleSiFalta()) return; // abrió el aviso de calles cercanas
     if (tipoEntrega === "Delivery" && !direccion) {
       direccionInput.classList.add("field-error");
       direccionInput.focus();
@@ -6145,6 +6209,10 @@ document
     ) {
       showToast("Elige tu zona de entrega");
       document.getElementById("deliveryZonaSel")?.focus();
+      return;
+    }
+        if (zonaDeliverySel === ZONA_OTRA && !zonaOtraConfirmada) {
+      abrirDialogoZonaOtra();
       return;
     }
 
@@ -6204,7 +6272,7 @@ document
     });
 
     if (!resultado.ok) {
-            if (resultado.motivo === "campana_invalida") {
+      if (resultado.motivo === "campana_invalida") {
         mostrarCampanaNoDisponible();
         return;
       }
@@ -6596,11 +6664,16 @@ function formatVenceOferta(expiraEnMs) {
   if (expiraKey === hoyKey) return `⏰ Vence hoy a las ${horaTxt}`;
   if (expiraKey === mañanaKey) return `⏰ Vence mañana a las ${horaTxt}`;
 
-  const diaSemana = fechaExpira.toLocaleDateString("es-PE", {
+  // Cualquier otro día: se muestra la fecha (con año solo si es de otro año)
+  const mismoAnio = expiraKey.slice(0, 4) === hoyKey.slice(0, 4);
+  const fechaTxt = fechaExpira.toLocaleDateString("es-PE", {
     weekday: "long",
+    day: "numeric",
+    month: "long",
+    ...(mismoAnio ? {} : { year: "numeric" }),
     timeZone: tz,
   });
-  return `⏰ Vence el ${diaSemana} a las ${horaTxt}`;
+  return `⏰ Vence el ${fechaTxt} a las ${horaTxt}`;
 }
 async function purgarDescuentosVencidos() {
   const ahora = Date.now();
@@ -6817,7 +6890,7 @@ function notaGratisFaltante() {
   const c = cfgGratisDesde();
   if (!c || envioGratisActivo()) return "";
   const falta = c.monto - subtotalCarritoBruto();
-  return `<div class="dlv-note">🚚 Agrega S/ ${falta.toFixed(2)} más y tu delivery sale gratis (desde S/ ${c.monto.toFixed(2)})</div>`;
+  return `<div class="dlv-note">🚚 Agrega S/ ${falta.toFixed(2)} y tu delivery es gratis</div>`;
 }
 
 (function () {
@@ -6898,7 +6971,7 @@ function pintarProgresoGratis() {
     box.className = "hint-box" + (ok ? " ok" : "");
     box.innerHTML = ok
       ? `<p class="hint-txt">🚚 ¡Ya tienes delivery gratis por tu compra!</p>`
-      : `<p class="hint-txt">🚚 Te faltan <b>S/ ${(c.monto - sub).toFixed(2)}</b> para delivery gratis</p>
+      : `<p class="hint-txt">🚚 Agrega <b>S/ ${(c.monto - sub).toFixed(2)}</b> y tu delivery es gratis</p>
      <div class="hint-track"><div class="hint-fill" style="width:${pct}%"></div></div>`;
   });
 }
@@ -7235,6 +7308,264 @@ function montarBotonJuego() {
     } catch {}
   };
   lista.before(strip);
+}
+/* ══════════════ Calles del distrito (selector inteligente) ══════════════ */
+let callesDistrito = null;
+let callesPromise = null;
+let calleSel = null; // { id, nombre, lat, lng }
+let calleRef = "";
+let ubicDeCalle = false; // true si clienteLat/Lng vienen de la calle y no del GPS
+let calleOmitida = false; // el cliente cerró el aviso de "calle más cercana"
+/* Con el GPS obtenido: busca la calle más cercana y la deja seleccionada en el selector */
+/* Con lat/lng del cliente: busca la calle más cercana y la deja puesta en el selector.
+   Devuelve true si la seleccionó, false si no encontró una cercana. */
+const CALLE_MAX_KM = 2;
+
+async function seleccionarCalleCercana(lat, lng) {
+  if (mesaId || esCampana() || delivDesactivado()) return false;
+  await montarSelectorCalle(); // se asegura de que el selector exista
+  const calles = await cargarCalles();
+  const conCoords = calles.filter(
+    (c) => Number.isFinite(c.lat) && Number.isFinite(c.lng),
+  );
+  console.log("[CALLES] cargadas:", calles.length, "| con coordenadas:", conCoords.length);
+  if (!conCoords.length) return false;
+
+  // si el cliente ya eligió una calle a mano, no se la cambiamos
+  if (calleSel && calleSel._manual) return true;
+
+  let mejor = null;
+  conCoords.forEach((c) => {
+    const km = distanciaKm(lat, lng, c.lat, c.lng);
+    if (!mejor || km < mejor.km) mejor = { ...c, km };
+  });
+  console.log("[CALLES] más cercana:", mejor?.nombre, mejor?.km);
+
+  if (!mejor || mejor.km > CALLE_MAX_KM) {
+    document.getElementById("calleBuscar")?.focus();
+    showToast("📍 No encontramos tu calle, búscala en el selector");
+    return false;
+  }
+
+  elegirCalle(mejor); // la pone en el selector, abre "Referencia" y rellena la dirección
+  ubicDeCalle = false; // las coordenadas siguen siendo las del GPS
+  const dist =
+    mejor.km < 1 ? `${Math.round(mejor.km * 1000)} m` : `${mejor.km.toFixed(1)} km`;
+  showToast(`📍 Calle más cercana: ${mejor.nombre} (a ${dist})`);
+  return true;
+}
+const slugUbi = (s) =>
+  normalizeText(s)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+// Ajusta los nombres de campo si en tu doc de tienda se llaman distinto
+function getUbigeoTienda() {
+  const u = bizData?.ubicacion || {};
+  return {
+    dep: slugUbi(u.departamento || bizData?.departamento || "lima"),
+    prov: slugUbi(u.provincia || bizData?.provincia || localidad),
+    dist: slugUbi(u.distrito || bizData?.distrito || localidad),
+  };
+}
+
+function cargarCalles() {
+  if (callesPromise) return callesPromise;
+  const { dep, prov, dist } = getUbigeoTienda();
+  callesPromise = getDocs(
+    collection(
+      db,
+      "Tiendas",
+      "peru",
+      "departamento",
+      dep,
+      "provincia",
+      prov,
+      "distrito",
+      dist,
+      `calles_${dist}`,
+    ),
+  )
+    .then((snap) => {
+      callesDistrito = snap.docs
+        .map((d) => {
+          const x = d.data();
+          return {
+            id: d.id,
+            nombre: String(x.nombre || "").trim(),
+            lat: Number(x.lat),
+            lng: Number(x.lng),
+            norm: normalizeText(x.nombre),
+          };
+        })
+        .filter((c) => c.nombre)
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+      return callesDistrito;
+    })
+    .catch((e) => {
+      console.warn("No se pudieron cargar las calles:", e.message);
+      callesPromise = null;
+      return [];
+    });
+  return callesPromise;
+}
+
+(function () {
+  if (document.getElementById("calleStyle")) return;
+  const st = document.createElement("style");
+  st.id = "calleStyle";
+  st.textContent = `
+  #calleBox{margin-bottom:12px;}
+  .calle-wrap{position:relative;}
+  .calle-lista{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;max-height:220px;overflow-y:auto;
+    border-radius:14px;background:#15131c;border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 16px 40px -10px rgba(0,0,0,.7);display:none;}
+  .calle-lista.open{display:block;}
+  .calle-item{padding:11px 14px;font-size:13.5px;font-weight:600;color:#e4e4e7;cursor:pointer;
+    border-top:1px solid rgba(255,255,255,.05);}
+  .calle-item:first-child{border-top:none;}
+  .calle-item:hover{background:rgba(var(--dr),var(--dg),var(--db),.15);}
+  .calle-vacio{padding:12px 14px;font-size:12.5px;color:#8b8b95;}
+  #calleRefWrap{display:none;margin-top:10px;}
+  #calleRefWrap.show{display:block;}`;
+  document.head.appendChild(st);
+})();
+
+function actualizarDireccionDesdeCalle() {
+  const inp = document.getElementById("clienteDireccion");
+  if (!inp || !calleSel) return;
+  inp.value = calleRef ? `${calleSel.nombre} · ${calleRef}` : calleSel.nombre;
+}
+
+function elegirCalle(c) {
+  calleSel = c;
+  calleRef = "";
+  const buscar = document.getElementById("calleBuscar");
+  if (buscar) buscar.value = c.nombre;
+  document.getElementById("calleLista")?.classList.remove("open");
+  const refInp = document.getElementById("calleReferencia");
+  if (refInp) refInp.value = "";
+  document.getElementById("calleRefWrap")?.classList.add("show");
+  actualizarDireccionDesdeCalle();
+
+  // si no usó el GPS, la calle sirve como ubicación aproximada
+  if (clienteLat == null || ubicDeCalle) {
+    if (Number.isFinite(c.lat) && Number.isFinite(c.lng)) {
+      clienteLat = c.lat;
+      clienteLng = c.lng;
+      ubicDeCalle = true;
+    }
+  }
+  pintarDeliveryInfo(); // aquí aparece/actualiza el selector de zona/tarifa
+  refrescarResumenCheckout();
+}
+
+function limpiarCalle() {
+  calleSel = null;
+  calleRef = "";
+  document.getElementById("calleRefWrap")?.classList.remove("show");
+  if (ubicDeCalle) {
+    clienteLat = null;
+    clienteLng = null;
+    ubicDeCalle = false;
+    pintarDeliveryInfo();
+  }
+}
+
+function pintarListaCalles(texto) {
+  const lista = document.getElementById("calleLista");
+  if (!lista || !callesDistrito) return;
+  const palabras = normalizeText(texto).split(/\s+/).filter(Boolean);
+  const res = callesDistrito
+    .filter((c) => palabras.every((w) => c.norm.includes(w)))
+    .slice(0, 8);
+  lista.innerHTML = res.length
+    ? res
+        .map(
+          (c) =>
+            `<div class="calle-item" data-id="${escapeHtmlCarrito(c.id)}">${escapeHtmlCarrito(c.nombre)}</div>`,
+        )
+        .join("")
+    : `<div class="calle-vacio">No encontramos esa calle. Escribe tu dirección abajo.</div>`;
+  lista.classList.add("open");
+}
+
+async function montarSelectorCalle() {
+  if (mesaId || esCampana() || delivDesactivado()) return;
+  const inner = document.querySelector("#direccionCollapse .collapse-inner");
+  if (!inner || document.getElementById("calleBox")) return;
+
+  const calles = await cargarCalles();
+  if (!calles.length) return; // distrito sin calles: no se muestra nada
+
+  const box = document.createElement("div");
+  box.id = "calleBox";
+  box.innerHTML = `
+    <label class="field-label" for="calleBuscar">Calle</label>
+    <div class="calle-wrap">
+      <input id="calleBuscar" class="field-input" type="text" placeholder="Busca el nombre de tu calle…" autocomplete="off">
+      <div id="calleLista" class="calle-lista"></div>
+    </div>
+    <div id="calleRefWrap">
+      <label class="field-label" for="calleReferencia">Referencia</label>
+      <input id="calleReferencia" class="field-input" type="text" placeholder="Ej: frente al grifo, casa azul…" autocomplete="off">
+    </div>`;
+  inner.prepend(box);
+
+  const buscar = box.querySelector("#calleBuscar");
+  const lista = box.querySelector("#calleLista");
+  buscar.addEventListener("focus", () => pintarListaCalles(buscar.value));
+  buscar.addEventListener("input", () => {
+    if (calleSel && buscar.value !== calleSel.nombre) limpiarCalle();
+    pintarListaCalles(buscar.value);
+  });
+  lista.addEventListener("mousedown", (e) => e.preventDefault()); // no pierde el foco
+  lista.addEventListener("click", (e) => {
+    const it = e.target.closest(".calle-item");
+    if (!it) return;
+    const c = callesDistrito.find((x) => x.id === it.dataset.id);
+    if (c) { elegirCalle(c); calleSel._manual = true; }
+  });
+  buscar.addEventListener("blur", () =>
+    setTimeout(() => lista.classList.remove("open"), 120),
+  );
+  box.querySelector("#calleReferencia").addEventListener("input", (e) => {
+    calleRef = e.target.value.trim();
+    actualizarDireccionDesdeCalle();
+  });
+}
+
+/* Si no usó GPS ni eligió calle: se le sugieren las calles más cercanas a donde está */
+async function pedirCalleSiFalta() {
+  if (calleSel || clienteLat != null || calleOmitida) return false;
+  if (tipoEntrega !== "Delivery" || mesaId || esCampana() || delivDesactivado()) return false;
+  const calles = await cargarCalles();
+  if (!calles.length) return false;
+  calleOmitida = true; // solo se le avisa una vez
+
+  const pos = navigator.geolocation
+    ? await new Promise((res) =>
+        navigator.geolocation.getCurrentPosition(
+          (p) => res(p.coords),
+          () => res(null),
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+        ),
+      )
+    : null;
+
+  if (!pos) {
+    document.getElementById("calleBuscar")?.focus();
+    showToast("📍 Elige tu calle para calcular tu delivery");
+    return true;
+  }
+
+  clienteLat = pos.latitude;
+  clienteLng = pos.longitude;
+  ubicDeCalle = false;
+  pintarDeliveryInfo();
+  await seleccionarCalleCercana(clienteLat, clienteLng);
+  document.getElementById("calleReferencia")?.focus();
+  return true; // se detiene el envío para que revise su calle y referencia
 }
 /* ══════════════ Init ══════════════ */
 /* ══════════════════════════════════════════════════════════════════════
@@ -7726,7 +8057,9 @@ function limpiarCarritoPersistido() {
 }
 
 function abrirLoginPopup() {
-    try { sessionStorage.setItem("geinz_camp_login", "1"); } catch {}
+  try {
+    sessionStorage.setItem("geinz_camp_login", "1");
+  } catch {}
   guardarCarritoParaLogin();
 
   const root = document.documentElement.style;
@@ -8296,7 +8629,8 @@ function capturarCampana() {
   if (!campanaParam || !RE_CAMP.test(campanaParam)) {
     // sin ?camp=: solo se conserva si es recarga o vuelta del login
     const nav = performance.getEntriesByType("navigation")[0]?.type;
-    if (nav !== "reload" && !volviendoLogin) sessionStorage.removeItem(CAMP_KEY());
+    if (nav !== "reload" && !volviendoLogin)
+      sessionStorage.removeItem(CAMP_KEY());
     return;
   }
   const prev = leerCampana();
@@ -8349,7 +8683,9 @@ function aplicarModoCampana() {
     "obtenerUbicacionBtn",
     "ubicacionStatus",
   ].forEach((id) =>
-    document.getElementById(id)?.style.setProperty("display", "none", "important"),
+    document
+      .getElementById(id)
+      ?.style.setProperty("display", "none", "important"),
   );
 
   // Tipo de entrega: una sola opción, "Punto de entrega"
@@ -8392,11 +8728,13 @@ function aplicarModoCampana() {
       <p class="camp-banner-s">Elige tus favoritos y haz tu pedido en segundos. ¡Hoy te lo mereces!</p>
     </div>`;
   const main = document.querySelector("main .min-w-0");
-  if (main) main.prepend(b); 
+  if (main) main.prepend(b);
 }
 
 function mostrarCampanaNoDisponible() {
-  try { sessionStorage.removeItem(CAMP_KEY()); } catch {}
+  try {
+    sessionStorage.removeItem(CAMP_KEY());
+  } catch {}
   hidePageLoader();
   document.getElementById("pedidoLoader")?.classList.add("hidden");
   const ov = document.createElement("div");
