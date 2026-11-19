@@ -703,7 +703,7 @@ function errorYouTube(xhr) {
     uploadLimitExceeded:
       "Esta cuenta alcanzó su límite de subidas de YouTube por hoy.",
     youtubeSignupRequired:
-      "Esta cuenta de Google no tiene un canal de YouTube. Crea uno e intenta de nuevo.",
+      "Esta cuenta de Google todavía no tiene un canal de YouTube.",
     forbidden: "YouTube no permitió esta subida con la cuenta conectada.",
     insufficientPermissions:
       "Falta el permiso para subir videos. Reconecta tu cuenta.",
@@ -712,12 +712,27 @@ function errorYouTube(xhr) {
     invalidDescription: "YouTube rechazó la descripción del video.",
     videoTooLong: "El video excede la duración permitida para tu canal.",
   };
-  if (xhr.status === 401) return new Error(mapa.authError);
-  return new Error(
-    mapa[reason] || msg || `Error de YouTube (HTTP ${xhr.status})`,
-  );
-}
+  const mk = (m, code) => {
+    const er = new Error(m);
+    er.code = code;
+    return er;
+  };
 
+  // 1º la razón real (el 401 también lo usa YouTube cuando NO hay canal)
+  if (
+    reason === "youtubeSignupRequired" ||
+    /sign\s?up|channel/i.test(msg) && xhr.status === 401
+  )
+    return mk(mapa.youtubeSignupRequired, "sin_canal");
+
+  if (reason && reason !== "authError" && mapa[reason])
+    return mk(mapa[reason], reason);
+
+  // 2º recién ahora un 401 genérico = token inválido/vencido
+  if (xhr.status === 401) return mk(mapa.authError, "auth");
+
+  return mk(msg || `Error de YouTube (HTTP ${xhr.status})`, reason || "otro");
+}
 function abrirSesion(token, file, meta) {
   return new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
@@ -824,6 +839,28 @@ function mostrarResultado(videoId, privacidadReal, privacidadPedida) {
   );
   $("ytCerrar").addEventListener("click", () => $("ytOverlay")?.remove());
 }
+function mostrarSinCanal() {
+  $("ytOverlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "yt-ov";
+  ov.id = "ytOverlay";
+  ov.innerHTML = `
+    <div class="yt-card">
+      <h2>Tu cuenta aún no tiene canal</h2>
+      <p class="yt-sub">
+        La cuenta <b>${st.cuenta?.email || "de Google"}</b> no tiene un canal de YouTube.
+        Créalo con esa misma cuenta (toma menos de un minuto) y luego vuelve
+        aquí y toca <b>Subir video</b> otra vez. Tu video se queda seleccionado.
+      </p>
+      <button type="button" class="yt-btn" id="ytCrearCanal">Crear mi canal en YouTube</button>
+      <button type="button" class="yt-btn sec" id="ytCerrarSC">Cerrar</button>
+    </div>`;
+  document.body.appendChild(ov);
+  $("ytCrearCanal").addEventListener("click", () =>
+    window.open("https://www.youtube.com/create_channel", "_blank", "noopener"),
+  );
+  $("ytCerrarSC").addEventListener("click", () => $("ytOverlay")?.remove());
+}
 
 // ══════════════════════════════════════════════════════════════════════
 //  PUBLICAR (la llama publicarPromocion cuando el modo es YouTube)
@@ -920,14 +957,16 @@ window.publicarEnYoutube = async function (datosTienda) {
 
     mostrarResultado(videoId, video?.status?.privacyStatus, privacidad);
     limpiarTrasSubir();
-  } catch (err) {
+   } catch (err) {
     $("ytOverlay")?.remove();
     if (err.message === "__cancelado__") toast("Subida cancelada", "error");
-    else {
+    else if (err.code === "sin_canal") {
+      mostrarSinCanal(); // NO se borra el token: sigue siendo válido
+    } else {
       console.error("❌ YouTube:", err);
       toast(err.message || "No se pudo subir el video", "error");
-      // Token vencido o revocado: obliga a reconectar
-      if (/expir|Reconecta/i.test(err.message || "")) {
+      // Solo si de verdad es problema de sesión/permisos
+      if (err.code === "auth" || err.code === "insufficientPermissions") {
         st.token = null;
         st.tokenExp = 0;
       }

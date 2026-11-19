@@ -512,8 +512,8 @@ async function abrirCompletarPerfilSocial(user, extra) {
 }
 
 /* ---------- Login social (Google / Facebook / GitHub) ---------- */
-// Tiempo que se espera el resultado tras cerrarse el popup antes de considerarlo un cierre manual.
-const GRACIA_CIERRE_MS = 1000;
+// Tope de seguridad: si por algo nunca llega respuesta, no dejar la carga infinita.
+const TOPE_CARGA_MS = 20000;
 let popupRef = null, capturarPopup = false, intentoActual = 0, redirigiendo = false;
 
 // Captura la ventana del popup que abre Firebase para saber al instante si se cierra.
@@ -550,9 +550,15 @@ async function loginSocial(tipo) {
       if (!popupRef?.closed) return;
       clearInterval(vigia);
       vigia = null;
-      mostrarCarga(textoConexion); // el popup se cerró: carga continua, sin congelarse
-      // Si no llega resultado enseguida, fue un cierre manual: vuelve al login.
-      timerCierre = setTimeout(() => vigente() && ocultarCarga(), GRACIA_CIERRE_MS);
+      // El popup se cerró: carga continua hasta que Firebase responda
+      // (éxito -> splash/registro, o error -> el catch la oculta).
+      mostrarCarga(textoConexion);
+      timerCierre = setTimeout(() => {
+        if (vigente()) {
+          ocultarCarga();
+          showSnackbar("⚠️ La conexión tardó demasiado. Intenta de nuevo.", "warning");
+        }
+      }, TOPE_CARGA_MS);
     }, 100);
 
     const r = await signInWithPopup(auth, prov);

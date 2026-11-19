@@ -318,6 +318,7 @@ const DB = {
   brand: async () => {
     const s = await getDoc(await tienda());
     TD = s.data() || {};
+    console.log("TIENDA:", Object.keys(TD), TD);
     return brandFrom(TD);
   },
   forms: async () => {
@@ -336,7 +337,7 @@ const DB = {
     const cs = (await getDocs(await ccol())).docs.map((d) => {
       const f = { id: d.id, ...d.data(), modo: "campana" },
         s = f.stats || {};
-          f.stats = {
+      f.stats = {
         visits: s.visits || 0,
         registros: s.registros || 0,
         compras: s.compras || 0,
@@ -443,12 +444,18 @@ const DB = {
   },
   link: (f) => {
     const d = TD.dominio || TD.dominio_web,
-      a = TD.alias || TD.alias_tienda;
+      a =
+        TD.alias_key ||
+        TD.alias ||
+        TD.alias_tienda ||
+        TD.alias_perfil ||
+        TD.slug ||
+        TD.alias_url;
     if (esCamp(f)) {
       const q = `camp=${encodeURIComponent(f.id)}`;
       if (d) return `https://${d}/carrito?${q}`;
       if (a) return `https://geinztech.com/perfil/${a}/carrito?${q}`;
-      return `https://geinztech.com/carrito?id=${T.id}&localidad=${T.loc}&${q}`;
+      return "";
     }
     const p = "form";
     if (d) return `https://${d}/${p}/${f.id}`;
@@ -932,7 +939,10 @@ function detail() {
     )
     .join("")}</div><div id="body"></div>`;
   $("#bk").onclick = list;
-  $("#vf").onclick = () => window.open(DB.link(F), "_blank");
+  $("#vf").onclick = () => {
+    const u = DB.link(F);
+    if (u) window.open(u, "_blank");
+  };
   $("#rf").onclick = refrescar;
   $("#tb").onclick = (e) => {
     const b = e.target.closest("button");
@@ -2062,6 +2072,7 @@ function expTxt() {
       : `${nuevo ? "Vencerá" : ms < Date.now() ? "Venció" : "Vence"} el ${fmtD(ms)}${expDirty ? " (se cuenta desde que guardes)" : ""}.`;
 }
 function syncC() {
+  const lk = F.id === "nuevo" ? "" : DB.link(F);
   $("#fTitle").value = F.title;
   $("#fSub").value = F.sub;
   $("#fKind").value = F.kind;
@@ -2070,8 +2081,11 @@ function syncC() {
   $("#eMode").value = F.exp.modo;
   $("#eN").value = F.exp.n || 1;
   $("#eN").style.display = ["dias", "horas"].includes(F.exp.modo) ? "" : "none";
-  $("#lkIn").value = F.id === "nuevo" ? "Se genera al guardar" : DB.link(F);
-  $("#lkCp").disabled = F.id === "nuevo";
+  $("#lkIn").value =
+    F.id === "nuevo"
+      ? "Se genera al guardar"
+      : lk || "Tu negocio no tiene alias configurado";
+  $("#lkCp").disabled = !lk;
   $("#lkId").textContent = F.id === "nuevo" ? "" : `ID único: ${F.id}`;
   expTxt();
 }

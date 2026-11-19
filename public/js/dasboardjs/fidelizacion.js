@@ -118,7 +118,7 @@ async function contarCanjesDelCliente(clienteId, desc) {
   return total;
 }
 let paginaClientesActual = 1;
-
+const CLIENTES_POR_PAGINA = 10; // cambia este número si quieres más o menos filas por página
 function obtenerPrecioProductoParaValidar() {
   // Si estás editando, usa el precio guardado del descuento (el select de
   // producto no necesariamente refleja el producto que se está editando).
@@ -2425,14 +2425,7 @@ document
     );
   });
 
-document.getElementById("buscarCanje").addEventListener("input", (e) => {
-  const term = e.target.value.toLowerCase();
-  document.querySelectorAll("#tablaHistorial tr").forEach((tr) => {
-    tr.style.display = tr.textContent.toLowerCase().includes(term)
-      ? ""
-      : "none";
-  });
-});
+
 
 /* ===================================================================
    CARGAR CONFIGURACIÓN EXISTENTE AL INICIAR

@@ -1245,41 +1245,18 @@ let autoResEnabled = localStorage.getItem("geinz_autores_on") === "1";
 let autoResMinutes = Number(localStorage.getItem("geinz_autores_min")) || 20;
 const autoResReleasingIds = new Set(); // evita disparos duplicados (mesaDocId o grupoId) mientras se actualiza Firestore
 
-/* ══════════════ Filtro de fecha ══════════════
-           El tablero SIEMPRE arranca mostrando solo los pedidos de HOY.
-           El usuario puede cambiar a: ayer, esta semana, semana pasada o un rango personalizado.
-           Esta preferencia NO se guarda entre sesiones a propósito: cada vez que se abre el
-           panel, por defecto se ve "Hoy".
 
-           IMPORTANTE (escalabilidad): este rango ya NO se usa solo para filtrar en el
-           cliente — se usa para construir la query de Firestore (where timestamp >= / <=),
-           así el listener en tiempo real solo trae los documentos del periodo visible,
-           sin importar cuántos miles de pedidos históricos existan en la colección. */
-
-function getDateFilterRange() {
-  const ahoraUTC = new Date();
-  const limaOffsetMs = -5 * 60 * 60 * 1000; // Lima es UTC-5 todo el año, sin horario de verano
-  const limaAhora = new Date(ahoraUTC.getTime() + limaOffsetMs);
-  const y = limaAhora.getUTCFullYear(),
-    m = limaAhora.getUTCMonth(),
-    d = limaAhora.getUTCDate();
-  const from = new Date(Date.UTC(y, m, d, 0, 0, 0) - limaOffsetMs);
-  const to = new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - limaOffsetMs);
-  return [from, to];
-}
-
-/* Filtro combinado que SOLO queda por aplicar en el cliente: origen (whatsapp/mesa)
-           y mesa específica seleccionada. La fecha ya viene acotada desde Firestore. */
 function pedidoVisible(id, p) {
   const origen = getOrigen(p);
-  if (originFilter === "whatsapp" && origen.tipo !== "whatsapp") return false;
+  if (originFilter === "whatsapp") {
+    return origen.tipo === "whatsapp" && pedidoCumpleTipo(p);
+  }
   if (originFilter === "mesa") {
     if (origen.tipo !== "mesa") return false;
     if (mesaFilter !== null && origen.numero !== mesaFilter) return false;
   }
   return true;
 }
-
 /* ══════════════ Modal de pausa: elegir producto agotado + mensaje + tiempo ══════════════ */
 const _prodDocCache = new Map();
 
@@ -1508,27 +1485,44 @@ document.getElementById("pausaOverlay")?.addEventListener("click", (e) => {
     document.getElementById("pausaOverlay").classList.remove("show");
 });
 
-function labelDateFilter() {
-  switch (dateFilter.type) {
-    case "hoy":
-      return "Hoy";
-    case "ayer":
-      return "Ayer";
-    case "semana":
-      return "Esta semana";
-    case "semana_pasada":
-      return "Semana pasada";
-    case "custom": {
-      if (!dateFilter.from || !dateFilter.to) return "Rango";
-      const f = (d) =>
-        d.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit" });
-      return `${f(dateFilter.from)}–${f(dateFilter.to)}`;
-    }
-    default:
-      return "Hoy";
+let dateFilter = { type: "hoy", day: null }; // hoy | ayer | anteayer | custom | ultimos | rango
+let waPendienteId = null;
+
+function getDateFilterRange() {
+  const off = -5 * 60 * 60 * 1000; // Lima UTC-5
+  const l = new Date(Date.now() + off);
+  const y = l.getUTCFullYear(), m = l.getUTCMonth(), d = l.getUTCDate();
+  const ini = (yy, mm, dd) => new Date(Date.UTC(yy, mm, dd, 0, 0, 0) - off);
+  const fin = (yy, mm, dd) => new Date(Date.UTC(yy, mm, dd, 23, 59, 59, 999) - off);
+  const parse = (s) => s.split("-").map(Number); // "YYYY-MM-DD"
+
+  if (dateFilter.type === "ayer") return [ini(y, m, d - 1), fin(y, m, d - 1)];
+  if (dateFilter.type === "anteayer") return [ini(y, m, d - 2), fin(y, m, d - 2)];
+  if (dateFilter.type === "ultimos") {
+    const n = Math.max(1, dateFilter.dias || 1);
+    return [ini(y, m, d - (n - 1)), fin(y, m, d)];
   }
+  if (dateFilter.type === "rango" && dateFilter.desde && dateFilter.hasta) {
+    const [y1, m1, d1] = parse(dateFilter.desde);
+    const [y2, m2, d2] = parse(dateFilter.hasta);
+    return [ini(y1, m1 - 1, d1), fin(y2, m2 - 1, d2)];
+  }
+  if (dateFilter.type === "custom" && dateFilter.day) {
+    const [yy, mm, dd] = parse(dateFilter.day);
+    return [ini(yy, mm - 1, dd), fin(yy, mm - 1, dd)];
+  }
+  return [ini(y, m, d), fin(y, m, d)];
 }
 
+function labelDateFilter() {
+  const corto = (s) => { const [, mm, dd] = s.split("-"); return `${dd}/${mm}`; };
+  if (dateFilter.type === "ayer") return "Ayer";
+  if (dateFilter.type === "anteayer") return "Anteayer";
+  if (dateFilter.type === "ultimos") return `${dateFilter.dias} días`;
+  if (dateFilter.type === "rango") return `${corto(dateFilter.desde)} – ${corto(dateFilter.hasta)}`;
+  if (dateFilter.type === "custom" && dateFilter.day) return corto(dateFilter.day);
+  return "Hoy";
+}
 /* ══════════════ Utilidades ══════════════ */
 function escapeHtml(str) {
   return String(str ?? "").replace(
@@ -1608,7 +1602,11 @@ function estadoHabilitado(e) {
     return true;
   return bizDataGlobal?.pedidos_config?.estados?.[e] !== false;
 }
+const esPedidoCampana = (p) =>
+  p?.cliente?.tipo_entrega === "Campaña física" || !!p?.campanaId;
+
 function requierePagoOnline(p) {
+  if (esPedidoCampana(p)) return false; // 👈 NUEVO: en campaña se paga en el punto
   const m = p?.pago?.metodo;
   return (
     getOrigen(p).tipo === "whatsapp" &&
@@ -2490,6 +2488,7 @@ function aplicarVista(origen) {
   set("mesasStripWrap", v.mesas, "flex");
   set("nuevoPedidoWrap", v.directo, "flex");
   document.getElementById("mesaEmptyBanner")?.classList.add("vista-oculta");
+  sincronizarBotonesWa();
 }
 aplicarVista("whatsapp");
 const originBar = document.getElementById("originBar");
@@ -3234,6 +3233,7 @@ const ICONOS_ENTREGA = {
   "Recojo en local": "🏬",
   "Recojo en punto": "📍",
   "En mesa": "🍽️",
+  "Campaña física": "📣", // 👈 NUEVO
 };
 const ICONOS_PAGO = { "Yape / Plin": "📱", Efectivo: "💵" };
 
@@ -3425,6 +3425,9 @@ function origenTagHtml(p) {
       `Mesa ${origen.numero}`;
     return `<span class="oc-origin-tag mesa">🍽️ ${escapeHtml(alias)}</span>`;
   }
+  if (esPedidoCampana(p)) {
+    return `<span class="oc-origin-tag" style="background:rgba(236,72,153,.15);color:#ec4899;">📣 Campaña</span>`;
+  }
   return `<span class="oc-origin-tag">💬 WhatsApp</span>`;
 }
 
@@ -3577,37 +3580,116 @@ function resaltarPedidoEncontrado(id, { scroll = true } = {}) {
   return true;
 }
 
-function ejecutarBusquedaPedido(valorCrudo) {
-  const valor = valorCrudo.trim().replace(/^#/, "").toUpperCase();
-  const clearBtn = document.getElementById("pedidoSearchClear");
-  if (clearBtn) clearBtn.style.display = valor ? "flex" : "none";
+let busquedaTexto = "";
+let filtroTipoPedido = "todos";
+let busquedaIds = [];
+let busquedaIdx = 0;
 
-  if (!valor) {
-    pedidoSearchActivoId = null;
-    limpiarResaltadoBusqueda();
-    mostrarResultadoBusqueda("", "");
+const FILTROS_PEDIDO = [
+  ["todos", "Todos"],
+  ["Delivery", "🛵 Delivery"],
+  ["Recojo en local", "🏬 Recojo en local"],
+  ["Recojo en punto", "📍 Recojo en punto"],
+  ["Campaña física", "📣 Campaña"],
+  ["canje_puntos", "🎁 Canjeados"],
+  ["descuento_fidelizacion", "⭐ Desc. fidelización"],
+  ["cupon_descuento", "🎟️ Cupón"],
+];
+const ENTREGAS = ["Delivery", "Recojo en local", "Recojo en punto", "Campaña física"];
+
+const normBusq = (s) =>
+  String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+function pedidoCumpleTipo(p) {
+  if (filtroTipoPedido === "todos") return true;
+  if (ENTREGAS.includes(filtroTipoPedido))
+    return p.cliente?.tipo_entrega === filtroTipoPedido;
+  return categoriasCupon(p).includes(filtroTipoPedido);
+}
+
+function pedidoCoincideTexto(id, p, q) {
+  if (codigoCortoPedido(id).toLowerCase().startsWith(q)) return true;
+  if (normBusq(p.cliente?.nombre).includes(q)) return true;
+  const digitos = q.replace(/\D/g, "");
+  if (digitos.length >= 3) {
+    const tel = String(p.cliente?.whatsapp || "").replace(/\D/g, "");
+    if (tel.includes(digitos)) return true;
+  }
+  return false;
+}
+
+function irAPedidoBusqueda(id) {
+  const p = pedidosMap.get(id);
+  const estado = ESTADOS.includes(p?.estado) ? p.estado : "pendiente";
+  if (estado === "rechazado")
+    document.querySelector('.board-col[data-status="rechazado"]')?.classList.add("expanded");
+  if (activeTab !== estado) {
+    activeTab = estado;
+    document.querySelectorAll(".stab").forEach((t) => t.classList.toggle("active", t.dataset.s === estado));
+    document.querySelectorAll(".board-col").forEach((c) =>
+      c.classList.toggle("col-active", c.dataset.status === estado));
+  }
+  document.getElementById(`order-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+}
+
+/* Ilumina todas las coincidencias (se vuelve a llamar después de cada renderBoard) */
+function reaplicarBusqueda({ scroll = false } = {}) {
+  const q = normBusq(busquedaTexto.replace(/^#/, ""));
+  if (!q) {
+    busquedaIds = [];
+    if (pedidoSearchActivoId) {
+      if (pedidosMap.has(pedidoSearchActivoId)) {
+        resaltarPedidoEncontrado(pedidoSearchActivoId, { scroll: false });
+      } else {
+        pedidoSearchActivoId = null;
+        limpiarResaltadoBusqueda();
+        mostrarResultadoBusqueda("El pedido resaltado ya no está en este periodo", "warn");
+      }
+    } else {
+      limpiarResaltadoBusqueda();
+      mostrarResultadoBusqueda("", "");
+    }
     return;
   }
 
-  // Coincidencia por prefijo del código corto (#XXXXXX)
-  let encontrado = null;
-  for (const [id] of pedidosMap) {
-    if (codigoCortoPedido(id).startsWith(valor)) {
-      encontrado = id;
-      break;
-    }
-  }
+  busquedaIds = [...pedidosMap.entries()]
+    .filter(([id, p]) => pedidoVisible(id, p) && pedidoCoincideTexto(id, p, q))
+    .sort((a, b) => (toDate(b[1].timestamp)?.getTime() || 0) - (toDate(a[1].timestamp)?.getTime() || 0))
+    .map(([id]) => id);
 
-  if (!encontrado) {
-    pedidoSearchActivoId = null;
-    limpiarResaltadoBusqueda();
+  limpiarResaltadoBusqueda();
+  if (!busquedaIds.length) {
     mostrarResultadoBusqueda("Sin coincidencias en el periodo visible", "warn");
     return;
   }
+  busquedaIdx = Math.min(busquedaIdx, busquedaIds.length - 1);
+  busquedaIds.forEach((id) =>
+    document.getElementById(`order-${id}`)?.classList.add("oc-search-match"));
+  if (scroll) irAPedidoBusqueda(busquedaIds[busquedaIdx]);
 
-  pedidoSearchActivoId = encontrado;
-  resaltarPedidoEncontrado(encontrado);
+  const n = busquedaIds.length;
+  mostrarResultadoBusqueda(
+    n === 1 ? "📍 1 pedido encontrado"
+            : `📍 ${busquedaIdx + 1} de ${n} · Enter para el siguiente`,
+    "ok",
+  );
 }
+
+function ejecutarBusquedaPedido(valorCrudo) {
+  busquedaTexto = valorCrudo;
+  const clearBtn = document.getElementById("pedidoSearchClear");
+  if (clearBtn) clearBtn.style.display = valorCrudo.trim() ? "flex" : "none";
+  pedidoSearchActivoId = null;
+  busquedaIdx = 0;
+  reaplicarBusqueda({ scroll: true });
+}
+
+document.getElementById("pedidoSearchInput")?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || busquedaIds.length < 2) return;
+  e.preventDefault();
+  busquedaIdx = (busquedaIdx + 1) % busquedaIds.length;
+  reaplicarBusqueda({ scroll: true });
+});
 
 let pedidoSearchDebounce;
 document.getElementById("pedidoSearchInput")?.addEventListener("input", (e) => {
@@ -3706,8 +3788,14 @@ function renderCardActions(container, id, estado, p) {
   container.innerHTML = "";
 
   if (estado === "pendiente") {
-    const destino = requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
-    const txt = requierePagoOnline(p) ? "Aceptar y pedir pago →" : "Aceptar →";
+    
+    const camp = esPedidoCampana(p);
+    const destino = camp
+      ? "listo"
+      : requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
+    const txt = camp
+      ? "Aceptar →"
+      : requierePagoOnline(p) ? "Aceptar y pedir pago →" : "Aceptar →";
     const puntosCalc = getPuntosPedido(id, p);
     const puntosNota =
       puntosCalc > 0
@@ -3742,7 +3830,7 @@ function renderCardActions(container, id, estado, p) {
     container.innerHTML = `
     <div class="oc-final-tag" style="width:100%;background:rgba(45,212,191,.12);color:#2dd4bf;">🛎️ Listo${p.cliente_en_local ? " · " + textoLlegada(p) : ""}</div>
     <div class="oc-actions" style="margin-top:8px;">
-      <button class="oc-btn ghost" data-action="en_proceso">← Atrás</button>
+      <button class="oc-btn ghost" data-action="${esPedidoCampana(p) ? "pendiente" : "en_proceso"}">← Atrás</button>
       <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
     </div>`;
   } else if (estado === "en_pausa") {
@@ -3755,12 +3843,12 @@ function renderCardActions(container, id, estado, p) {
           : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%; margin-bottom:10px; margin-top:10px;" data-action="rechazado">✕ Cancelar pedido</button>
-      <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button> `;
+      <button class="oc-btn primary v-violet" style="width:100%;" data-action="${esPedidoCampana(p) ? "listo" : "en_proceso"}">▶️ Reanudar pedido</button> `;
   } else if (estado === "entregado") {
     container.innerHTML = `
       <div class="oc-final-row">
         <div class="oc-final-tag">✅ Entregado</div>
-        <span class="oc-undo" data-action="en_proceso">↺ Reabrir</span>
+        <span class="oc-undo" data-action="${esPedidoCampana(p) ? "listo" : "en_proceso"}">↺ Reabrir</span>
       </div>`;
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
@@ -5321,15 +5409,18 @@ function renderModalActions(container, id, estado, p) {
   container.innerHTML = "";
 
   if (estado === "pendiente") {
+    const camp = esPedidoCampana(p);
     const puntosCalc = getPuntosPedido(id, p);
     const puntosNota =
       puntosCalc > 0
         ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
         : "";
-    const destino = requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
-    const txt = requierePagoOnline(p)
-      ? "Aceptar y pedir pago →"
-      : "Aceptar pedido →";
+    const destino = camp
+      ? "listo"
+      : requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
+    const txt = camp
+      ? "Aceptar pedido →"
+      : requierePagoOnline(p) ? "Aceptar y pedir pago →" : "Aceptar pedido →";
     container.innerHTML = `
     ${puntosNota} 
     <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
@@ -5353,7 +5444,7 @@ function renderModalActions(container, id, estado, p) {
   } else if (estado === "listo") {
     container.innerHTML = `
     <div class="oc-final-tag" style="width:100%;background:rgba(45,212,191,.12);color:#2dd4bf;">🛎️ Pedido listo${p.cliente_en_local ? " · " + textoLlegada(p) : ""}</div>
-    <button class="oc-btn ghost" data-action="en_proceso">← Volver a en proceso</button>
+    <button class="oc-btn ghost" data-action="${esPedidoCampana(p) ? "pendiente" : "en_proceso"}">← Volver a ${esPedidoCampana(p) ? "pendiente" : "en proceso"}</button>
     <button class="oc-btn primary v-green" data-action="entregado">Marcar entregado ✓</button>`;
   } else if (estado === "en_pausa") {
     const r = p.respuesta_cliente;
@@ -5365,12 +5456,12 @@ function renderModalActions(container, id, estado, p) {
           : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
-      <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button>`;
+      <button class="oc-btn primary v-violet" style="width:100%;" data-action="${esPedidoCampana(p) ? "listo" : "en_proceso"}">▶️ Reanudar pedido</button>`;
   } else if (estado === "entregado") {
     container.innerHTML = `
   <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
   <button class="oc-btn ghost" style="width:100%;" data-action="_comprobante">🖨️ Imprimir comprobante</button>
-  <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
+  <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="${esPedidoCampana(p) ? "listo" : "en_proceso"}">↺ Reabrir pedido</span></div>`;
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
     const canceladoCliente = !!p.cancelado_por_cliente;
@@ -5821,7 +5912,7 @@ function labelEstado(e) {
       entregado: "Entregado",
       rechazado: "Rechazado",
       pendiente_pago: "Pendiente de pago",
-      listo: "Ningún pedido listo",
+      listo: "Listo",
     }[e] || e
   );
 }
@@ -5838,7 +5929,7 @@ function labelEstado(e) {
            IMPORTANTE: pedidos "en_pausa" nunca se auto-rechazan (el filtro estado !== "pendiente"
            ya los excluye, ya que ESTADOS.includes(p.estado) los distingue de "pendiente"). */
 function chequearAutoRechazo() {
-  if (!autoRejectEnabled || !PLAN_PED.autoOff) return;
+if (!autoRejectEnabled || !PLAN_PED.autoOff || dateFilter.type !== "hoy") return;
   const limiteMs = autoRejectMinutes * 60000;
   const rechazadosAhora = [];
 
@@ -6101,18 +6192,7 @@ function renderBoard() {
     if (pedidosMap.has(activeModalId)) renderDetail(activeModalId);
     else closeDetail();
   }
-  if (pedidoSearchActivoId) {
-    if (pedidosMap.has(pedidoSearchActivoId)) {
-      resaltarPedidoEncontrado(pedidoSearchActivoId, { scroll: false });
-    } else {
-      pedidoSearchActivoId = null;
-      limpiarResaltadoBusqueda();
-      mostrarResultadoBusqueda(
-        "El pedido resaltado ya no está en este periodo",
-        "warn",
-      );
-    }
-  }
+  reaplicarBusqueda();
 }
 
 /* ══════════════ Tabs (mobile) ══════════════ */
@@ -9068,6 +9148,10 @@ function suscribirPedidos() {
         snap.forEach((d) => pedidosMap.set(d.id, d.data()));
         isFirstSnapshot = false;
         renderBoard();
+        if (waPendienteId) {
+  const pid = waPendienteId; waPendienteId = null;
+  if (pedidosMap.has(pid)) waMostrar(pid);
+}
         hideLoader();
         chequearAutoRechazo();
         precargarSeguidores();
@@ -12030,4 +12114,415 @@ function rnSync() {
   document.getElementById("rnEdit").addEventListener("click", rnAbrir);
   document.getElementById("cfgBtn")?.addEventListener("click", rnSync);
   rnSync();
+})();
+
+
+/* ══════ Escanear pedido + filtro de fecha (WhatsApp / carrito) ══════ */
+const wa2Style = document.createElement("style");
+wa2Style.textContent = `
+#clockTime,#clockDate{display:none !important;}
+.est-legend{display:none !important;}
+.stab[data-s="pendiente_pago"] .dot{background:#fbbf24 !important;}
+.stab[data-s="en_pausa"] .dot{background:#38bdf8 !important;}
+.board-col[data-status="pendiente_pago"]{border-top:3px solid #fbbf24;}
+.board-col[data-status="en_pausa"]{border-top:3px solid #38bdf8;}
+#waFechaBtn.on{border-color:#7c5cff;background:rgba(124,92,255,.18);}
+#waTopBtns .autorej-btn{white-space:nowrap;}
+`;
+document.head.appendChild(wa2Style);
+
+// si el reloj queda solo en su contenedor, lo ocultamos también
+(function () {
+  const p = document.getElementById("clockTime")?.parentElement;
+  if (p && [...p.children].every((c) => c.id === "clockTime" || c.id === "clockDate"))
+    p.style.display = "none";
+})();
+
+const waBtns = document.createElement("div");
+waBtns.id = "waTopBtns";
+waBtns.style.cssText = "display:flex;gap:8px;align-items:center;flex:0 0 auto;";
+waBtns.innerHTML = `
+  <button type="button" class="autorej-btn" id="waScanBtn"><span class="ico">📷</span><span class="lbl-text">Escanear</span></button>
+  <button type="button" class="autorej-btn" id="waFechaBtn"><span class="ico">📅</span><span class="lbl-text" id="waFechaLbl">Hoy</span></button>`;
+document.querySelector(".head-right")?.insertBefore(waBtns, document.getElementById("bellBtn"));
+
+function sincronizarBotonesWa() {
+  const on = originFilter === "whatsapp";
+  const w = document.getElementById("waTopBtns");
+  if (w) w.style.display = on ? "flex" : "none";
+  const t = document.getElementById("tabsToggleBtn");
+  if (t) t.style.display = on ? "flex" : "none";
+}
+sincronizarBotonesWa();
+
+/* ── Filtro de fecha ── */
+const diaLima = (d) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(d);
+
+function waPintarFecha() {
+  const tipo = FILTROS_PEDIDO.find(([k]) => k === filtroTipoPedido);
+  const extra = filtroTipoPedido !== "todos" ? ` · ${tipo[1].replace(/^\S+\s/, "")}` : "";
+  document.getElementById("waFechaLbl").textContent = labelDateFilter() + extra;
+  document.getElementById("waFechaBtn")
+    .classList.toggle("on", dateFilter.type !== "hoy" || filtroTipoPedido !== "todos");
+}
+function waFiltro(f, pendId = null) {
+  dateFilter = f;
+  waPendienteId = pendId;
+  pedidoSearchActivoId = null;
+  limpiarResaltadoBusqueda();
+  pedidosMap.clear();
+  isFirstSnapshot = true;
+  waPintarFecha();
+  renderBoard();
+  suscribirPedidos();
+}
+
+const waFechaOv = document.createElement("div");
+waFechaOv.className = "dlv-ov";
+waFechaOv.innerHTML = `
+  <div class="dlv-box">
+    <div class="dlv-head"><span>📅 Ver pedidos de…</span><button type="button" data-x>✕</button></div>
+
+    <div class="wf-grid">
+      <button type="button" class="oc-btn ghost" data-f="hoy">Hoy</button>
+      <button type="button" class="oc-btn ghost" data-f="ayer">Ayer</button>
+      <button type="button" class="oc-btn ghost" data-f="anteayer">Anteayer</button>
+      <button type="button" class="oc-btn ghost" data-ult="3">Últimos 3 días</button>
+      <button type="button" class="oc-btn ghost" data-ult="5">Últimos 5 días</button>
+      <button type="button" class="oc-btn ghost" data-ult="7">Últimos 7 días</button>
+      <button type="button" class="oc-btn ghost" data-ult="15">Últimos 15 días</button>
+      <button type="button" class="oc-btn ghost" data-ult="30">Últimos 30 días</button>
+    </div>
+
+    <div class="dlv-prev-title">Un día en específico</div>
+    <input type="date" id="waFechaInput" class="deli-inp" style="width:100%;height:46px;margin-bottom:8px;">
+    <button type="button" class="oc-btn ghost" id="waFechaVer" style="width:100%;min-height:46px;">Ver ese día</button>
+
+    <div class="dlv-prev-title">Rango de fechas (máx. 31 días)</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <label style="flex:1;font-size:11px;color:var(--ink-dim);">Desde
+        <input type="date" id="waDesde" class="deli-inp" style="width:100%;height:46px;margin-top:4px;"></label>
+      <label style="flex:1;font-size:11px;color:var(--ink-dim);">Hasta
+        <input type="date" id="waHasta" class="deli-inp" style="width:100%;height:46px;margin-top:4px;"></label>
+    </div>
+    <button type="button" class="np-confirmar-btn" id="waRangoVer">Ver rango</button>
+  </div>`;
+document.body.appendChild(waFechaOv);
+
+const wfStyle = document.createElement("style");
+wfStyle.textContent = `.wf-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
+.wf-grid .oc-btn{min-height:48px;width:100%;}`;
+document.head.appendChild(wfStyle);
+
+waFechaOv.addEventListener("click", (e) => {
+  if (e.target === waFechaOv || e.target.hasAttribute("data-x"))
+    return waFechaOv.classList.remove("show");
+  const f = e.target.closest("[data-f]")?.dataset.f;
+  const u = e.target.closest("[data-ult]")?.dataset.ult;
+  if (f) { waFiltro({ type: f, day: null }); waFechaOv.classList.remove("show"); }
+  else if (u) { waFiltro({ type: "ultimos", dias: Number(u) }); waFechaOv.classList.remove("show"); }
+});
+
+document.getElementById("waFechaVer").addEventListener("click", () => {
+  const v = document.getElementById("waFechaInput").value;
+  if (!v) return showToast("Elige una fecha", true);
+  waFiltro({ type: "custom", day: v });
+  waFechaOv.classList.remove("show");
+});
+
+document.getElementById("waRangoVer").addEventListener("click", () => {
+  const desde = document.getElementById("waDesde").value;
+  const hasta = document.getElementById("waHasta").value;
+  if (!desde || !hasta) return showToast("Elige desde y hasta", true);
+  if (desde > hasta) return showToast("'Desde' no puede ser después de 'Hasta'", true);
+  const dias = (new Date(hasta) - new Date(desde)) / 86400000 + 1;
+  if (dias > 31) return showToast("Máximo 31 días por consulta", true);
+  waFiltro({ type: "rango", desde, hasta });
+  waFechaOv.classList.remove("show");
+});
+
+document.getElementById("waFechaBtn").addEventListener("click", () => {
+  const hoy = diaLima(new Date());
+  ["waFechaInput", "waDesde", "waHasta"].forEach((id) => (document.getElementById(id).max = hoy));
+  waFechaOv.classList.add("show");
+});
+
+/* ── Escáner de pedidos ── */
+const waScanOv = document.createElement("div");
+waScanOv.className = "np-opt-overlay";
+waScanOv.innerHTML = `
+  <div class="np-opt-modal np-cam-box">
+    <div class="np-opt-head"><span>🔎 Buscar pedido</span><button id="waScanX">✕</button></div>
+    <div class="np-cam-wrap"><video id="waScanVideo" playsinline muted></video><div class="np-cam-line"></div></div>
+    <p class="np-cam-hint">Apunta al QR del pedido o escribe el código.</p>
+    <div class="pe-search" style="margin-top:8px;">
+      <input type="text" id="waScanCode" placeholder="Código (ej: A1B2C3)" autocomplete="off">
+      <button type="button" class="oc-btn ghost" id="waScanGo">Buscar</button>
+    </div>
+  </div>`;
+document.body.appendChild(waScanOv);
+
+let waPararCam = null, waBuscando = false, waClearT;
+
+function waCerrarScan() {
+  waPararCam?.(); waPararCam = null;
+  waScanOv.classList.remove("show");
+}
+function waCodigos(raw) {
+  return String(raw || "").split(/[^A-Za-z0-9]+/).filter((t) => t.length >= 4).reverse();
+}
+function waBuscarLocal(raw) {
+  for (const t of waCodigos(raw)) {
+    const T = t.toUpperCase();
+    for (const [id] of pedidosMap) {
+      const I = id.toUpperCase();
+      if (I === T || (T.length >= 6 && I.startsWith(T))) return id;
+    }
+  }
+  return null;
+}
+function waMostrar(id) {
+  pedidoSearchActivoId = id;
+  if (!resaltarPedidoEncontrado(id)) {
+    pedidoSearchActivoId = null;
+    showToast("Ese pedido no es de WhatsApp / carrito", true);
+    return false;
+  }
+  showToast(`🔎 Pedido #${codigoCortoPedido(id)}`);
+  clearTimeout(waClearT);
+  waClearT = setTimeout(() => {
+    if (pedidoSearchActivoId === id) {
+      pedidoSearchActivoId = null;
+      limpiarResaltadoBusqueda();
+      mostrarResultadoBusqueda("", "");
+    }
+  }, 20000);
+  return true;
+}
+async function waProcesar(raw) {
+  if (waBuscando) return false;
+  waBuscando = true;
+  try {
+    const id = waBuscarLocal(raw);
+    if (id) { npBeep(true); waCerrarScan(); return waMostrar(id); }
+    // no está en el día visible: se busca por ID completo y se salta a su fecha
+    for (const t of waCodigos(raw)) {
+      if (t.length < 15) continue;
+      const s = await getDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", t)).catch(() => null);
+      const f = s?.exists() ? toDate(s.data().timestamp) : null;
+      if (f) {
+        npBeep(true); waCerrarScan();
+        waFiltro({ type: "custom", day: diaLima(f) }, s.id);
+        return true;
+      }
+    }
+    npBeep(false);
+    showToast("❌ No encontré ese pedido en esta fecha. Cambia el día 📅", true);
+    return false;
+  } finally { setTimeout(() => (waBuscando = false), 800); }
+}
+
+document.getElementById("waScanBtn").addEventListener("click", async () => {
+  waScanOv.classList.add("show");
+  document.getElementById("waScanCode").value = "";
+  try {
+    waPararCam = await iniciarCamara(document.getElementById("waScanVideo"), (c) => waProcesar(c));
+  } catch (e) {
+    console.warn(e);
+    showToast("No se pudo abrir la cámara, escribe el código", true);
+  }
+});
+document.getElementById("waScanX").onclick = waCerrarScan;
+waScanOv.addEventListener("click", (e) => { if (e.target === waScanOv) waCerrarScan(); });
+document.getElementById("waScanGo").addEventListener("click", () => {
+  const v = document.getElementById("waScanCode").value.trim();
+  if (v) waProcesar(v);
+});
+document.getElementById("waScanCode").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("waScanGo").click();
+});
+
+const mobStyle = document.createElement("style");
+mobStyle.textContent = `
+@media (max-width:820px){
+  /* Menos aire en los bordes: todo pegado a los lados */
+  header{padding:10px 8px 8px !important;}
+  .head-top{margin-bottom:8px !important;}
+
+  /* Fila de botones de arriba (config, escanear, fecha, campana) */
+  .head-right{
+    display:flex !important;flex-wrap:nowrap !important;align-items:center;
+    gap:8px;padding:0 !important;width:100%;
+  }
+  .head-right .autorej-btn,#waTopBtns .autorej-btn,#bellBtn{
+    min-width:44px;height:44px;padding:0 12px;justify-content:center;border-radius:13px;
+  }
+  #waTopBtns{gap:8px;}
+  #waFechaBtn .lbl-text{display:inline !important;font-size:12px;}
+
+  /* WhatsApp / Nuevo pedido: reparten el ancho y se ven completos */
+  #originBar{
+    display:flex !important;flex-wrap:nowrap !important;gap:8px;
+    padding:0 !important;margin:0 0 8px;overflow:visible;
+  }
+  .origin-chip{
+    flex:1 1 0;min-width:0;justify-content:center;text-align:center;
+    min-height:44px;padding:8px 6px;font-size:11.5px;white-space:normal;line-height:1.15;
+  }
+
+  /* Pestañas de estado: más compactas, con scroll horizontal */
+  #statusTabs{
+    display:flex;overflow-x:auto;gap:6px;padding:0 !important;margin:0 0 8px;
+    scroll-snap-type:x proximity;scrollbar-width:none;
+  }
+  #statusTabs::-webkit-scrollbar{display:none;}
+  .stab{flex:0 0 auto;scroll-snap-align:start;min-height:42px;padding:7px 10px 7px 9px;gap:6px;}
+  .stab .money{display:none;} /* el monto ya sale en la cabecera de la columna */
+
+  /* Buscador a todo el ancho */
+  .pedido-search-wrap{margin:0 0 8px !important;padding:9px 12px;width:100%;}
+  .ps-result{position:static !important;display:inline-block;margin:0 0 8px;}
+
+  /* Tablero y tarjetas pegados a los bordes */
+  .board{padding:8px 8px 90px !important;}
+  .col-head{padding:10px 6px !important;}
+  .col-body{padding:8px 0 !important;}
+  .order-card{margin:0 !important;padding:14px 12px !important;}
+  .oc-btn{min-height:48px;font-size:14px;}
+  .oc-actions{gap:8px;}
+}
+`;
+document.head.appendChild(mobStyle);
+
+/* ══════ Estados plegables: botón junto al buscador ══════ */
+const tgStyle = document.createElement("style");
+tgStyle.textContent = `
+#statusTabs.tabs-plegadas{display:none !important;}
+#tabsToggleBtn{
+  flex-shrink:0;display:flex;align-items:center;gap:6px;height:34px;padding:0 11px;
+  border-radius:10px;border:1px solid var(--line);background:var(--surface);
+  color:var(--ink-dim);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;
+  touch-action:manipulation;
+}
+#tabsToggleBtn.on{background:var(--violet-soft);border-color:rgba(124,92,255,.35);color:var(--violet);}
+#tabsToggleBtn:active{transform:scale(.96);}
+@media (max-width:520px){#tabsToggleBtn .tg-txt{display:none;}#tabsToggleBtn{padding:0 10px;}}
+`;
+document.head.appendChild(tgStyle);
+
+(function () {
+  const tabs = document.getElementById("statusTabs");
+  const wrap = document.querySelector(".pedido-search-wrap");
+  if (!tabs || !wrap) return;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.id = "tabsToggleBtn";
+  btn.innerHTML = `<span>📋</span><span class="tg-txt">Estados</span>`;
+  wrap.appendChild(btn);
+
+  const abierto = localStorage.getItem("geinz_tabs_open") === "1"; // por defecto oculto
+  tabs.classList.toggle("tabs-plegadas", !abierto);
+  btn.classList.toggle("on", abierto);
+
+  btn.addEventListener("click", () => {
+    const ocultar = !tabs.classList.contains("tabs-plegadas");
+    tabs.classList.toggle("tabs-plegadas", ocultar);
+    btn.classList.toggle("on", !ocultar);
+    localStorage.setItem("geinz_tabs_open", ocultar ? "0" : "1");
+  });
+})();
+
+const boardFix = document.createElement("style");
+boardFix.textContent = `
+@media (min-width:821px){
+  .board{
+    min-height:calc(100dvh - 300px) !important;
+    align-items:stretch !important;
+  }
+  .board-col{min-height:100% !important;}
+  .board-col .col-body{min-height:200px;}
+}
+`;
+document.head.appendChild(boardFix);
+
+const animStyle = document.createElement("style");
+animStyle.textContent = `
+/* ── Aparición suave de botones y estados (solo opacity + transform) ── */
+@keyframes fx-in{
+  from{opacity:0;transform:translate3d(0,6px,0);}
+  to{opacity:1;transform:translate3d(0,0,0);}
+}
+
+/* Fila de estados al desplegar */
+#statusTabs:not(.tabs-plegadas){animation:fx-in .18s ease-out both;}
+#statusTabs:not(.tabs-plegadas) .stab{animation:fx-in .2s ease-out both;}
+#statusTabs:not(.tabs-plegadas) .stab:nth-child(2){animation-delay:.03s;}
+#statusTabs:not(.tabs-plegadas) .stab:nth-child(3){animation-delay:.06s;}
+#statusTabs:not(.tabs-plegadas) .stab:nth-child(4){animation-delay:.09s;}
+
+/* Botones de arriba y cambio de vista */
+#waTopBtns,#originBar .origin-chip{animation:fx-in .2s ease-out both;}
+
+/* Cambio de columna en móvil */
+.board-col.col-active{animation:fx-in .18s ease-out both;}
+
+/* Toque en botones: respuesta instantánea, sin rebote pesado */
+.oc-btn,.origin-chip,.stab,#tabsToggleBtn,.autorej-btn{
+  transition:transform .12s ease,opacity .12s ease,background-color .12s ease !important;
+}
+
+/* Avisa al navegador qué se va a mover (solo en lo que sí se anima) */
+.order-card,.board-col.col-active{will-change:transform,opacity;}
+
+/* ── Quita lo pesado: animaciones infinitas con sombras ── */
+.order-card.oc-pago-recibido,
+.order-card.oc-en-local,
+.order-card.oc-search-match{
+  animation:none !important;
+}
+.order-card.oc-pago-recibido{box-shadow:0 0 0 2px rgba(251,191,36,.45) !important;}
+.order-card.oc-en-local{box-shadow:0 0 0 2px rgba(236,72,153,.5) !important;}
+.order-card.oc-search-match{box-shadow:0 0 0 2px rgba(245,197,99,.6) !important;}
+.live-dot::after,.mesa-box.ocupada .mb-status .dot{animation:none !important;}
+
+/* Celulares básicos: sin delays, todo más corto */
+@media (max-width:820px){
+  .order-card{animation-duration:.16s !important;}
+  #statusTabs:not(.tabs-plegadas) .stab{animation-delay:0s !important;}
+}
+
+/* Si el sistema pide menos movimiento, se apaga todo */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important;}
+}
+`;
+document.head.appendChild(animStyle);
+
+
+
+(function () {
+  const box = waFechaOv.querySelector(".dlv-box");
+  const sec = document.createElement("div");
+  sec.innerHTML = `
+    <div class="dlv-prev-title">Tipo de pedido</div>
+    <div class="wf-grid" id="wfTipos">
+      ${FILTROS_PEDIDO.map(([k, l]) =>
+        `<button type="button" class="oc-btn ghost wf-tipo${k === "todos" ? " active" : ""}" data-tipo="${k}">${l}</button>`).join("")}
+    </div>`;
+  box.appendChild(sec);
+
+  const st = document.createElement("style");
+  st.textContent = `.wf-tipo.active{background:var(--violet-soft);border-color:rgba(124,92,255,.4);color:var(--violet);}`;
+  document.head.appendChild(st);
+
+  sec.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tipo]");
+    if (!b) return;
+    filtroTipoPedido = b.dataset.tipo;
+    sec.querySelectorAll(".wf-tipo").forEach((c) => c.classList.toggle("active", c === b));
+    waPintarFecha();
+    renderBoard();
+  });
 })();

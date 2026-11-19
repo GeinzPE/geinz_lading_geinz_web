@@ -2974,7 +2974,8 @@ function pintarPuntoEntrega() {
   }
 
   // Si ya está pintado con el mismo punto, no se vuelve a crear (evita que el mapa recargue)
-  const key = `${punto.lat},${punto.lng},${punto.nombre},${punto.referencia}`;
+  const camp = esCampana();
+  const key = `${punto.lat},${punto.lng},${punto.nombre},${punto.referencia},${camp}`;
   if (el.dataset.key === key) {
     el.classList.remove("hidden");
     return;
@@ -2987,12 +2988,18 @@ function pintarPuntoEntrega() {
     <div class="dlv-title">📍 Recojo en punto destinado</div>
     <div style="font-weight:700;">${escapeHtmlCarrito(punto.nombre)}</div>
     ${punto.referencia ? `<div class="dlv-muted">${escapeHtmlCarrito(punto.referencia)}</div>` : ""}
-    <div class="dlv-cost" style="margin-top:10px;">
-      <span>🛵 Costo de delivery</span><b style="color:#4ade80;">Gratis</b>
-    </div>
-    <div class="dlv-muted" style="margin-top:8px;">
-      Tú te acercas a este punto a recoger tu pedido, por eso no pagas delivery.
-    </div>
+    ${
+      camp
+        ? `<div class="dlv-note" style="margin-top:10px;background:rgba(245,210,122,.08);border-color:rgba(245,210,122,.4);color:#f5d27a;">
+             🎟️ Acércate a <b>${escapeHtmlCarrito(bizNombre || "la tienda")}</b>, muestra el QR que te daremos y te atenderán de inmediato.
+           </div>`
+        : `<div class="dlv-cost" style="margin-top:10px;">
+             <span>🛵 Costo de delivery</span><b style="color:#4ade80;">Gratis</b>
+           </div>
+           <div class="dlv-muted" style="margin-top:8px;">
+             Tú te acercas a este punto a recoger tu pedido, por eso no pagas delivery.
+           </div>`
+    }
  <div class="punto-map" id="puntoMapWrap">
   <div class="punto-map-skel">🗺️ Cargando mapa…</div>
   <iframe src="${embed}" allowfullscreen referrerpolicy="no-referrer-when-downgrade"
@@ -8831,6 +8838,23 @@ function aplicarModoCampana() {
     tg.style.setProperty("grid-template-columns", "1fr");
   }
   pintarPuntoEntrega(); // nombre, referencia y mapa del punto
+
+  // Sin campo de especificaciones/nota en modo campaña
+  const notaInp = document.getElementById("clienteNota");
+  if (notaInp) {
+    const cont = notaInp.parentElement;
+    const otros = cont
+      ? [...cont.querySelectorAll("input, textarea, select")].filter((x) => x !== notaInp)
+      : [];
+    if (cont && !otros.length) {
+      cont.style.setProperty("display", "none", "important");
+    } else {
+      notaInp.style.setProperty("display", "none", "important");
+      const lbl = notaInp.previousElementSibling;
+      if (lbl && lbl.tagName === "LABEL") lbl.style.setProperty("display", "none", "important");
+    }
+    notaInp.value = "";
+  }
 
   if (document.getElementById("campBanner")) return;
   if (!document.getElementById("campBannerStyle")) {

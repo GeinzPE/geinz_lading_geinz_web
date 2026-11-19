@@ -86,6 +86,7 @@ const ESTADOS_LABEL = {
 
 let pagoOnlineHabilitado = true;
 function requierePagoOnline(data) {
+  if (esPedidoCampana(data)) return false; // en campaña se paga en el punto
   const m = data?.pago?.metodo;
   const activo =
     pagoOnlineHabilitado || normalizarEstado(data?.estado) === "pendiente_pago";
@@ -283,7 +284,22 @@ let waHabilitado = false; // true solo si el negocio tiene WhatsApp configurado 
 let cuponCanjeActual = null; // cupón de fidelización usado en este pedido (si lo hay)
 let negocioMetodosPagoActual = null;
 let pedidoActualParaPago = null;
+let puntoNegocioActual = null;
+const esPedidoCampana = (d) =>
+  d?.cliente?.tipo_entrega === "Campaña física" || !!d?.campanaId;
 
+const _qrCache = {};
+async function qrDataUrl(texto) {
+  if (_qrCache[texto]) return _qrCache[texto];
+  const m = await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm");
+  const QRCode = m.default || m;
+  return (_qrCache[texto] = await QRCode.toDataURL(texto, {
+    width: 320,
+    margin: 2,
+    errorCorrectionLevel: "M",
+    color: { dark: "#000000", light: "#ffffff" },
+  }));
+}
 function nombreOfuscado(nombreCompleto) {
   const partes = (nombreCompleto || "").trim().split(/\s+/).filter(Boolean);
   if (!partes.length) return "";
@@ -325,12 +341,15 @@ function actualizarBloquePagoQR() {
     card.classList.add("hidden");
     return;
   }
+  if (esPedidoCampana(p)) {
+    card.classList.add("hidden");
+    return;
+  }
   if (p.pago?.voucher_url) {
     card.classList.add("hidden");
     return;
   }
 
-  // Cualquier método que no sea efectivo (Yape, Plin, Visa, Agora)
   const metodoKey = detectarMetodoPagoConDatos(p.pago?.metodo);
   const esMesa = !!p.mesa || p.cliente?.tipo_entrega === "Mesa";
   const estado = normalizarEstado(p.estado);
@@ -698,6 +717,7 @@ function renderCodigoPedido(data, estadoActual) {
   const esMesa = !!data.mesa || data.cliente?.tipo_entrega === "Mesa";
   const visible =
     !esMesa &&
+    !esPedidoCampana(data) && // en campaña el código y el QR van en su propia tarjeta
     !["rechazado", "entregado"].includes(estadoActual) &&
     !!pedidoIdActual;
   wrap.classList.toggle("hidden", !visible);
@@ -705,7 +725,64 @@ function renderCodigoPedido(data, estadoActual) {
   el("codigo-grande").textContent = "#" + codigoPedidoCorto(pedidoIdActual);
   el("codigo-completo").textContent = pedidoIdActual;
 }
+function renderCampanaInfo(data, estadoActual) {
+  let box = el("campana-info");
+  const visible =
+    esPedidoCampana(data) &&
+    !["rechazado", "entregado"].includes(estadoActual) &&
+    !!pedidoIdActual;
+  if (!visible) {
+    box?.classList.add("hidden");
+    return;
+  }
 
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "campana-info";
+    box.style.cssText =
+      "margin:1rem 0 0;padding:1rem;border-radius:1rem;text-align:center;" +
+      "border:1px solid var(--card-border);background:var(--card);";
+    (el("tiempo-estimado") || el("timeline")).insertAdjacentElement(
+      "afterend",
+      box,
+    );
+  }
+  box.classList.remove("hidden");
+
+  const pt = data.punto_entrega?.nombre ? data.punto_entrega : puntoNegocioActual;
+  const metodo = data.pago?.metodo || "";
+  const pagoTxt = /efectivo/i.test(metodo)
+    ? "Pagas en efectivo en el punto"
+    : `Pagas con ${metodo || "tu método elegido"} en el punto`;
+  const key = [pt?.nombre, pt?.referencia, pt?.lat, pt?.lng, metodo, pedidoIdActual].join("|");
+  if (box.dataset.key === key) return; // no repinta si no cambió nada
+  box.dataset.key = key;
+
+  const ruta =
+    pt && Number.isFinite(Number(pt.lat)) && Number.isFinite(Number(pt.lng))
+      ? `https://www.google.com/maps/dir/?api=1&destination=${pt.lat},${pt.lng}&travelmode=driving`
+      : null;
+
+  box.innerHTML = `
+    <p style="margin:0;font-size:.95rem;font-weight:700;">
+      📍 Acércate a ${esc(pt?.nombre || "el punto de entrega")}
+    </p>
+    ${pt?.referencia ? `<p class="text-muted" style="margin:.2rem 0 0;font-size:.8rem;">${esc(pt.referencia)}</p>` : ""}
+    ${ruta ? `<a href="${ruta}" target="_blank" rel="noopener" style="display:inline-block;margin-top:.3rem;font-size:.8rem;text-decoration:underline;">Cómo llegar →</a>` : ""}
+    <p style="margin:.8rem 0 0;font-size:.85rem;">💳 ${esc(pagoTxt)}</p>
+    <p class="text-secondary" style="margin:.8rem 0 .4rem;font-size:.8rem;">Muestra este QR para que te atiendan</p>
+    <img id="campana-qr" alt="QR del pedido" width="200" height="200"
+         style="background:#fff;border-radius:.8rem;padding:6px;margin:0 auto;display:block;">
+    <p class="font-mono" style="margin:.6rem 0 0;font-size:1.3rem;font-weight:800;letter-spacing:.08em;">
+      #${esc(codigoPedidoCorto(pedidoIdActual))}
+    </p>`;
+  qrDataUrl(pedidoIdActual)
+    .then((src) => {
+      const i = el("campana-qr");
+      if (i) i.src = src;
+    })
+    .catch((e) => console.warn("[pedidos] QR campaña:", e));
+}
 el("btn-toggle-qr")?.addEventListener("click", async () => {
   const box = el("qr-wrap");
   const txt = el("btn-toggle-qr")?.querySelector(".copy-text");
@@ -858,6 +935,7 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
     const btnVolver = el("btn-volver-negocio");
     const btnCarito = el("btn-ir-carrito");
     negocioMetodosPagoActual = data.metodos_pago || null;
+    puntoNegocioActual = data.punto_entrega || null;
     pagoOnlineHabilitado =
       data.pedidos_config?.estados?.pendiente_pago !== false;
     if (pedidoActualParaPago) renderPedido(pedidoActualParaPago);
@@ -1531,6 +1609,10 @@ function labelEstadoMostrado(estadoActual, data) {
   if (estadoActual === "rechazado" && data.cancelado_por_cliente) {
     return "Pedido cancelado";
   }
+  if (esPedidoCampana(data)) {
+    if (["en_proceso", "listo"].includes(estadoActual)) return "Aceptado";
+    if (estadoActual === "pendiente_pago") return "Pendiente";
+  }
   return ESTADOS_LABEL[estadoActual] || estadoActual;
 }
 // Convierte el valor de una opción del pedido guardado en pares [nombreOpcion, cantidad].
@@ -1662,13 +1744,21 @@ function renderPedido(data) {
   const estadoParaTimeline = enPausa
     ? data.pausa?.estado_anterior || "pendiente"
     : estadoActual;
+  const camp = esPedidoCampana(data);
+  const estadoTL = camp
+    ? { pendiente_pago: "pendiente", listo: "en_proceso" }[estadoParaTimeline] ||
+      estadoParaTimeline
+    : estadoParaTimeline;
+
   renderTiempoEstimado(data, estadoActual);
   renderTimeline(
-    estadoParaTimeline,
+    estadoTL,
     esRechazado,
     !!data.cancelado_por_cliente,
     requierePagoOnline(data),
+    camp,
   );
+  renderCampanaInfo(data, estadoActual);
 
   if (enPausa) renderPausaBanner(data, pedidoRefGlobal);
   else quitarPausaBanner();
@@ -1847,6 +1937,7 @@ function renderTimeline(
   esRechazado,
   canceladoPorCliente = false,
   conPago = false,
+  campana = false,
 ) {
   const cont = el("timeline");
   cont.innerHTML = "";
@@ -1863,9 +1954,11 @@ function renderTimeline(
     return;
   }
 
-  const FLUJO = conPago
-    ? ["pendiente", "pendiente_pago", "en_proceso", "listo", "entregado"]
-    : ["pendiente", "en_proceso", "listo", "entregado"];
+  const FLUJO = campana
+    ? ["pendiente", "en_proceso", "entregado"]
+    : conPago
+      ? ["pendiente", "pendiente_pago", "en_proceso", "listo", "entregado"]
+      : ["pendiente", "en_proceso", "listo", "entregado"];
   const idxActual = FLUJO.indexOf(estadoActual);
   const frag = document.createDocumentFragment();
 
@@ -1889,14 +1982,14 @@ function renderTimeline(
 
     const text = document.createElement("div");
     text.className = "tl-text" + (activo ? " active" : "");
-    text.textContent = ESTADOS_LABEL[estado];
+    text.textContent =
+      campana && estado === "en_proceso" ? "Aceptado" : ESTADOS_LABEL[estado];
 
     item.append(marker, text);
     frag.appendChild(item);
   });
   cont.appendChild(frag);
 }
-
 /* ══════════════ "Ya llegué" (vía Cloud Function) ══════════════ */
 el("btn-en-local")?.addEventListener("click", async () => {
   const b = el("btn-en-local");
