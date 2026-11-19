@@ -412,13 +412,16 @@
 
   <!-- Drawer del carrito (solo mobile) -->
   <div id="drawerOverlay" class="lg:hidden"></div>
-  <div id="drawer" class="lg:hidden">
+<div id="drawer" class="lg:hidden">
+  <div class="drawer-handle-zone" id="drawerDragZone">
     <div class="drawer-handle"></div>
-    <div class="px-5 pb-4 flex items-center justify-between border-b border-white/[.06]">
-      <h2 class="display font-extrabold text-lg">Tu carrito</h2>
-      <button id="closeDrawerBtn"
-        class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center">✕</button>
-    </div>
+  </div>
+  <div class="px-5 pb-4 flex items-center justify-between border-b border-white/[.06]" id="drawerHeader">
+    <h2 class="display font-extrabold text-lg">Tu carrito</h2>
+    <button id="closeDrawerBtn"
+      class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center">✕</button>
+  </div>
+
     <div id="cuponBarMobile"></div>
     <div class="flex gap-2 px-5 mb-1">
       <input id="cuponInputMobile" class="field-input flex-1" type="text" placeholder="¿Tienes un cupón?"

@@ -23,6 +23,14 @@ import {
   tiendaCuponDoc,
   tiendaServiciosDoc,
 } from "../rutas/rutas.js";
+
+import {
+  decidirCalle,
+  normalizarCalle,
+  pintarCandidatas,
+  quitarCandidatas,
+} from "./calles_cercanas.js";
+
 import {
   getAuth,
   onAuthStateChanged,
@@ -539,22 +547,29 @@ const PROMO_DETAIL_CSS = `
 }
 .promo-detail-modal.show{opacity:1;visibility:visible;}
 .promo-detail-box{
-  position:relative;width:100%;max-width:560px;max-height:90vh;
+  position:relative;width:100%;max-width:560px;max-height:94dvh;
+  padding-bottom:env(safe-area-inset-bottom,0px);
   background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.28);
   border-bottom:none;border-radius:28px 28px 0 0;overflow:hidden;
   display:flex;flex-direction:column;transform:translateY(100%);
   transition:transform .42s cubic-bezier(.22,.85,.32,1);
+  will-change:transform;
   box-shadow:0 -30px 80px -16px rgba(0,0,0,.85), 0 0 60px -14px rgba(var(--dr),var(--dg),var(--db),.4);
 }
 .promo-detail-modal.show .promo-detail-box{transform:translateY(0);}
-.promo-detail-handle{width:40px;height:4px;border-radius:999px;background:rgba(255,255,255,.22);margin:12px auto 0;flex-shrink:0;position:relative;z-index:2;}
-.promo-detail-scroll{overflow-y:auto;flex:1;position:relative;z-index:1;}
+.promo-detail-handle{
+  width:40px;height:4px;border-radius:999px;background:rgba(255,255,255,.22);
+  box-sizing:content-box;padding:14px 40px;background-clip:content-box;
+  margin:0 auto;flex-shrink:0;position:relative;z-index:2;
+  cursor:grab;touch-action:none;
+}
+.promo-detail-scroll{overflow-y:auto;flex:1;position:relative;z-index:1;overscroll-behavior:contain;}
 .promo-detail-close{
   position:absolute;top:16px;right:16px;z-index:3;width:38px;height:38px;border-radius:50%;
   border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.5);color:#fff;font-size:14px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);
 }
-.promo-detail-media{position:relative;width:100%;aspect-ratio:4/3;background:#0d0d0d;flex-shrink:0;margin-top:14px;padding:0 14px;}
+.promo-detail-media{position:relative;width:100%;aspect-ratio:4/3;background:#0d0d0d;flex-shrink:0;margin-top:0;padding:0 14px;}
 .promo-detail-media-inner{position:relative;width:100%;height:100%;border-radius:20px;overflow:hidden;}
 .promo-detail-media-inner img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .35s ease;}
 .promo-detail-media-inner img.show{opacity:1;}
@@ -586,9 +601,15 @@ const PROMO_DETAIL_CSS = `
 }
 .promo-detail-btn:hover{transform:translateY(-2px);filter:brightness(1.06);}
 .promo-detail-btn:active{transform:scale(.96);}
+.promo-detail-btn-share{
+  flex:0 0 auto;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:none;
+}
 @media (min-width:768px){
   .promo-detail-modal{align-items:center;padding:28px;}
-  .promo-detail-box{border-radius:30px;max-height:86vh;border-bottom:1px solid rgba(var(--dr),var(--dg),var(--db),.28);transform:scale(.9) translateY(18px);}
+  .promo-detail-box{border-radius:30px;max-height:86vh;padding-bottom:0;border-bottom:1px solid rgba(var(--dr),var(--dg),var(--db),.28);transform:scale(.9) translateY(18px);}
   .promo-detail-modal.show .promo-detail-box{transform:scale(1) translateY(0);}
   .promo-detail-handle{display:none;}
   .promo-detail-media{aspect-ratio:16/8;margin-top:0;padding:0;}
@@ -596,14 +617,7 @@ const PROMO_DETAIL_CSS = `
   .promo-detail-body{padding:30px 34px 34px;}
   .promo-detail-title{font-size:24px;}
 }
-  .promo-detail-btn-share{
-  flex:0 0 auto;
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.14);
-  box-shadow:none;
-}
 `;
-
 const PEDIDO_MESA_CSS = `
 .pa-steps{position:relative;display:flex;padding:4px 0 2px;}
 .pa-track{position:absolute;top:21px;left:16.66%;right:16.66%;height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;}
@@ -680,7 +694,13 @@ function bindPromoDetailModal() {
     </div>
   </div>`;
   document.body.appendChild(modal);
-
+  habilitarArrastreSheet({
+    sheet: modal.querySelector(".promo-detail-box"),
+    zonas: [modal.querySelector(".promo-detail-handle")],
+    overlay: modal,
+    cerrar: cerrarPromoDetailModal,
+    mq: "(max-width: 767px)", // en md+ es un modal centrado
+  });
   document
     .getElementById("promoDetailClose")
     .addEventListener("click", cerrarPromoDetailModal);
@@ -2112,8 +2132,7 @@ async function aplicarCuponDesdeDoc(data) {
 
   const aud = data.audiencia || "todos";
   if (aud !== "todos" && !usuarioLogeado) {
-    showToast("🔒 Inicia sesión para usar este cupón");
-    openLoginPromptModal();
+    showToast("🔒 Este cupón es solo para usuarios registrados");
     return;
   }
   if (aud === "seguidores" && !siguiendoTienda)
@@ -2623,6 +2642,7 @@ async function loadProductosCatalogo(bizOrPromise) {
               )
               .map((o) => ({
                 exclusiva: o.exclusiva === true,
+                todas: o.todas === true,
                 nombre: o.nombre,
                 descripcion: String(o.descripcion || "").trim(),
                 imagen: o.imagen?.url || "",
@@ -3067,32 +3087,7 @@ function hidePedidoLoader() {
 
 /* ══════════════ Modal: inicia sesión / regístrate ══════════════ */
 function openLoginPromptModal() {
-  const modal = document.getElementById("loginPromptModal");
-  if (!modal) return;
-
-  const nameSpan = document.getElementById("loginPromptBizName");
-  if (nameSpan) nameSpan.textContent = bizNombre || "este negocio";
-
-  const logoWrap = document.getElementById("loginPromptLogoWrap");
-  if (logoWrap) {
-    logoWrap.innerHTML = "";
-    if (_bizLogoUrl) {
-      const img = document.createElement("img");
-      img.crossOrigin = "anonymous";
-      img.src = _bizLogoUrl;
-      img.alt = bizNombre || "Logo";
-      img.className = "login-prompt-logo";
-      logoWrap.appendChild(img);
-    } else {
-      const letter = document.createElement("div");
-      letter.className = "login-prompt-letter";
-      letter.textContent = letraNegocio();
-      logoWrap.appendChild(letter);
-    }
-  }
-
-  modal.classList.add("show");
-  document.body.style.overflow = "hidden";
+  return;
 }
 
 function closeLoginPromptModal() {
@@ -3544,7 +3539,10 @@ function productoCard(p, index = 0) {
   const info = document.createElement("div");
   info.className = "flex-1 min-w-0 prod-info";
   const condLine = (p.condiciones || [])
-    .map((c) => ({ ...c, opciones: c.opciones.filter((o) => !o.agotado) }))
+    .map((c) => ({
+      ...c,
+      opciones: c.opciones.filter((o) => !o.agotado && !o.todas),
+    }))
     .filter((c) => c.opciones.length)
     .map((c) => `${c.nombre}: ${c.opciones.map((o) => o.nombre).join(", ")}`)
     .join(" · ");
@@ -3635,7 +3633,7 @@ function precioDesdeInfo(p) {
   let varia = false;
   let extra = 0;
   (p.condiciones || []).forEach((c) => {
-    const ops = c.opciones.filter((o) => !o.agotado);
+    const ops = c.opciones.filter((o) => !o.agotado && !o.todas);
     if (!c.obligatoria || !ops.length) return;
     const costos = ops.map((o) => Number(o.costoAdicional) || 0);
     const min = Math.min(...costos);
@@ -4068,7 +4066,15 @@ function infoDeliveryPedido() {
   if (mesaId || tipoEntrega !== "Delivery" || delivDesactivado()) return null;
   const r = calcularDeliveryCliente();
   if (r?.sinPrecio)
-    return { costo: 0, zona: r.zona, sinPrecio: true, gratis: false, aprox: false, recargo: 0, modo: "zonas" };
+    return {
+      costo: 0,
+      zona: r.zona,
+      sinPrecio: true,
+      gratis: false,
+      aprox: false,
+      recargo: 0,
+      modo: "zonas",
+    };
   if (!r || r.costo == null) return null;
   return {
     costo: r.costo,
@@ -4198,7 +4204,7 @@ function pintarDeliveryInfo() {
   }
 
   let html = "";
-    if (cfg.tarifaActiva && cfg.modo === "zonas" && !r?.gratis) {
+  if (cfg.tarifaActiva && cfg.modo === "zonas" && !r?.gratis) {
     const opts = cfg.zonas
       .map(
         (z) =>
@@ -4681,6 +4687,33 @@ function exclusivaElegida(cond, sel) {
   );
 }
 
+const opsReales = (cond) =>
+  cond.opciones.filter((o) => !o.todas && !o.exclusiva && !o.agotado);
+
+function todasMarcadas(cond, sel) {
+  const reales = opsReales(cond);
+  if (!reales.length) return false;
+  const marcadas = entradasDe(sel?.[cond.nombre]).map(([n]) => n);
+  return reales.every((o) => marcadas.includes(o.nombre));
+}
+
+// `sel` = seleccionOpciones o sugSel
+function alternarTodas(cond, sel) {
+  const k = cond.nombre;
+  if (todasMarcadas(cond, sel)) {
+    delete sel[k];
+    return true;
+  }
+  const reales = opsReales(cond);
+  if (cond.max && reales.length > cond.max) {
+    showToast(`Son más de ${cond.max}, elige a mano en "${cond.nombre}"`);
+    return false;
+  }
+  sel[k] = cond.conCantidad
+    ? Object.fromEntries(reales.map((o) => [o.nombre, 1]))
+    : reales.map((o) => o.nombre);
+  return true;
+}
 function alternarOpcion(cond, nombre) {
   const k = cond.nombre;
   if (!cond.multiple) {
@@ -4690,6 +4723,7 @@ function alternarOpcion(cond, nombre) {
     return true;
   }
   const op = cond.opciones.find((o) => o.nombre === nombre);
+  if (op?.todas) return alternarTodas(cond, seleccionOpciones);
   const excl = exclusivaElegida(cond, seleccionOpciones);
   if (op?.exclusiva) {
     if (excl?.nombre === nombre) delete seleccionOpciones[k];
@@ -4776,9 +4810,13 @@ function pintarGrupo(p, cond, sec) {
   list.innerHTML = "";
 
   cond.opciones.forEach((op) => {
-    const c = cantidadElegida(cond, op.nombre);
+    const c = op.todas
+      ? todasMarcadas(cond, seleccionOpciones)
+        ? 1
+        : 0
+      : cantidadElegida(cond, op.nombre);
     const cap = typeof op.stock === "number" ? op.stock : Infinity;
-    const bloq = !!excl && !op.exclusiva;
+    const bloq = !!excl && !op.exclusiva && !op.todas;
     const row = el("div", "opt-row" + (c > 0 ? " sel" : ""));
     if (bloq) row.classList.add("blk");
     const thumb = thumbOpcion(op, cond);
@@ -4795,7 +4833,7 @@ function pintarGrupo(p, cond, sec) {
           )
         : null;
 
-    if (cond.conCantidad) {
+    if (cond.conCantidad && !op.todas) {
       row.classList.add("qty");
       if (op.agotado) row.classList.add("off");
       if (thumb) row.appendChild(thumb);
@@ -4830,7 +4868,8 @@ function pintarGrupo(p, cond, sec) {
       if (!op.agotado) row.appendChild(step);
     } else {
       const lleno =
-        (cond.multiple && tope && c === 0 && !op.exclusiva) || op.agotado;
+        (cond.multiple && tope && c === 0 && !op.exclusiva && !op.todas) ||
+        op.agotado;
       if (lleno) row.classList.add("off");
       row.appendChild(
         el(
@@ -4986,6 +5025,7 @@ function pintarPanelSug(p, s, panel) {
       return true;
     }
     const op = cond.opciones.find((o) => o.nombre === n);
+    if (op?.todas) return alternarTodas(cond, sugSel);
     const ex = exclSug(cond);
     if (op?.exclusiva) {
       if (ex?.nombre === n) delete sugSel[k];
@@ -5049,9 +5089,13 @@ function pintarPanelSug(p, s, panel) {
     const list = el("div", "opt-list");
 
     cond.opciones.forEach((op) => {
-      const c = cant(cond, op.nombre);
+      const c = op.todas
+        ? todasMarcadas(cond, sugSel)
+          ? 1
+          : 0
+        : cant(cond, op.nombre);
       const cap = typeof op.stock === "number" ? op.stock : Infinity;
-      const bloq = !!excl && !op.exclusiva;
+      const bloq = !!excl && !op.exclusiva && !op.todas;
       const row = el("div", "opt-row" + (c > 0 ? " sel" : ""));
       if (bloq) row.classList.add("blk");
       const info = el("div", "opt-info");
@@ -5067,7 +5111,7 @@ function pintarPanelSug(p, s, panel) {
             )
           : null;
 
-      if (cond.conCantidad) {
+      if (cond.conCantidad && !op.todas) {
         row.classList.add("qty");
         if (op.agotado) row.classList.add("off");
         row.appendChild(info);
@@ -5101,7 +5145,8 @@ function pintarPanelSug(p, s, panel) {
         if (!op.agotado) row.appendChild(step);
       } else {
         const lleno =
-          (cond.multiple && tope && c === 0 && !op.exclusiva) || op.agotado;
+          (cond.multiple && tope && c === 0 && !op.exclusiva && !op.todas) ||
+          op.agotado;
         if (lleno) row.classList.add("off");
         row.appendChild(
           el(
@@ -5491,6 +5536,7 @@ function cerrarOptionsModal() {
 }
 
 document.getElementById("closeOptionsBtn").onclick = cerrarOptionsModal;
+
 document.getElementById("optionsOverlay").addEventListener("click", (e) => {
   if (e.target.id === "optionsOverlay") cerrarOptionsModal();
 });
@@ -5652,8 +5698,8 @@ function textoPuntosHTML(puntosTotales, esCheckout = false) {
   const estilo =
     "background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;text-align:left;";
 
-  if (!usuarioLogeado) {
-    return `<button type="button" data-puntos-accion="login" style="${estilo}">⭐ Inicia sesión para ganar puntos con <strong>${nombreSeguro}</strong></button>`;
+   if (!usuarioLogeado) {
+    return `<span>⭐ Con una cuenta de <strong>${nombreSeguro}</strong> ganarías puntos</span>`;
   }
   return `<button type="button" data-puntos-accion="seguir" style="${estilo}">⭐ Sigue a <strong>${nombreSeguro}</strong> para ganar y canjear puntos</button>`;
 }
@@ -5886,7 +5932,66 @@ function closeDrawer() {
 document.getElementById("cartBarBtn").onclick = openDrawer;
 document.getElementById("closeDrawerBtn").onclick = closeDrawer;
 document.getElementById("drawerOverlay").onclick = closeDrawer;
+/* ══════════════ Arrastrar bottom sheets hacia abajo para cerrarlos (reutilizable) ══════════════ */
+function habilitarArrastreSheet({
+  sheet,            // el panel que se desliza
+  zonas,            // elementos desde donde se puede agarrar (handle, cabecera)
+  overlay = null,   // fondo oscuro que se desvanece
+  cerrar,           // función que cierra el sheet
+  mq = "(max-width: 639px)", // solo actúa cuando el sheet es "bottom sheet"
+  umbral = 120,
+}) {
+  if (!sheet || sheet.dataset.dragBound) return;
+  sheet.dataset.dragBound = "1";
+  const zs = (zonas || []).filter(Boolean);
+  if (!zs.length) return;
 
+  let startY = 0, dy = 0, t0 = 0;
+  const y = (e) => (e.touches ? e.touches[0].clientY : e.clientY);
+
+  const onMove = (e) => {
+    dy = Math.max(0, y(e) - startY); // solo hacia abajo
+    sheet.style.transform = `translateY(${dy}px)`;
+    if (overlay)
+      overlay.style.opacity = String(Math.max(0, 1 - dy / sheet.offsetHeight));
+  };
+
+  const onEnd = () => {
+    window.removeEventListener("touchmove", onMove);
+    window.removeEventListener("touchend", onEnd);
+    window.removeEventListener("touchcancel", onEnd);
+
+    const velocidad = dy / Math.max(1, performance.now() - t0); // px/ms
+    const cierra = dy > umbral || velocidad > 0.6;
+
+    // devolvemos el control al CSS: anima solo (rebota o se va)
+    sheet.style.transition = "";
+    sheet.style.transform = "";
+    if (overlay) {
+      overlay.style.transition = "";
+      overlay.style.opacity = "";
+    }
+    if (cierra) cerrar();
+  };
+
+  const onStart = (e) => {
+    if (!matchMedia(mq).matches) return;           // en desktop no hace nada
+    if (e.target.closest("button, a, input")) return; // no pisar la ✕ ni botones
+    startY = y(e);
+    dy = 0;
+    t0 = performance.now();
+    sheet.style.transition = "none";               // sigue al dedo sin lag
+    if (overlay) overlay.style.transition = "none";
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchend", onEnd);
+    window.addEventListener("touchcancel", onEnd);
+  };
+
+  zs.forEach((z) => {
+    z.style.touchAction = "none";
+    z.addEventListener("touchstart", onStart, { passive: true });
+  });
+}
 /* ══════════════ Vaciar carrito (con confirmación, mobile + desktop) ══════════════ */
 function bindClearButton(btn) {
   let localConfirm = false;
@@ -5942,7 +6047,7 @@ function obtenerUbicacionCliente() {
   statusEl.classList.add("hidden");
 
   navigator.geolocation.getCurrentPosition(
-     (pos) => {
+    (pos) => {
       clienteLat = pos.coords.latitude;
       clienteLng = pos.coords.longitude;
       ubicDeCalle = false;
@@ -5952,8 +6057,8 @@ function obtenerUbicacionCliente() {
       statusEl.textContent = `📍 Lat: ${clienteLat.toFixed(5)}, Lng: ${clienteLng.toFixed(5)}`;
       statusEl.classList.remove("hidden");
       showToast("Ubicación agregada al pedido 📍");
-     pintarDeliveryInfo();
-      seleccionarCalleCercana(clienteLat, clienteLng);
+      pintarDeliveryInfo();
+    seleccionarCalleCercana(clienteLat, clienteLng, pos.coords.accuracy);
     },
     (err) => {
       clienteLat = null;
@@ -6058,8 +6163,42 @@ document.getElementById("checkoutBtnMobile").onclick = () => {
 };
 document.getElementById("checkoutBtnDesktop").onclick = openCheckout;
 document.getElementById("closeCheckoutBtn").onclick = closeCheckout;
+
 checkoutOverlay.addEventListener("click", (e) => {
   if (e.target === checkoutOverlay) closeCheckout();
+});
+
+/* ══════════════ Bottom sheets: arrastrar para cerrar ══════════════ */
+habilitarArrastreSheet({
+  sheet: document.getElementById("drawer"),
+  zonas: [
+    document.getElementById("drawerDragZone"),
+    document.getElementById("drawerHeader"),
+  ],
+  overlay: document.getElementById("drawerOverlay"),
+  cerrar: closeDrawer,
+  mq: "(max-width: 1023px)",
+});
+
+habilitarArrastreSheet({
+  sheet: checkoutModal,
+  zonas: [
+    checkoutModal.querySelector(".drawer-handle"),
+    checkoutModal.children[1],
+  ],
+  overlay: checkoutOverlay,
+  cerrar: closeCheckout,
+});
+
+const optionsModalEl = document.getElementById("optionsModal");
+habilitarArrastreSheet({
+  sheet: optionsModalEl,
+  zonas: [
+    optionsModalEl.querySelector(".drawer-handle"),
+    optionsModalEl.children[1],
+  ],
+  overlay: document.getElementById("optionsOverlay"),
+  cerrar: cerrarOptionsModal,
 });
 
 function renderCheckoutSummary() {
@@ -6191,7 +6330,7 @@ document
       showToast("Falta tu nombre");
       return;
     }
-        if (await pedirCalleSiFalta()) return; // abrió el aviso de calles cercanas
+    if (await pedirCalleSiFalta()) return; // abrió el aviso de calles cercanas
     if (tipoEntrega === "Delivery" && !direccion) {
       direccionInput.classList.add("field-error");
       direccionInput.focus();
@@ -6211,7 +6350,7 @@ document
       document.getElementById("deliveryZonaSel")?.focus();
       return;
     }
-        if (zonaDeliverySel === ZONA_OTRA && !zonaOtraConfirmada) {
+    if (zonaDeliverySel === ZONA_OTRA && !zonaOtraConfirmada) {
       abrirDialogoZonaOtra();
       return;
     }
@@ -7075,6 +7214,7 @@ function condicionesDePromo(raw) {
         )
         .map((o) => ({
           exclusiva: o.exclusiva === true,
+          todas: o.todas === true,
           nombre: o.nombre,
           descripcion: String(o.descripcion || "").trim(),
           imagen: "",
@@ -7319,40 +7459,38 @@ let calleOmitida = false; // el cliente cerró el aviso de "calle más cercana"
 /* Con el GPS obtenido: busca la calle más cercana y la deja seleccionada en el selector */
 /* Con lat/lng del cliente: busca la calle más cercana y la deja puesta en el selector.
    Devuelve true si la seleccionó, false si no encontró una cercana. */
-const CALLE_MAX_KM = 2;
 
-async function seleccionarCalleCercana(lat, lng) {
+async function seleccionarCalleCercana(lat, lng, accuracy = 0) {
   if (mesaId || esCampana() || delivDesactivado()) return false;
-  await montarSelectorCalle(); // se asegura de que el selector exista
+  await montarSelectorCalle();
   const calles = await cargarCalles();
-  const conCoords = calles.filter(
-    (c) => Number.isFinite(c.lat) && Number.isFinite(c.lng),
-  );
-  console.log("[CALLES] cargadas:", calles.length, "| con coordenadas:", conCoords.length);
-  if (!conCoords.length) return false;
+  if (calleSel && calleSel._manual) return true; // si eligió a mano, no se toca
 
-  // si el cliente ya eligió una calle a mano, no se la cambiamos
-  if (calleSel && calleSel._manual) return true;
+  const r = decidirCalle(calles, lat, lng, accuracy);
+  console.log("[CALLES]", r.tipo, r.ranking?.slice(0, 3).map((c) => `${c.nombre} ${Math.round(c.m)}m`));
 
-  let mejor = null;
-  conCoords.forEach((c) => {
-    const km = distanciaKm(lat, lng, c.lat, c.lng);
-    if (!mejor || km < mejor.km) mejor = { ...c, km };
-  });
-  console.log("[CALLES] más cercana:", mejor?.nombre, mejor?.km);
-
-  if (!mejor || mejor.km > CALLE_MAX_KM) {
-    document.getElementById("calleBuscar")?.focus();
-    showToast("📍 No encontramos tu calle, búscala en el selector");
+  if (r.tipo === "auto") {
+    elegirCalle(r.calle);
+    ubicDeCalle = false; // las coordenadas siguen siendo las del GPS
+    showToast(`📍 Calle detectada: ${r.calle.nombre}`);
+    return true;
+  }
+  if (r.tipo === "sugerir") {
+    pintarCandidatas(
+      document.querySelector("#calleBox .calle-wrap"),
+      r.candidatas,
+      (c) => {
+        elegirCalle(c);
+        calleSel._manual = true;
+        ubicDeCalle = false;
+      },
+    );
+    showToast("📍 Confirma cuál es tu calle");
     return false;
   }
-
-  elegirCalle(mejor); // la pone en el selector, abre "Referencia" y rellena la dirección
-  ubicDeCalle = false; // las coordenadas siguen siendo las del GPS
-  const dist =
-    mejor.km < 1 ? `${Math.round(mejor.km * 1000)} m` : `${mejor.km.toFixed(1)} km`;
-  showToast(`📍 Calle más cercana: ${mejor.nombre} (a ${dist})`);
-  return true;
+  document.getElementById("calleBuscar")?.focus();
+  showToast("📍 No encontramos tu calle cerca, búscala en el selector");
+  return false;
 }
 const slugUbi = (s) =>
   normalizeText(s)
@@ -7386,18 +7524,9 @@ function cargarCalles() {
       `calles_${dist}`,
     ),
   )
-    .then((snap) => {
+       .then((snap) => {
       callesDistrito = snap.docs
-        .map((d) => {
-          const x = d.data();
-          return {
-            id: d.id,
-            nombre: String(x.nombre || "").trim(),
-            lat: Number(x.lat),
-            lng: Number(x.lng),
-            norm: normalizeText(x.nombre),
-          };
-        })
+        .map((d) => normalizarCalle(d.id, d.data(), normalizeText))
         .filter((c) => c.nombre)
         .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
       return callesDistrito;
@@ -7524,7 +7653,10 @@ async function montarSelectorCalle() {
     const it = e.target.closest(".calle-item");
     if (!it) return;
     const c = callesDistrito.find((x) => x.id === it.dataset.id);
-    if (c) { elegirCalle(c); calleSel._manual = true; }
+    if (c) {
+      elegirCalle(c);
+      calleSel._manual = true;
+    }
   });
   buscar.addEventListener("blur", () =>
     setTimeout(() => lista.classList.remove("open"), 120),
@@ -7538,7 +7670,8 @@ async function montarSelectorCalle() {
 /* Si no usó GPS ni eligió calle: se le sugieren las calles más cercanas a donde está */
 async function pedirCalleSiFalta() {
   if (calleSel || clienteLat != null || calleOmitida) return false;
-  if (tipoEntrega !== "Delivery" || mesaId || esCampana() || delivDesactivado()) return false;
+  if (tipoEntrega !== "Delivery" || mesaId || esCampana() || delivDesactivado())
+    return false;
   const calles = await cargarCalles();
   if (!calles.length) return false;
   calleOmitida = true; // solo se le avisa una vez
@@ -7563,7 +7696,7 @@ async function pedirCalleSiFalta() {
   clienteLng = pos.longitude;
   ubicDeCalle = false;
   pintarDeliveryInfo();
-  await seleccionarCalleCercana(clienteLat, clienteLng);
+await seleccionarCalleCercana(clienteLat, clienteLng, pos.accuracy);
   document.getElementById("calleReferencia")?.focus();
   return true; // se detiene el envío para que revise su calle y referencia
 }

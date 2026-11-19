@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidad - GEINZ TECH</title>
+    <meta name="description"
+        content="Política de privacidad de GEINZ TECH: qué datos recopilamos, cómo los usamos y cómo usamos YouTube API Services.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://geinztech.com/seguridad_geinz/politica_privacidad">
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #000;
+            --card: #080808;
+            --line: rgba(255, 255, 255, .08);
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+            --p1: #8B5CF6;
+            --p2: #A855F7;
+            --soft: #c4b5fd;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html { scroll-behavior: smooth; scroll-padding-top: 96px; }
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+            font-size: 16px; line-height: 1.7; overflow-x: hidden;
+        }
+        a { color: var(--soft); text-underline-offset: 3px; }
+        a:hover { color: #fff; }
+        a:focus-visible, button:focus-visible { outline: 2px solid var(--p2); outline-offset: 3px; border-radius: 6px; }
+        code { background: rgba(139, 92, 246, .12); border: 1px solid rgba(139, 92, 246, .25); padding: 1px 7px; border-radius: 6px; font-size: .88em; word-break: break-all; }
+
+        /* Barra superior */
+        .topbar { position: sticky; top: 0; z-index: 20; background: rgba(0, 0, 0, .85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+        .topbar-in { max-width: 1120px; margin: auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 800; letter-spacing: .06em; font-size: .9rem; }
+        .brand img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+        .back { font-size: .8rem; font-weight: 700; color: var(--text); text-decoration: none; padding: 8px 16px; border-radius: 12px; border: 1px solid rgba(168, 85, 247, .4); }
+        .back:hover { background: rgba(139, 92, 246, .14); color: #fff; }
+
+        /* Encabezado */
+        .head { max-width: 1120px; margin: auto; padding: 56px 20px 28px; }
+        .head h1 { margin: 0 0 14px; font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; background: linear-gradient(135deg, #fff 25%, var(--soft) 60%, var(--p2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .head p { margin: 4px 0; color: var(--muted); font-size: .9rem; }
+
+        /* Disposición */
+        .layout { max-width: 1120px; margin: auto; padding: 0 20px 80px; display: grid; gap: 32px; grid-template-columns: 1fr; }
+        @media (min-width: 900px) { .layout { grid-template-columns: 240px minmax(0, 1fr); gap: 56px; } }
+
+        /* Índice */
+        .toc { position: sticky; top: 64px; z-index: 10; background: var(--bg); margin: 0 -20px; padding: 8px 20px; border-bottom: 1px solid var(--line); }
+        .toc ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+        .toc ol::-webkit-scrollbar { display: none; }
+        .toc a { display: block; white-space: nowrap; padding: 7px 13px; border-radius: 99px; font-size: .78rem; font-weight: 600; color: var(--muted); text-decoration: none; border: 1px solid var(--line); }
+        .toc a:hover { color: #fff; }
+        .toc a.on { color: #fff; background: rgba(139, 92, 246, .2); border-color: rgba(168, 85, 247, .55); }
+        @media (min-width: 900px) {
+            .toc { top: 96px; align-self: start; margin: 0; padding: 0; border: 0; background: transparent; }
+            .toc ol { flex-direction: column; gap: 2px; overflow: visible; }
+            .toc a { white-space: normal; border: 0; border-left: 2px solid var(--line); border-radius: 0 10px 10px 0; padding: 8px 14px; font-size: .84rem; }
+            .toc a.on { background: rgba(139, 92, 246, .1); border-left-color: var(--p2); }
+        }
+
+        /* Contenido */
+        .doc section { padding: 8px 0 30px; border-bottom: 1px solid var(--line); margin-bottom: 30px; }
+        .doc section:last-of-type { border-bottom: 0; margin-bottom: 0; }
+        .doc h2 { margin: 0 0 14px; font-size: 1.3rem; font-weight: 800; letter-spacing: -.01em; color: #fff; }
+        .doc p { margin: 0 0 14px; max-width: 70ch; color: #d1d5db; }
+        .doc ul { margin: 0 0 14px; padding-left: 0; list-style: none; max-width: 70ch; }
+        .doc li { position: relative; padding-left: 22px; margin-bottom: 10px; color: #d1d5db; }
+        .doc li::before { content: ''; position: absolute; left: 4px; top: .7em; width: 6px; height: 6px; border-radius: 50%; background: var(--p2); }
+        .doc strong { color: #fff; font-weight: 700; }
+
+        /* Bloque de YouTube: es lo que Google revisa, por eso se distingue */
+        .yt { background: linear-gradient(180deg, rgba(139, 92, 246, .09), var(--card) 70%); border: 1px solid rgba(168, 85, 247, .35); border-radius: 22px; padding: 26px 24px 12px !important; margin-bottom: 30px !important; }
+        .yt .limited { padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+
+        .contact { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px 8px; max-width: 70ch; }
+
+        .foot { border-top: 1px solid var(--line); padding: 26px 20px; text-align: center; color: #6b7280; font-size: .8rem; }
+        .foot a { margin: 0 8px; }
+
+        .up { position: fixed; right: 18px; bottom: 18px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(168, 85, 247, .5); background: rgba(0, 0, 0, .8); color: #fff; font-size: 18px; cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .2s, visibility .2s; z-index: 30; }
+        .up.show { opacity: 1; visibility: visible; }
+
+        @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+        @media print { .topbar, .toc, .up { display: none; } body { background: #fff; color: #000; } .doc p, .doc li, .doc h2, .doc strong { color: #000; } }
+    </style>
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="topbar-in">
+            <a href="../index.html" class="brand"><img src="../img/logo geinz.png" alt="">GEINZ TECH</a>
+            <a href="../index.html" class="back">Volver al inicio</a>
+        </div>
+    </header>
+
+    <div class="head">
+        <h1>Política de Privacidad</h1>
+        <p>Versión 1.0 | Última actualización: 14 de noviembre de 2026</p>
+        <p>GEINZ TECH (GEINZ TECNOLOGIA E.I.R.L.) | RUC: 20615632580</p>
+    </div>
+
+    <div class="layout">
+        <nav class="toc" aria-label="Contenido de la política">
+            <ol id="tocList">
+                <li><a href="#introduccion">1. Introducción</a></li>
+                <li><a href="#datos">2. Datos que recopilamos</a></li>
+                <li><a href="#uso">3. Para qué los usamos</a></li>
+                <li><a href="#youtube">4. YouTube API Services</a></li>
+                <li><a href="#compartimos">5. Con quién compartimos</a></li>
+                <li><a href="#seguridad">6. Conservación y seguridad</a></li>
+                <li><a href="#derechos">7. Tus derechos</a></li>
+                <li><a href="#menores">8. Menores de edad</a></li>
+                <li><a href="#cambios">9. Cambios</a></li>
+                <li><a href="#contacto">10. Contacto</a></li>
+            </ol>
+        </nav>
+
+        <main class="doc">
+            <section id="introduccion">
+                <h2>1. Introducción</h2>
+                <p><strong>GEINZ TECH</strong>, operado por <strong>GEINZ TECNOLOGIA E.I.R.L.</strong>, es una
+                    plataforma donde negocios locales crean su tienda digital, publican promociones y gestionan sus
+                    pedidos desde un panel web y una app Android. Esta política explica qué datos personales
+                    recopilamos, para qué los usamos, con quién los compartimos y qué derechos tienes sobre ellos.</p>
+                <p>Al usar nuestro sitio <strong>geinztech.com</strong>, nuestra app o nuestro panel, aceptas esta
+                    política. Tratamos tus datos conforme a la Ley N.° 29733, Ley de Protección de Datos Personales del
+                    Perú.</p>
+            </section>
+
+            <section id="datos">
+                <h2>2. Datos que recopilamos</h2>
+                <ul>
+                    <li><strong>Datos de cuenta:</strong> nombre, correo electrónico, número de teléfono y datos de tu
+                        negocio (nombre, dirección, logo, horarios).</li>
+                    <li><strong>Contenido que publicas:</strong> imágenes, títulos, descripciones, precios, ofertas y
+                        banners de tu negocio.</li>
+                    <li><strong>Datos de pedidos:</strong> productos, cantidades y datos de contacto necesarios para
+                        gestionar un pedido entre un cliente y un negocio.</li>
+                    <li><strong>Datos de pago:</strong> las compras de Monedas Geinz se procesan con Culqi. GEINZ no
+                        almacena números completos de tarjeta; solo conserva el identificador de la transacción.</li>
+                    <li><strong>Datos técnicos:</strong> tipo de dispositivo, navegador, estadísticas de uso (vistas y
+                        clics de publicaciones) y registros básicos de seguridad.</li>
+                </ul>
+            </section>
+
+            <section id="uso">
+                <h2>3. Para qué usamos tus datos</h2>
+                <ul>
+                    <li>Crear y administrar tu cuenta, tu tienda y tu perfil público.</li>
+                    <li>Mostrar tus promociones, productos y banners a los clientes.</li>
+                    <li>Procesar compras de Monedas Geinz y atender solicitudes de soporte, cambios y devoluciones.</li>
+                    <li>Mostrarte estadísticas de tus publicaciones.</li>
+                    <li>Mantener la seguridad de la plataforma y prevenir fraudes.</li>
+                </ul>
+                <p><strong>No vendemos tus datos personales a terceros.</strong></p>
+            </section>
+
+            <section id="youtube" class="yt">
+                <h2>4. Uso de YouTube API Services</h2>
+                <p>GEINZ TECH ofrece una función opcional que permite al propietario de un negocio <strong>subir un
+                        video a su propio canal de YouTube</strong> desde nuestro panel. Para ello usamos
+                    <strong>YouTube API Services</strong>.</p>
+                <ul>
+                    <li><strong>Permiso solicitado:</strong> solo <code>youtube.upload</code>
+                        (<code>https://www.googleapis.com/auth/youtube.upload</code>), que nos permite subir el video
+                        que tú eliges, con el título y la descripción que tú escribes.</li>
+                    <li><strong>Qué hacemos con él:</strong> únicamente subir ese video a tu canal. No leemos,
+                        listamos, editamos ni eliminamos otros videos ni datos de tu canal de YouTube.</li>
+                    <li><strong>Qué datos de Google usamos:</strong> el nombre y el correo de la cuenta de Google que
+                        conectas, solo para mostrarte con qué cuenta estás subiendo el video. El token de acceso se
+                        mantiene únicamente en tu navegador durante la sesión y no lo guardamos en nuestros servidores.
+                    </li>
+                    <li><strong>El video:</strong> se envía directamente desde tu navegador a YouTube. GEINZ no
+                        almacena copia del video.</li>
+                    <li><strong>Registro interno:</strong> guardamos el identificador del video, su enlace, el título,
+                        la descripción y la fecha de subida, para que puedas ver tu historial dentro de GEINZ.</li>
+                </ul>
+                <p>Al usar esta función también aceptas las
+                    <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">Condiciones del
+                        servicio de YouTube</a> y la
+                    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Política de
+                        privacidad de Google</a>.</p>
+                <p class="limited"><strong>Uso limitado (Limited Use):</strong> GEINZ TECH’s use and transfer to any
+                    other app of information received from Google APIs will adhere to the
+                    <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank"
+                        rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use
+                    requirements.</p>
+                <p><strong>Cómo revocar el acceso:</strong> puedes retirar el permiso de GEINZ TECH en cualquier
+                    momento desde
+                    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">la
+                        configuración de tu cuenta de Google</a>, o pulsando «Desconectar» en nuestro panel. Los videos
+                    ya subidos permanecen en tu canal; puedes administrarlos desde YouTube Studio.</p>
+            </section>
+
+            <section id="compartimos">
+                <h2>5. Con quién compartimos tus datos</h2>
+                <p>Solo compartimos datos con proveedores necesarios para operar el servicio:</p>
+                <ul>
+                    <li><strong>Google (Firebase):</strong> alojamiento, autenticación y base de datos.</li>
+                    <li><strong>Culqi:</strong> procesamiento de pagos.</li>
+                    <li><strong>Meta (Facebook e Instagram) y Google (YouTube):</strong> únicamente cuando tú conectas
+                        esas cuentas y decides publicar contenido en ellas.</li>
+                    <li><strong>Autoridades:</strong> cuando la ley lo exija.</li>
+                </ul>
+            </section>
+
+            <section id="seguridad">
+                <h2>6. Conservación y seguridad</h2>
+                <p>Conservamos tus datos mientras tu cuenta esté activa y durante el tiempo necesario para cumplir
+                    obligaciones legales y contables. Usamos conexiones cifradas (HTTPS) y controles de acceso para
+                    proteger la información. Ningún sistema es completamente infalible, pero trabajamos para reducir
+                    los riesgos.</p>
+            </section>
+
+            <section id="derechos">
+                <h2>7. Tus derechos</h2>
+                <p>Puedes solicitar en cualquier momento el <strong>acceso, rectificación, cancelación u
+                        oposición</strong> sobre tus datos personales, así como la <strong>eliminación de tu cuenta y de
+                        tus datos</strong>. Escríbenos a <strong>soybenjadesing@gmail.com</strong> desde el correo
+                    registrado en tu cuenta y responderemos en un plazo máximo de 10 días hábiles.</p>
+            </section>
+
+            <section id="menores">
+                <h2>8. Menores de edad</h2>
+                <p>GEINZ TECH está dirigido a negocios y personas mayores de 18 años. No recopilamos de forma
+                    intencional datos de menores de edad.</p>
+            </section>
+
+            <section id="cambios">
+                <h2>9. Cambios en esta política</h2>
+                <p>Podemos actualizar esta política. Publicaremos la versión vigente en esta misma página con su fecha
+                    de actualización. Si el cambio es importante, te lo avisaremos dentro de la plataforma.</p>
+            </section>
+
+            <section id="contacto">
+                <h2>10. Contacto</h2>
+                <div class="contact">
+                    <ul>
+                        <li><strong>Empresa:</strong> GEINZ TECNOLOGIA E.I.R.L. (GEINZ TECH)</li>
+                        <li><strong>Correo:</strong> soybenjadesing@gmail.com</li>
+                        <li><strong>WhatsApp:</strong> +51 937 659 216</li>
+                        <li><strong>Horario:</strong> Lunes a Sábado de 9:00 a.m. a 6:00 p.m.</li>
+                        <li><strong>Ubicación:</strong> Urb. San Mateo, Calle 1, Mz. I, Lote 4, Barranca, Lima, Perú.
+                        </li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="foot">
+        <p>© 2026 GEINZ TECNOLOGIA E.I.R.L. — Todos los derechos reservados.</p>
+        <p><a href="../index.html">Inicio</a><a href="terminos_y_condiciones">Términos y Condiciones</a></p>
+    </footer>
+
+    <button type="button" class="up" id="up" aria-label="Volver arriba">↑</button>
+
+    <script>
+        (function () {
+            var links = Array.prototype.slice.call(document.querySelectorAll('#tocList a'));
+            var secs = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+
+            function marcar(id) {
+                links.forEach(function (a) {
+                    var on = a.getAttribute('href') === '#' + id;
+                    a.classList.toggle('on', on);
+                    if (on) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
+                    if (on && window.innerWidth < 900) a.scrollIntoView({ inline: 'center', block: 'nearest' });
+                });
+            }
+
+            if ('IntersectionObserver' in window) {
+                var io = new IntersectionObserver(function (en) {
+                    en.forEach(function (x) { if (x.isIntersecting) marcar(x.target.id); });
+                }, { rootMargin: '-20% 0px -70% 0px' });
+                secs.forEach(function (s) { if (s) io.observe(s); });
+            }
+
+            var up = document.getElementById('up');
+            window.addEventListener('scroll', function () { up.classList.toggle('show', window.scrollY > 600); }, { passive: true });
+            up.addEventListener('click', function () { window.scrollTo({ top: 0 }); });
+
+            if (location.hash) {
+                var t = document.querySelector(location.hash);
+                if (t) setTimeout(function () { t.scrollIntoView(); marcar(t.id); }, 50);
+            }
+        })();
+    </script>
+</body>
+
+</html>

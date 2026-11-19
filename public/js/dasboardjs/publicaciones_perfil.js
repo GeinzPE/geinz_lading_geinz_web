@@ -545,7 +545,10 @@ function crearCardBanner(id) {
   });
 
   $("img-wrap").addEventListener("click", (e) => {
-    if (e.target.closest('[data-role="del"]') || e.target.closest('[data-role="edit"]'))
+    if (
+      e.target.closest('[data-role="del"]') ||
+      e.target.closest('[data-role="edit"]')
+    )
       return;
     abrirVisor(imgEl.src);
   });
@@ -579,7 +582,9 @@ function subirImagenBanner(oldId) {
     if (!file) return;
     if (
       !confirm(
-        oldId ? "¿Reemplazar la imagen de este banner?" : "¿Agregar este banner?",
+        oldId
+          ? "¿Reemplazar la imagen de este banner?"
+          : "¿Agregar este banner?",
       )
     )
       return;
@@ -1280,7 +1285,7 @@ function costoRecetaBase(r) {
 // ── Variantes (helada / sin helar, tamaños, etc.) ──
 const opsActivas = (c) =>
   (c.opciones || []).filter(
-    (o) => o.activo !== false && (o.nombre || "").trim(),
+    (o) => o.activo !== false && (o.nombre || "").trim() && !o.todas,
   );
 // Solo grupos de "elegir 1": definen QUÉ producto es. Los extras (grupos múltiples) no entran al combo.
 const gruposUnicos = (p) =>
@@ -1943,6 +1948,7 @@ function abrirEditorAvanzadoOferta(key) {
     descripcion: "",
     activo: true,
     exclusiva: false,
+    todas: false,
     costoAdicional: 0,
     stock: null,
   });
@@ -2029,7 +2035,14 @@ function abrirEditorAvanzadoOferta(key) {
                 <button type="button" class="va-x" data-a="delop">✕</button>
               </div>
               <input class="va-in va-desc" data-f="odesc" maxlength="120" placeholder="Qué incluye (opcional)" value="${gEsc(o.descripcion || "")}">
-              ${multi ? `<label class="va-chk" style="margin-top:4px"><input type="checkbox" data-f="oexc" ${o.exclusiva ? "checked" : ""}> Excluyente (desactiva las demás)</label>` : ""}
+              ${
+                multi
+                  ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
+                <label class="va-chk"><input type="checkbox" data-f="otodas" ${o.todas ? "checked" : ""}> Selecciona todas (menos las excluyentes)</label>
+                <label class="va-chk"><input type="checkbox" data-f="oexc" ${o.exclusiva ? "checked" : ""}> Excluyente (desactiva las demás)</label>
+              </div>`
+                  : ""
+              }
             </div>`,
             )
             .join("")}
@@ -2069,7 +2082,10 @@ function abrirEditorAvanzadoOferta(key) {
       if (g.tipo !== "multiple") {
         g.conCantidad = false;
         g.max = null;
-        g.opciones.forEach((x) => (x.exclusiva = false));
+        g.opciones.forEach((x) => {
+          x.exclusiva = false;
+          x.todas = false;
+        });
       }
       pintar();
     } else if (f === "cobl") g.obligatoria = t.checked;
@@ -2082,7 +2098,19 @@ function abrirEditorAvanzadoOferta(key) {
       o.stock = t.value === "" ? null : Math.max(0, parseInt(t.value, 10) || 0);
     else if (f === "oact") o.activo = t.checked;
     else if (f === "odesc") o.descripcion = t.value;
-    else if (f === "oexc") o.exclusiva = t.checked;
+    else if (f === "oexc") {
+      o.exclusiva = t.checked;
+      if (t.checked) o.todas = false;
+      const sc = body.scrollTop;
+      pintar();
+      body.scrollTop = sc;
+    } else if (f === "otodas") {
+      o.todas = t.checked;
+      if (t.checked) o.exclusiva = false;
+      const sc = body.scrollTop;
+      pintar();
+      body.scrollTop = sc;
+    }
   };
   body.addEventListener("input", onEdit);
   body.addEventListener("change", onEdit);
@@ -2158,6 +2186,7 @@ function abrirEditorAvanzadoOferta(key) {
                 ).slice(0, 120),
                 activo: o.activo !== false,
                 exclusiva: multi && o.exclusiva === true,
+                todas: multi && o.todas === true && o.exclusiva !== true,
                 costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
                 stock: typeof o.stock === "number" ? o.stock : null,
               })),

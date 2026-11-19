@@ -801,7 +801,7 @@ function renderRecVariantes() {
     if (!cond.nombre.trim()) return;
     const ops = cond.opciones
       .map((op, oi) => {
-        if (!op.nombre.trim()) return "";
+        if (!op.nombre.trim() || op.todas) return "";
         const r = op.receta || { items: [] };
         const items = (r.items || [])
           .map((it, ii) => {
@@ -846,9 +846,8 @@ function renderRecVariantes() {
 }
 const opcionesActivas = (cond) =>
   (cond.opciones || []).filter(
-    (o) => o.activo !== false && (o.nombre || "").trim(),
+    (o) => o.activo !== false && (o.nombre || "").trim() && !o.todas,
   );
-
 const tieneReceta = (d) =>
   !!(
     d.receta?.items?.length ||
@@ -1555,6 +1554,7 @@ const perfilDoc = (id) =>
 function datosParaPerfil(categoriaId, productoId, d) {
   const limpiarOp = (o) => ({
     exclusiva: o.exclusiva === true,
+    todas: o.todas === true,
     nombre: o.nombre,
     descripcion: o.descripcion || "",
     imagen: o.imagen ? { url: o.imagen.url } : null,
@@ -2051,7 +2051,10 @@ function renderCondiciones() {
       if (cond.tipo !== "multiple") {
         cond.conCantidad = false;
         cond.max = null;
-        cond.opciones.forEach((o) => (o.exclusiva = false));
+        cond.opciones.forEach((o) => {
+          o.exclusiva = false;
+          o.todas = false;
+        });
       }
       renderCondiciones();
     });
@@ -2239,17 +2242,33 @@ function renderCondiciones() {
 
       wrapOp.append(row, descInput);
       if (multiple) {
+        const chips = document.createElement("div");
+        chips.className = "flex flex-col gap-1 mt-1";
+
         const exclChip = chipCheck(
           "Excluyente (al elegirla se desactivan las demás)",
           op.exclusiva,
           (v) => {
             op.exclusiva = v;
+            if (v) op.todas = false;
+            renderCondiciones();
           },
           "Ej. «Sin cremas»: si el cliente la elige, no puede elegir las otras",
         );
-        exclChip.classList.add("mt-1");
-        wrapOp.appendChild(exclChip);
+        const todasChip = chipCheck(
+          "Selecciona todas (menos las excluyentes)",
+          op.todas,
+          (v) => {
+            op.todas = v;
+            if (v) op.exclusiva = false;
+            renderCondiciones();
+          },
+          "Ej. «Todas las cremas»: al tocarla se marcan todas las opciones del grupo, menos «Sin cremas»",
+        );
+        chips.append(todasChip, exclChip);
+        wrapOp.appendChild(chips);
       }
+
       opcionesWrap.appendChild(wrapOp);
     });
     box.appendChild(opcionesWrap);
@@ -2383,7 +2402,10 @@ function aplicarSwitchesAGrupos() {
     c.conCantidad = multiple && cant;
     if (!multiple) {
       c.max = null;
-      c.opciones.forEach((o) => (o.exclusiva = false));
+      c.opciones.forEach((o) => {
+        o.exclusiva = false;
+        o.todas = false;
+      });
     }
   });
   renderCondiciones();
@@ -2505,6 +2527,7 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
         imagen: o.imagen || null,
         activo: !!o.activo,
         exclusiva: o.exclusiva === true,
+        todas: o.todas === true,
         costoAdicional: Number(o.costoAdicional) || 0,
         stock: typeof o.stock === "number" ? o.stock : null,
         receta: o.receta
@@ -2643,6 +2666,7 @@ document
                   String(o.descripcion || "").trim(),
                 ).slice(0, 120), // <- cambio 3
                 exclusiva: multiple && o.exclusiva === true,
+                todas: multiple && o.todas === true && o.exclusiva !== true,
                 imagen: o.imagen || null,
                 activo: !!o.activo,
 

@@ -753,6 +753,7 @@ async function abrirEditorAvanzadoPromo(promo, onGuardado) {
     descripcion: "",
     activo: true,
     exclusiva: false,
+    todas: false,
     costoAdicional: 0,
     stock: null,
   });
@@ -832,7 +833,14 @@ async function abrirEditorAvanzadoPromo(promo, onGuardado) {
                 <button type="button" class="va-x" data-a="delop">✕</button>
               </div>
               <input class="va-in va-desc" data-f="odesc" maxlength="120" placeholder="Qué incluye (opcional)" value="${gEsc(o.descripcion || "")}">
-              ${multi ? `<label class="va-chk" style="margin-top:4px"><input type="checkbox" data-f="oexc" ${o.exclusiva ? "checked" : ""}> Excluyente (desactiva las demás)</label>` : ""}
+              ${
+                multi
+                  ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
+                <label class="va-chk"><input type="checkbox" data-f="otodas" ${o.todas ? "checked" : ""}> Selecciona todas (menos las excluyentes)</label>
+                <label class="va-chk"><input type="checkbox" data-f="oexc" ${o.exclusiva ? "checked" : ""}> Excluyente (desactiva las demás)</label>
+              </div>`
+                  : ""
+              }
             </div>`,
             )
             .join("")}
@@ -872,7 +880,10 @@ async function abrirEditorAvanzadoPromo(promo, onGuardado) {
       if (g.tipo !== "multiple") {
         g.conCantidad = false;
         g.max = null;
-        g.opciones.forEach((x) => (x.exclusiva = false));
+        g.opciones.forEach((x) => {
+          x.exclusiva = false;
+          x.todas = false;
+        });
       }
       pintar();
     } else if (f === "cobl") g.obligatoria = t.checked;
@@ -885,7 +896,19 @@ async function abrirEditorAvanzadoPromo(promo, onGuardado) {
       o.stock = t.value === "" ? null : Math.max(0, parseInt(t.value, 10) || 0);
     else if (f === "oact") o.activo = t.checked;
     else if (f === "odesc") o.descripcion = t.value;
-    else if (f === "oexc") o.exclusiva = t.checked;
+    else if (f === "oexc") {
+      o.exclusiva = t.checked;
+      if (t.checked) o.todas = false;
+      const sc = body.scrollTop;
+      pintar();
+      body.scrollTop = sc;
+    } else if (f === "otodas") {
+      o.todas = t.checked;
+      if (t.checked) o.exclusiva = false;
+      const sc = body.scrollTop;
+      pintar();
+      body.scrollTop = sc;
+    }
   };
   body.addEventListener("input", onEdit);
   body.addEventListener("change", onEdit);
@@ -961,6 +984,7 @@ async function abrirEditorAvanzadoPromo(promo, onGuardado) {
                 ).slice(0, 120),
                 activo: o.activo !== false,
                 exclusiva: multi && o.exclusiva === true,
+                todas: multi && o.todas === true && o.exclusiva !== true,
                 costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
                 stock: typeof o.stock === "number" ? o.stock : null,
               })),
@@ -1069,7 +1093,9 @@ function enlazarControlesCard(card, promo) {
     try {
       if (dia) {
         const set = new Set(promo.dias || []);
-        set.has(dia.dataset.dia) ? set.delete(dia.dataset.dia) : set.add(dia.dataset.dia);
+        set.has(dia.dataset.dia)
+          ? set.delete(dia.dataset.dia)
+          : set.add(dia.dataset.dia);
         const arr = GEN_DIAS.map((x) => x[0]).filter((x) => set.has(x));
         await guardarConfig(
           promo,
@@ -1093,7 +1119,9 @@ function enlazarControlesCard(card, promo) {
             "beforeend",
             `<span data-badge-esp class="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-500 text-white shadow-md">⭐ Especial</span>`,
           );
-        mostrarToast(v ? "Se destacará en tu día especial" : "Ya no se destacará");
+        mostrarToast(
+          v ? "Se destacará en tu día especial" : "Ya no se destacará",
+        );
       } else if (del) {
         const v = !promo.deliveryGratis;
         await guardarConfig(
@@ -1102,7 +1130,9 @@ function enlazarControlesCard(card, promo) {
           { deliveryGratis: v ? true : undefined },
         );
         pintar();
-        mostrarToast(v ? "Delivery gratis activado" : "Delivery gratis desactivado");
+        mostrarToast(
+          v ? "Delivery gratis activado" : "Delivery gratis desactivado",
+        );
       } else if (adv) {
         omitirRenderHasta = Date.now() + 2500;
         abrirEditorAvanzadoPromo(promo, () => {

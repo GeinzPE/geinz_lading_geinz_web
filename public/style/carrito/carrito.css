@@ -543,11 +543,42 @@ body {
     border-bottom: none;
     transform: translateY(100%);
     transition: transform .45s cubic-bezier(.22, 1.2, .36, 1);
-    max-height: 82vh;
+    /* casi toda la pantalla, dejando un borde arriba para ver que es un sheet */
+    height: 94vh;
+    height: 94dvh;
+    max-height: 94dvh;
     display: flex;
     flex-direction: column;
+    /* respeta la barra de gestos / navegación del celular */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    will-change: transform;
 }
 
+#drawer.show {
+    transform: translateY(0);
+}
+
+/* mientras el dedo arrastra, sin transición para que siga al dedo */
+#drawer.dragging {
+    transition: none;
+}
+
+/* zona táctil grande para agarrar el handle */
+.drawer-handle-zone {
+    padding: 12px 0 8px;
+    cursor: grab;
+    touch-action: none; /* evita que el navegador robe el gesto */
+    flex-shrink: 0;
+}
+
+.drawer-handle-zone .drawer-handle {
+    margin: 0 auto;
+}
+
+/* el scroll interno no debe arrastrar la página de fondo */
+#drawerItems {
+    overscroll-behavior: contain;
+}
 #drawer.show {
     transform: translateY(0);
 }
@@ -1221,4 +1252,29 @@ body {
 }
 .hint-box + .hint-box{
   margin-top:-2px;
+}
+/* ── Todos los bottom sheets: casi pantalla completa en móvil ── */
+@media (max-width: 639px) {
+  #checkoutModal,
+  #optionsModal {
+    max-height: 94dvh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    will-change: transform;
+  }
+  /* handle con zona táctil grande (el dibujo sigue siendo la barrita) */
+  #checkoutModal .drawer-handle,
+  #optionsModal .drawer-handle {
+    box-sizing: content-box;
+    padding: 12px 40px;
+    background-clip: content-box;
+    margin: 0 auto;
+    cursor: grab;
+  }
+}
+
+/* el scroll interno no arrastra el fondo */
+#optionsBody,
+#checkoutScrollArea,
+.promo-detail-scroll {
+  overscroll-behavior: contain;
 }

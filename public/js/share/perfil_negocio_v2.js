@@ -86,11 +86,11 @@ const _MAP = Object.fromEntries(
 );
 const _EMOJI_RE = new RegExp(
   "(" +
-  Object.keys(_MAP)
-    .sort((a, b) => b.length - a.length)
-    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|") +
-  ")\\uFE0F?",
+    Object.keys(_MAP)
+      .sort((a, b) => b.length - a.length)
+      .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|") +
+    ")\\uFE0F?",
   "g",
 );
 
@@ -1241,7 +1241,7 @@ const _cGet = (k, ttl = 6 * 3600e3) => {
 const _cSet = (k, d) => {
   try {
     localStorage.setItem(k, JSON.stringify({ t: Date.now(), d }));
-  } catch { }
+  } catch {}
 };
 function aplicarManifest({ alias, id, localidad }) {
   const q = _esDominioPersonalizado
@@ -2298,7 +2298,7 @@ function mostrarBannerNotificaciones(uid) {
   try {
     const t = Number(localStorage.getItem(`geinz_notif_skip_${uid}`)) || 0;
     if (Date.now() - t < NOTIF_SKIP_DIAS * 864e5) return; // dijo "ahora no" hace poco
-  } catch { }
+  } catch {}
 
   if (!document.getElementById("notifBannerStyle")) {
     const st = document.createElement("style");
@@ -2329,11 +2329,18 @@ function mostrarBannerNotificaciones(uid) {
       <button class="notif-yes" type="button">Activar</button>
     </div>`;
   document.body.appendChild(b);
-  requestAnimationFrame(() => requestAnimationFrame(() => b.classList.add("show")));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => b.classList.add("show")),
+  );
 
-  const cerrar = () => { b.classList.remove("show"); setTimeout(() => b.remove(), 400); };
+  const cerrar = () => {
+    b.classList.remove("show");
+    setTimeout(() => b.remove(), 400);
+  };
   b.querySelector(".notif-no").onclick = () => {
-    try { localStorage.setItem(`geinz_notif_skip_${uid}`, String(Date.now())); } catch { }
+    try {
+      localStorage.setItem(`geinz_notif_skip_${uid}`, String(Date.now()));
+    } catch {}
     cerrar();
   };
   b.querySelector(".notif-yes").onclick = async () => {
@@ -2517,7 +2524,9 @@ function bindMesaReservaEvents() {
       } catch (err) {
         console.error("Error al enviar solicitud de reserva:", err);
         finalizarProgresoReserva(submitBtn, false);
-        setError(_msgErr(err, "No se pudo enviar la solicitud, intenta de nuevo"));
+        setError(
+          _msgErr(err, "No se pudo enviar la solicitud, intenta de nuevo"),
+        );
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }
@@ -2658,7 +2667,7 @@ async function _getSegmento() {
   try {
     const s = await getDoc(data_user_logeado(uid));
     if (s.exists()) d = s.data();
-  } catch { }
+  } catch {}
   _segCache = {
     uid,
     logeado: true,
@@ -2690,7 +2699,7 @@ async function trackPromo(promoId, evento) {
     try {
       if (localStorage.getItem(k)) return;
       localStorage.setItem(k, "1");
-    } catch { }
+    } catch {}
   }
 
   const entry = _statBuf.get(promoId) || {};
@@ -2829,19 +2838,21 @@ function renderActivePromos(promos, localidad) {
         ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
         ${destacado ? `<span class="promo-destacado-badge">Destacado por hoy</span>` : ""}
         <div class="promo-active-top-actions">
-          ${puedeComprarPromo
-        ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+          ${
+            puedeComprarPromo
+              ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/></svg>
           </button>`
-        : ""
-      }
+              : ""
+          }
           ${waLink ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ""}
-          ${shareAllowed
-        ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+          ${
+            shareAllowed
+              ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/></svg>
           </button>`
-        : ""
-      }
+              : ""
+          }
         </div>
         <div class="promo-active-bottom-overlay">
           ${precio > 0 ? `<span class="promo-active-price-badge">${desde.varia ? "Desde " : ""}S/ ${desde.precio.toFixed(2)}</span>` : ""}
@@ -2863,15 +2874,15 @@ function renderActivePromos(promos, localidad) {
 
     const onComprarEstaPromo = puedeComprarPromo
       ? () => {
-        if (bloquearSiCerrado()) return;
-        trackPromo(p.id, "clics_comprar");
-        agregarAlCarritoPerfil({
-          promoId: `activa_${p.id}`,
-          nombre: titulo,
-          precio,
-          imagen: img,
-        });
-      }
+          if (bloquearSiCerrado()) return;
+          trackPromo(p.id, "clics_comprar");
+          agregarAlCarritoPerfil({
+            promoId: `activa_${p.id}`,
+            nombre: titulo,
+            precio,
+            imagen: img,
+          });
+        }
       : null;
 
     const datosDetalle = {
@@ -3300,6 +3311,7 @@ function promoCondiciones(raw) {
         )
         .map((o) => ({
           exclusiva: o.exclusiva === true,
+          todas: o.todas === true,
           nombre: o.nombre,
           descripcion: String(o.descripcion || "").trim(),
           imagen: "",
@@ -3634,17 +3646,17 @@ function ocultarNumero(n) {
 // ══════════════════════════════════════════
 const CONTACT_META = {
   whatsapp: {
-    icon: "../img/whatsapp_icon.png",
+    icon: "/img/whatsapp_icon.png",
     getHref: (c) => `https://wa.me/${c.valor.replace(/\D/g, "")}`,
   },
   telefono: {
-    icon: "../img/llamada_icon.png",
+    icon: "/img/llamada_icon.png",
     getHref: (c) => `tel:${c.valor}`,
   },
-  facebook: { icon: "../img/facebook_icon.webp", getHref: (c) => c.valor },
-  instagram: { icon: "../img/instagram_icon.webp", getHref: (c) => c.valor },
-  tiktok: { icon: "../img/tik_tok_icon.webp", getHref: (c) => c.valor },
-  web: { icon: "../img/sitio-web.webp", getHref: (c) => c.valor },
+  facebook: { icon: "/img/facebook_icon.webp", getHref: (c) => c.valor },
+  instagram: { icon: "/img/instagram_icon.webp", getHref: (c) => c.valor },
+  tiktok: { icon: "/img/tik_tok_icon.webp", getHref: (c) => c.valor },
+  web: { icon: "/img/sitio-web.webp", getHref: (c) => c.valor },
 };
 function pintarContactoModal() {
   const list = document.getElementById("contactoList");
@@ -3770,11 +3782,6 @@ function updateQuickNav() {
       label: "Métodos y más",
       target: "__metodos",
     },
-    _navState.contacto && {
-      emoji: "💬",
-      label: "Contacto",
-      target: "__contacto",
-    },
   ].filter(Boolean);
 
   items.forEach(({ emoji, label, target }) => {
@@ -3783,7 +3790,6 @@ function updateQuickNav() {
     btn.innerHTML = `<span class="emoji">${emoji}</span> ${label}`;
     btn.addEventListener("click", () => {
       if (target === "__metodos") return abrirMetodosModal();
-      if (target === "__contacto") return abrirContactoModal();
       document
         .getElementById(target)
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3909,8 +3915,6 @@ function calcStatus(horario) {
     stxt.textContent = `Cerrado${motivoTexto}`;
     return;
   }
-
-
 
   // Aún no abre (primer bloque futuro de hoy)
   for (const bloque of today.bloques) {
@@ -5243,11 +5247,11 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
     ? `<div class="banner-cta-days">
          <span class="banner-cta-days-lbl">Días</span>
          ${DAY_ORDER_CORTO.filter(([k]) => dias.includes(k))
-      .map(
-        ([k, l]) =>
-          `<span class="banner-cta-day${k === hoy ? " hoy" : ""}">${l}</span>`,
-      )
-      .join("")}
+           .map(
+             ([k, l]) =>
+               `<span class="banner-cta-day${k === hoy ? " hoy" : ""}">${l}</span>`,
+           )
+           .join("")}
          ${banner.soloSeguidores ? `<span class="banner-cta-tag">· Solo seguidores</span>` : ""}
        </div>`
     : banner.soloSeguidores
@@ -5258,30 +5262,33 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
   cta.id = "bannerCta";
   cta.className = "banner-cta";
   cta.innerHTML = `
-    ${href
-      ? `<div class="banner-cta-info">
+    ${
+      href
+        ? `<div class="banner-cta-info">
       <p class="banner-cta-desc">${escapeHtml(desc)}</p>
       <span class="banner-cta-price">${precioLabel}</span>
     </div>`
-      : ""
+        : ""
     }
     ${href ? diasHTML : ""}
-    ${href
-      ? `<a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
+    ${
+      href
+        ? `<a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/></svg>
       <span>Ir al carrito</span>
       <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>`
-      : ""
+        : ""
     }
-    ${hayVarios
-      ? `<div class="banner-cta-dots">${lista
-        .map(
-          (_, i) =>
-            `<button type="button" class="banner-cta-dot${i === indice ? " on" : ""}" data-i="${i}" aria-label="Banner ${i + 1}"></button>`,
-        )
-        .join("")}</div>`
-      : ""
+    ${
+      hayVarios
+        ? `<div class="banner-cta-dots">${lista
+            .map(
+              (_, i) =>
+                `<button type="button" class="banner-cta-dot${i === indice ? " on" : ""}" data-i="${i}" aria-label="Banner ${i + 1}"></button>`,
+            )
+            .join("")}</div>`
+        : ""
     }`;
 
   cta
@@ -6097,7 +6104,6 @@ let _navState = {
   ambientes: false,
   carta: false,
   metodos: false,
-  contacto: false,
 };
 let _contactosCache = [];
 
@@ -6116,7 +6122,9 @@ function negocioAbiertoAhora() {
 function bloquearSiCerrado() {
   if (negocioAbiertoAhora()) return false;
   const estado = document.getElementById("statusText")?.textContent?.trim();
-  showToast(`🔒 ${estado || "El negocio está cerrado ahora"}. No se puede pedir en este momento`);
+  showToast(
+    `🔒 ${estado || "El negocio está cerrado ahora"}. No se puede pedir en este momento`,
+  );
   return true;
 }
 
@@ -6195,9 +6203,16 @@ let _F = {
 };
 function tryHideLoader() {
   if (
-    _colorReady && _followReady && _reviewsReady && _bannerReady &&
-    _promosReady && _catalogoReady && _puntosReady && _pedidosReady &&
-    _serviciosReady && _cartaReady
+    _colorReady &&
+    _followReady &&
+    _reviewsReady &&
+    _bannerReady &&
+    _promosReady &&
+    _catalogoReady &&
+    _puntosReady &&
+    _pedidosReady &&
+    _serviciosReady &&
+    _cartaReady
   ) {
     hideBizLoader();
   }
@@ -6681,12 +6696,12 @@ async function render(biz, isInitial = true) {
     });
   }
 
+
   // Contactos (NO tiempo real)
   if (isInitial) {
     _contactosCache = contactos;
-    _navState.contacto = contactos.length > 0;
+    renderBannerRedes();
   }
-
   // Métodos de pago + servicios/comodidades
   _pagosCache = pagos;
   if (isInitial) _amenitiesCache = esPresencial ? amenities : [];
@@ -6834,15 +6849,16 @@ async function render(biz, isInitial = true) {
           <div class="promo-card-img-wrap">
                                 ${promo.destacado ? `<span class="promo-destacado-badge">Destacado por hoy</span>` : ""}
             <div class="promo-card-top-actions">
-              ${puedeComprarPromo
-          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+              ${
+                puedeComprarPromo
+                  ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                   <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
                 </svg>
               </button>`
-          : ""
-        }
+                  : ""
+              }
               <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -6850,16 +6866,17 @@ async function render(biz, isInitial = true) {
                 </svg>
               </button>
             </div>
-            ${promo.precio > 0 || promo.descripcion
-          ? `
+            ${
+              promo.precio > 0 || promo.descripcion
+                ? `
             <div class="promo-card-bottom-overlay">
                        ${promo.precio > 0 ? `<span class="promo-card-price">${promo.condiciones?.length && cpDesde(promo).varia ? "Desde " : ""}S/ ${(promo.condiciones?.length ? cpDesde(promo).precio : promo.precio).toFixed(2)}</span>` : ""}
                        ${promo.deliveryGratis ? `<span class="promo-delivery-chip">🚚 Delivery gratis</span>` : ""}
               ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
                                          ${promo.destacado && promo.destacadoTexto ? `<p class="promo-destacado-txt">${escapeHtml(promo.destacadoTexto)}</p>` : ""}
             </div>`
-          : ""
-        }
+                : ""
+            }
           </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -6882,12 +6899,12 @@ async function render(biz, isInitial = true) {
 
       const onComprarEstaPromo = puedeComprarPromo
         ? () =>
-          agregarAlCarritoPerfil({
-            promoId: promo.id,
-            nombre: promo.titulo,
-            precio: promo.precio,
-            imagen: promo.url,
-          })
+            agregarAlCarritoPerfil({
+              promoId: promo.id,
+              nombre: promo.titulo,
+              precio: promo.precio,
+              imagen: promo.url,
+            })
         : null;
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
@@ -7578,8 +7595,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-      .toDate()
-      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+        .toDate()
+        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -8132,10 +8149,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
       : "";
     const respuestaHTML = respuestaTexto
       ? `
@@ -8641,7 +8658,7 @@ function diaEspecialProximo() {
       ({ biz, servicios } = cached);
       Promise.all([loadBusiness(params), loadServicios(params)])
         .then(([b, s]) => _cSet(ck, { biz: b, servicios: s }))
-        .catch(() => { });
+        .catch(() => {});
     } else {
       [biz, servicios] = await Promise.all([
         loadBusiness(params),
@@ -8674,7 +8691,7 @@ function diaEspecialProximo() {
       setTimeout(hideBizLoader, 300); // el progreso ya cubre la pantalla
     } else {
       tryHideLoader();
-      setTimeout(hideBizLoader, 6000); // seguro anti-bloqueo  
+      setTimeout(hideBizLoader, 6000); // seguro anti-bloqueo
     }
 
     injectReviewsStyles();
@@ -9274,6 +9291,7 @@ function cpNormalizar(d) {
       .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
       .map((o) => ({
         exclusiva: o.exclusiva === true,
+        todas: o.todas === true,
         nombre: o.nombre,
         descripcion: String(o.descripcion || "").trim(),
         imagen: o.imagen?.url || "",
@@ -9351,10 +9369,10 @@ function cpDesde(p, sinDesc = false) {
   let varia = false;
   p.condiciones.forEach((c) => {
     if (!c.obligatoria) return;
-    const costos = c.opciones.map((o) => o.costoAdicional);
+    const costos = c.opciones.filter((o) => !o.todas).map((o) => o.costoAdicional);
     const min = Math.min(...costos);
     if (min !== Math.max(...costos)) varia = true;
-    const o = c.opciones.find((x) => x.costoAdicional === min);
+    const o = c.opciones.find((x) => !x.todas && x.costoAdicional === min);
     sel[c.nombre] = c.conCantidad
       ? { [o.nombre]: 1 }
       : c.multiple
@@ -9473,6 +9491,31 @@ function cpExcl(c) {
     c.opciones.find((o) => o.exclusiva && nombres.includes(o.nombre)) || null
   );
 }
+const cpReales = (c) => c.opciones.filter((o) => !o.todas && !o.exclusiva);
+
+function cpTodasMarcadas(c) {
+  const reales = cpReales(c);
+  if (!reales.length) return false;
+  const marcadas = cpEntradas(_cpSel[c.nombre]).map(([n]) => n);
+  return reales.every((o) => marcadas.includes(o.nombre));
+}
+
+function cpAlternarTodas(c) {
+  const k = c.nombre;
+  if (cpTodasMarcadas(c)) {
+    delete _cpSel[k];
+    return true;
+  }
+  const reales = cpReales(c);
+  if (c.max && reales.length > c.max) {
+    showToast(`Son más de ${c.max}, elige a mano en "${c.nombre}"`);
+    return false;
+  }
+  _cpSel[k] = c.conCantidad
+    ? Object.fromEntries(reales.map((o) => [o.nombre, 1]))
+    : reales.map((o) => o.nombre);
+  return true;
+}
 function cpAlternar(c, n) {
   const k = c.nombre;
   if (!c.multiple) {
@@ -9481,6 +9524,7 @@ function cpAlternar(c, n) {
     return true;
   }
   const opE = c.opciones.find((o) => o.nombre === n);
+    if (opE?.todas) return cpAlternarTodas(c);
   const exE = cpExcl(c);
   if (opE?.exclusiva) {
     if (exE?.nombre === n) delete _cpSel[k];
@@ -9540,9 +9584,9 @@ function cpPintarGrupo(c, sec) {
   list.innerHTML = "";
 
   c.opciones.forEach((op) => {
-    const q = cpCant(c, op.nombre);
+    const q = op.todas ? (cpTodasMarcadas(c) ? 1 : 0) : cpCant(c, op.nombre);
     const cap = typeof op.stock === "number" ? op.stock : Infinity;
-    const bloq = !!excl && !op.exclusiva;
+    const bloq = !!excl && !op.exclusiva && !op.todas;
     const row = cpMk("div", "opt-row" + (q > 0 ? " sel" : ""));
     if (bloq) row.classList.add("blk");
     let thumb = null;
@@ -9558,13 +9602,13 @@ function cpPintarGrupo(c, sec) {
     if (op.descripcion) info.appendChild(cpMk("p", "opt-desc", op.descripcion));
     const precio = op.costoAdicional
       ? cpMk(
-        "span",
-        "opt-price",
-        `+S/ ${op.costoAdicional.toFixed(2)}${c.conCantidad ? " c/u" : ""}`,
-      )
+          "span",
+          "opt-price",
+          `+S/ ${op.costoAdicional.toFixed(2)}${c.conCantidad ? " c/u" : ""}`,
+        )
       : null;
 
-    if (c.conCantidad) {
+    if (c.conCantidad && !op.todas) {
       row.classList.add("qty");
       if (thumb) row.appendChild(thumb);
       row.appendChild(info);
@@ -9597,7 +9641,8 @@ function cpPintarGrupo(c, sec) {
       }
       row.appendChild(step);
     } else {
-      if (c.multiple && tope && q === 0) row.classList.add("off");
+      if (c.multiple && tope && q === 0 && !op.todas && !op.exclusiva)
+        row.classList.add("off");
       row.appendChild(
         cpMk(
           "span",
@@ -9977,6 +10022,127 @@ function urlCarritoBlackFriday() {
   return `${b}${b.includes("?") ? "&" : "?"}blackfriday=1`;
 }
 
+// ═══════════ BANNER "NUESTRAS REDES" ═══════════
+const REDES_CSS = `
+  .rs-banner{position:relative;margin-bottom:56px;border-radius:30px;padding:1.5px;
+    background:linear-gradient(120deg,#1877F2,#833AB4 28%,#E1306C 50%,#F77737 72%,#25D366);
+    animation:rsIn .6s cubic-bezier(.22,.85,.32,1) both;}
+  @keyframes rsIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+
+  .rs-inner{position:relative;overflow:hidden;border-radius:29px;min-height:170px;padding:28px 24px;
+    background:
+      linear-gradient(rgba(8,8,12,.80),rgba(8,8,12,.80)),
+      linear-gradient(120deg,#1877F2,#833AB4 28%,#E1306C 50%,#F77737 72%,#25D366);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;}
+  .rs-inner::after{content:"";position:absolute;top:0;left:-60%;width:30%;height:100%;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.10),transparent);
+    transform:skewX(-20deg);animation:rsShine 6s ease-in-out 1s infinite;pointer-events:none;}
+  @keyframes rsShine{0%{left:-60%;}55%,100%{left:140%;}}
+
+  .rs-copy{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:8px;max-width:560px;}
+  .rs-tag{display:inline-flex;align-items:center;gap:8px;padding:5px 13px;border-radius:999px;
+    font-size:10.5px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:#fff;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.35);}
+  .rs-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff;}
+  .rs-title{margin:0;font-size:clamp(26px,5.2vw,44px);font-weight:900;line-height:1.05;letter-spacing:-.03em;color:#fff;}
+  .rs-text{margin:0;font-size:14px;line-height:1.5;color:#d4d4d8;}
+  .rs-cta{margin-top:4px;display:inline-flex;align-items:center;gap:10px;padding:12px 24px;border:none;border-radius:14px;
+    font-weight:800;font-size:13.5px;color:#fff;cursor:pointer;font-family:inherit;
+    background:linear-gradient(120deg,#833AB4,#E1306C 55%,#F77737);
+    box-shadow:0 12px 30px -10px rgba(225,48,108,.6),inset 0 1px 0 rgba(255,255,255,.3);
+    transition:transform .18s ease,filter .18s ease;}
+  .rs-cta:hover{transform:translateY(-2px);filter:brightness(1.07);}
+  .rs-cta:active{transform:scale(.97);}
+
+  /* iconos flotando: SOLO transform → corre en GPU compositor, sin repintar */
+  .rs-ico{position:absolute;z-index:0;pointer-events:none;user-select:none;object-fit:cover;
+    width:var(--s,60px);height:var(--s,60px);border-radius:50%;
+    opacity:.35;
+    box-shadow:0 8px 14px -6px rgba(0,0,0,.6);
+    will-change:transform;backface-visibility:hidden;
+    animation:rsFloat var(--d,6s) ease-in-out var(--dl,0s) infinite;}
+  @keyframes rsFloat{
+    0%,100%{transform:translate3d(0,0,0) rotate(var(--r0,-8deg));}
+    50%{transform:translate3d(var(--dx,0),var(--dy,-8px),0) rotate(var(--r1,8deg));}
+  }
+  /* móvil: pequeños, tenues y pegados a las esquinas */
+  .rs-ico.p1{left:-12px;top:-12px;--s:46px;--r0:-12deg;--r1:-2deg;--d:6.2s;}
+  .rs-ico.p2{left:-8px;bottom:-12px;--s:40px;--r0:10deg;--r1:20deg;--d:5.6s;--dl:-2s;}
+  .rs-ico.p3{right:-12px;top:-12px;--s:48px;--r0:12deg;--r1:22deg;--d:7s;--dl:-1.5s;}
+  .rs-ico.p4{right:-8px;bottom:-12px;--s:42px;--r0:-6deg;--r1:8deg;--d:6.6s;--dl:-3s;}
+  .rs-ico.p5{display:none;}
+
+  @media (min-width:900px){
+    .rs-inner{min-height:190px;padding:32px 170px;}
+    .rs-ico{opacity:.9;z-index:1;}
+    .rs-ico.p1{left:5%;top:50%;margin-top:-50px;--s:100px;}
+    .rs-ico.p2{left:19%;bottom:-14px;--s:68px;}
+    .rs-ico.p3{right:5%;top:-8px;--s:96px;}
+    .rs-ico.p4{right:20%;bottom:-14px;--s:72px;}
+    .rs-ico.p5{display:block;left:33%;top:-18px;--s:60px;}
+  }
+  @media (prefers-reduced-motion:reduce){.rs-ico,.rs-inner::after{animation:none;}}
+`;
+
+function renderBannerRedes() {
+  let sec = document.getElementById("secRedes");
+  const redes = _contactosCache || [];
+  if (!redes.length) {
+    sec?.remove();
+    return;
+  }
+
+  if (!document.getElementById("rsStyle")) {
+    const st = document.createElement("style");
+    st.id = "rsStyle";
+    st.textContent = REDES_CSS;
+    document.head.appendChild(st);
+  }
+
+  // 5 posiciones: si hay menos redes, se repiten para llenar el banner
+  const icos = ["p1", "p2", "p3", "p4", "p5"]
+    .map((pos, i) => {
+      const meta = CONTACT_META[redes[i % redes.length].tipo];
+      return meta?.icon
+        ? `<img class="rs-ico ${pos}" src="${meta.icon}" alt="" draggable="false" loading="lazy" onerror="this.remove()">`
+        : "";
+    })
+    .join("");
+
+  const html = `
+    <div class="rs-inner">
+      ${icos}
+      <div class="rs-copy">
+        <span class="rs-tag">Conecta con nosotros</span>
+        <h2 class="rs-title">Nuestras redes sociales</h2>
+        <p class="rs-text">Escríbenos y síguenos: promos, novedades y atención directa.</p>
+        <button type="button" class="rs-cta" id="rsBtn">Ver redes <span aria-hidden="true">→</span></button>
+      </div>
+    </div>`;
+
+  if (!sec) {
+    sec = document.createElement("section");
+    sec.id = "secRedes";
+    sec.className = "rs-banner";
+    sec.addEventListener("click", (e) => {
+      if (e.target.closest("#rsBtn")) abrirContactoModal();
+    });
+  }
+  if (sec.dataset.sig !== html) {
+    sec.innerHTML = html;
+    sec.dataset.sig = html;
+  }
+
+  // debajo de promos, antes de "Instalar app" / CTA Explorar (casi en el footer)
+  const anchor =
+    document.getElementById("secInstalarApp") ||
+    document.getElementById("secCtaExplore");
+  if (anchor) {
+    if (sec.nextElementSibling !== anchor) anchor.before(sec);
+  } else if (!sec.parentElement) {
+    document.getElementById("mainContent")?.appendChild(sec);
+  }
+}
 function renderBlackFriday(biz) {
   const bf = biz?.black_friday;
   const activo = bf?.activo === true && String(bf.titulo || "").trim();
@@ -10347,8 +10513,7 @@ async function cargarCumpleUsuario(uid) {
       _cumple.guardado = !!_cumple.fnac;
       const reg = d.registrado_en?.toMillis?.();
       _cumple.desbloqueoMs =
-        d.desbloqueo_en?.toMillis?.() ??
-        (reg ? reg + 365 * 864e5 : Infinity); // docs viejos sin campo
+        d.desbloqueo_en?.toMillis?.() ?? (reg ? reg + 365 * 864e5 : Infinity); // docs viejos sin campo
     }
   } catch (e) {
     console.warn("Cumpleaños:", e.message);
@@ -10450,7 +10615,7 @@ function renderBannerCumple(biz) {
   );
   const texto = escapeHtml(
     String(cfg.texto || "").trim() ||
-    "Registra tu fecha de nacimiento y recibe descuentos, promociones o canjes en tu día.",
+      "Registra tu fecha de nacimiento y recibe descuentos, promociones o canjes en tu día.",
   );
   const perk = escapeHtml(String(cfg.beneficio || "").trim());
 
@@ -10652,7 +10817,7 @@ function renderInstallBanner() {
       try {
         const { outcome } = await _deferredInstall.userChoice;
         if (outcome === "accepted") showToast("Instalando… 🎉");
-      } catch { }
+      } catch {}
       _deferredInstall = null;
       return;
     }
@@ -10983,7 +11148,7 @@ async function cargarUserPanel(uid) {
     _upState.sig === sig &&
     Date.now() - _upState.ts < UP_TTL
   ) {
-    await traerPedidosVivosUserPanel(_upState).catch(() => { });
+    await traerPedidosVivosUserPanel(_upState).catch(() => {});
     return;
   }
 
@@ -11156,9 +11321,9 @@ function _upVivosInnerHTML(st) {
 
   const filas = mostrar.length
     ? mostrar
-      .map((p) => {
-        const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
-        return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
+        .map((p) => {
+          const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
+          return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
               <span class="pa-dot"></span>
             <div class="pa-main">
     <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
@@ -11168,8 +11333,8 @@ function _upVivosInnerHTML(st) {
               <div class="pa-total">${_fmtSoles(p.total)}</div>
               <span class="pa-go">Ver →</span>
             </a>`;
-      })
-      .join("")
+        })
+        .join("")
     : `<div class="up-empty">No tienes pedidos en este estado.</div>`;
 
   const mas =
@@ -11384,7 +11549,7 @@ function volarAlCarrito(imagen) {
   x.style.transitionDuration =
     y.style.transitionDuration =
     ball.style.transitionDuration =
-    `${dur}s`;
+      `${dur}s`;
   if (dy < 0) y.style.transitionTimingFunction = "cubic-bezier(.3,.7,.5,1)";
 
   y.appendChild(ball);
@@ -11505,11 +11670,20 @@ function _paUrl(pedidoId) {
 //  Celular: botón + diálogo · PC: tarjeta fija sobre la página
 // ═══════════════════════════════════════════════════════════════
 const PW_ESTADOS_QUERY = [
-  "pendiente", "Pendiente",
-  "pendiente_pago", "Pendiente de pago", "pendiente de pago", "pendiente_de_pago",
-  "en_proceso", "En proceso", "en proceso",
-  "listo", "Listo",
-  "en_pausa", "En pausa", "en pausa",
+  "pendiente",
+  "Pendiente",
+  "pendiente_pago",
+  "Pendiente de pago",
+  "pendiente de pago",
+  "pendiente_de_pago",
+  "en_proceso",
+  "En proceso",
+  "en proceso",
+  "listo",
+  "Listo",
+  "en_pausa",
+  "En pausa",
+  "en pausa",
 ];
 
 const PEDIDO_ACTUAL_CSS = `
@@ -11575,7 +11749,6 @@ const PEDIDO_ACTUAL_CSS = `
 let _pwUnsub = null;
 let _pwUid = null;
 let _pwPedidos = [];
-
 
 function injectPedidoActualStyles() {
   if (!document.getElementById("paStyle")) {
@@ -11710,7 +11883,8 @@ function renderPedidoActual() {
   const list = document.getElementById("pwDialogList");
   if (list) list.innerHTML = filas;
   const tit = document.getElementById("pwDialogTitle");
-  if (tit) tit.textContent = n > 1 ? "Mis pedidos actuales" : "Mi pedido actual";
+  if (tit)
+    tit.textContent = n > 1 ? "Mis pedidos actuales" : "Mi pedido actual";
 }
 
 function abrirPedidoActualDialog() {
