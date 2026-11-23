@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#07070b">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Avisar insumos</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07070b;--s:#100f18;--s2:#171626;--line:#24223b;--ink:#eceaf5;--mut:#8b88a3;--p1:#7c4dff;--p2:#6236ee;--red:#ff5d5d;--grn:#35d49a}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.45 "Bricolage Grotesque",system-ui,sans-serif}
+.wrap{max-width:1300px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 16px 60px}
+h1{margin:0;font-weight:800;font-size:clamp(28px,5vw,40px);line-height:1;letter-spacing:-.03em}
+h2{font-size:19px;margin:0 0 12px}
+.sub{color:var(--mut);margin:6px 0 0;font-size:15px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.card{background:var(--s);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:18px}
+.login{max-width:400px;margin:8vh auto 0}
+label{display:block;font-size:13px;font-weight:600;color:var(--mut);margin:0 0 4px}
+input{width:100%;font:inherit;color:var(--ink);background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+input:focus-visible,button:focus-visible{outline:3px solid var(--p1);outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr;gap:0 12px}
+@media(min-width:620px){.row{grid-template-columns:2fr 1fr 1fr}}
+.act{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.urg{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--ink);cursor:pointer;margin:0}
+.urg input{width:20px;height:20px;margin:0;accent-color:var(--red)}
+.btn{border:0;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;font:700 15px inherit;font-family:inherit;padding:12px 22px;border-radius:12px;cursor:pointer;box-shadow:0 6px 20px rgba(124,77,255,.3)}
+.btn:disabled{opacity:.5}
+.login .btn{width:100%}
+.b{border:1px solid var(--line);background:var(--s2);color:var(--ink);font:600 13px inherit;font-family:inherit;padding:8px 13px;border-radius:10px;cursor:pointer}
+.b.dng{color:var(--red)}.b.ok{background:linear-gradient(135deg,var(--p1),var(--p2));border-color:transparent;color:#fff}
+.msg,.err{color:var(--red);font-size:14px;min-height:20px;margin:6px 0 0}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.item{background:var(--s);border:1px solid var(--line);border-left:5px solid var(--p1);border-radius:14px;padding:14px 16px;display:grid;gap:8px}
+.item.u{border-left-color:var(--red)}.item.d{border-left-color:var(--grn);opacity:.6}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.nm{font-weight:700;font-size:18px}.qty{font-weight:700;color:#c9b8ff;white-space:nowrap}
+.meta{color:var(--mut);font-size:13px;display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center}
+.tag{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--red);color:#fff}.tag.g{background:var(--grn);color:#04281c}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.av{width:26px;height:26px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-weight:700;font-size:11px;flex:none}
+.fi{display:flex;gap:10px;align-items:flex-start;background:var(--s);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.empty{text-align:center;color:var(--mut);padding:28px 12px;border:1.5px dashed var(--line);border-radius:16px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--grn);margin-right:8px}
+@media(min-width:1000px){.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:26px;align-items:start}
+.side{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:var(--s2);border:1px solid var(--line);border-radius:18px;padding:16px}
+.main ul{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}}
+html{-webkit-tap-highlight-color:transparent}body{overscroll-behavior-y:none}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:46px;height:46px;border-radius:14px;object-fit:cover;background:var(--s2);border:1px solid var(--line);flex:none}
+.btn,.b{transition:transform .12s ease,filter .15s ease}.btn:active,.b:active{transform:scale(.96)}.btn:hover{filter:brightness(1.1)}
+input{transition:border-color .15s,box-shadow .15s}input:focus{border-color:var(--p1);box-shadow:0 0 0 4px rgba(124,77,255,.2);outline:none}
+.sk{border-radius:12px;background:linear-gradient(90deg,var(--s2) 25%,#222036 37%,var(--s2) 63%);background-size:800px 100%;animation:sh 1.5s ease-in-out infinite}
+@keyframes sh{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skc{height:84px;margin-bottom:10px;border-radius:14px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:var(--s2);border:1px solid var(--line);padding:12px 18px;border-radius:14px;opacity:0;pointer-events:none;transition:transform .3s cubic-bezier(.22,1,.36,1),opacity .3s;z-index:50;box-shadow:0 10px 30px -10px rgba(124,77,255,.5);font-weight:600;font-size:14px}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media(prefers-reduced-motion:no-preference){.item.n,.fi.n,.login{animation:enter .42s cubic-bezier(.22,1,.36,1)}@keyframes enter{from{opacity:0;transform:translateY(12px) scale(.98)}}}
+@media(prefers-reduced-motion:reduce){.sk{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="root"><div class="brand" style="margin-bottom:18px"><div class="sk" style="width:46px;height:46px"></div><div style="flex:1"><div class="sk" style="width:55%;height:26px;margin-bottom:8px"></div><div class="sk" style="width:35%;height:14px"></div></div></div><div class="sk" style="height:190px;margin-bottom:18px"></div><div class="sk skc"></div><div class="sk skc"></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { getDoc, getDocs, doc, query, where, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { db } from "/js/db/db.js";
+import { tiendaDoc, tiendaSubCol, tiendaSubDoc, setUbicacion } from "/js/rutas/rutas.js";
+
+const $ = id => document.getElementById(id), root = $("root");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clean = (s, n) => String(s ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, n);
+const ms = t => typeof t === "number" ? t : t?.toMillis ? t.toMillis() : t?.seconds ? t.seconds * 1000 : Date.now();
+const fmt = t => { const d = new Date(ms(t)), n = new Date(), y = new Date(Date.now() - 864e5), h = d.toLocaleTimeString("es-PE", {hour:"2-digit", minute:"2-digit"});
+  return d.toDateString() === n.toDateString() ? "hoy, " + h : d.toDateString() === y.toDateString() ? "ayer, " + h : d.toLocaleDateString("es-PE", {day:"numeric", month:"short"}) + ", " + h; };
+const qty = i => ((i.cantidad || "") + " " + (i.unidad || "")).trim();
+const av = n => { n = n || "?"; let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 360; return `<span class="av" style="background:hsl(${h} 45% 36%)">${esc(n.trim().slice(0,2).toUpperCase())}</span>`; };
+const hash = async p => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(p)))].map(b => b.toString(16).padStart(2, "0")).join("");
+const permiso = d => d.activo !== false && (d.esAdmin === true || (d.permisos || []).includes("avisoinsumo"));
+
+// ── 1. Validación estricta del enlace ──
+const path = location.pathname.replace(/\/+$/, "");
+let ID = null, aliasUrl = null, m;
+if ((m = path.match(/^\/perfil\/([^/]+)\/insumos\/([A-Za-z0-9]{20})$/))) { aliasUrl = decodeURIComponent(m[1]).toLowerCase(); ID = m[2]; }
+else if ((m = path.match(/^\/insumos\/([A-Za-z0-9]{20})$/))) ID = m[1];
+
+let L, tienda, S = null, items = [], editing = null, unsubI = null, unsubR = null, visto = null, nuevosIds = new Set();
+const SKEY = "insumo_sesion_" + ID, LKEY = "insumo_lock_" + ID, CK = "insumo_cache_" + ID;
+const rolesCol = () => tiendaSubCol(L, "tiendas", ID, "roles");
+const insCol = () => tiendaSubCol(L, "tiendas", ID, "insumos");
+const insRef = id => tiendaSubDoc(L, "tiendas", ID, "insumos", id);
+const nomTienda = () => esc(tienda?.nombre_tienda || tienda?.nombre || "Mi negocio");
+const SKC = '<div class="sk skc"></div>'.repeat(3);
+let tt; const toast = m => { const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 2200); };
+const vib = () => { try { navigator.vibrate?.(12); } catch {} };
+const logoUrl = () => { const u = tienda?.img_tienda?.logo_tienda; return typeof u === "string" && /^https:\/\//.test(u) ? u : ""; };
+const logoHtml = () => logoUrl() ? `<img class="logo" src="${esc(logoUrl())}" alt="">` : "";
+function setFaviconCircular(url) {
+  const img = new Image(); img.crossOrigin = "anonymous";
+  img.onload = () => { const size = 64, c = document.createElement("canvas"); c.width = c.height = size; const x = c.getContext("2d");
+    x.beginPath(); x.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2); x.closePath(); x.clip();
+    const r = Math.max(size / img.width, size / img.height), w = img.width * r, h = img.height * r;
+    x.drawImage(img, (size - w) / 2, (size - h) / 2, w, h); applyFavicon(c.toDataURL("image/png")); };
+  img.onerror = () => applyFavicon(url);
+  img.src = url;
+}
+function applyFavicon(href) { document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
+  const l = document.createElement("link"); l.rel = "icon"; l.type = "image/png"; l.href = href; document.head.appendChild(l); }
+function marca() { document.title = "Avisar insumos, " + (tienda?.nombre_tienda || tienda?.nombre || ""); const u = logoUrl(); if (!u) return;
+  setFaviconCircular(u);
+  document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(l => l.remove());
+  const l = document.createElement("link"); l.rel = "apple-touch-icon"; l.href = u; document.head.appendChild(l); }
+function cargarCache() { try { const c = JSON.parse(localStorage.getItem(CK) || "null"); if (c && c.roleId === S.roleId && Array.isArray(c.items)) { items = c.items; pintar(); } } catch {} }
+function guardarCache() { try { localStorage.setItem(CK, JSON.stringify({ roleId: S.roleId, items: items.slice(0, 60).map(i => ({ ...i, creado: ms(i.creado), editado: i.editado ? ms(i.editado) : null, quitado: i.quitado ? { por: i.quitado.por, en: ms(i.quitado.en) } : null, repuestoEn: undefined })) })); } catch {} }
+const fatal = t => { root.innerHTML = `<div class="card login"><h1>Enlace no disponible</h1><p class="sub">${esc(t)}</p></div>`; };
+
+async function init() {
+  if (!ID) return fatal("Este enlace no es válido.");
+  let en;
+  try { en = await getDoc(doc(db, "insumos_enlaces", ID)); } catch { return fatal("No se pudo verificar el enlace. Intenta de nuevo."); }
+  if (!en.exists()) return fatal("Este enlace no está activo. Pide a tu administrador que lo envíe de nuevo.");
+  const e = en.data();
+  if (aliasUrl && String(e.alias || "").toLowerCase() !== aliasUrl) return fatal("Este enlace no es válido.");
+  setUbicacion({ departamento: e.departamento, provincia: e.provincia });
+  L = e.localidad;
+  try { const t = await getDoc(tiendaDoc(L, "tiendas", ID)); if (!t.exists()) return fatal("Negocio no encontrado."); tienda = t.data(); marca(); }
+  catch { return fatal("No se pudo cargar el negocio."); }
+  try { const s = JSON.parse(localStorage.getItem(SKEY) || "null");
+    if (s && s.exp > Date.now() && s.id === ID) { const r = await getDoc(tiendaSubDoc(L, "tiendas", ID, "roles", s.roleId));
+      if (r.exists() && permiso(r.data())) { S = { ...s, nombre: r.data().nombre, exp: Date.now() + 7 * 24 * 36e5 }; localStorage.setItem(SKEY, JSON.stringify(S)); return entrar(); } }
+  } catch {}
+  localStorage.removeItem(SKEY); login();
+}
+
+// ── 2. Login con los roles del negocio ──
+function login(msg = "") {
+  root.innerHTML = `<div class="card login"><div class="brand" style="margin-bottom:16px">${logoHtml()}<b>${nomTienda()}</b></div><h1>Avisar insumos</h1><p class="sub">Ingresa con el usuario que te dio tu administrador.</p>
+  <p class="msg" id="lm">${esc(msg)}</p><form id="lf" style="margin-top:10px"><label for="lu">Usuario</label><input id="lu" autocomplete="username" maxlength="40" required>
+  <label for="lp">Contraseña</label><input id="lp" type="password" autocomplete="current-password" maxlength="100" required><button class="btn" id="lb">Ingresar</button></form></div>`;
+  $("lf").onsubmit = async e => { e.preventDefault(); const b = $("lb"); b.disabled = true; b.textContent = "Verificando…";
+    const r = await intentar($("lu").value, $("lp").value); b.disabled = false; b.textContent = "Ingresar";
+    if (r === true) entrar(); else $("lm").textContent = r; };
+}
+async function intentar(u, p) {
+  let lk = {}; try { lk = JSON.parse(localStorage.getItem(LKEY) || "{}"); } catch {}
+  if (lk.until > Date.now()) return `Demasiados intentos. Espera ${Math.ceil((lk.until - Date.now()) / 1000)} s.`;
+  const falla = () => { lk.n = (lk.n || 0) + 1; if (lk.n >= 5) lk.until = Date.now() + Math.min(9e5, 3e4 * 2 ** (lk.n - 5));
+    try { localStorage.setItem(LKEY, JSON.stringify(lk)); } catch {} return "Usuario o contraseña incorrectos."; };
+  u = u.trim().toLowerCase();
+  if (!/^[a-z0-9_.-]{3,40}$/.test(u) || p.length < 4 || p.length > 100) return falla();
+  try {
+    const h = await hash(p), snap = await getDocs(query(rolesCol(), where("usuario", "==", u)));
+    const ok = snap.docs.find(d => d.data().passwordHash === h && permiso(d.data()));
+    if (!ok) return falla();
+    try { localStorage.removeItem(LKEY); } catch {}
+    S = { id: ID, roleId: ok.id, nombre: ok.data().nombre, usuario: ok.data().usuario, exp: Date.now() + 7 * 24 * 36e5 };
+    localStorage.setItem(SKEY, JSON.stringify(S)); return true;
+  } catch { return "No se pudo conectar. Intenta de nuevo."; }
+}
+function salir(msg = "") { unsubI?.(); unsubR?.(); unsubI = unsubR = null; S = null; items = []; editing = null; localStorage.removeItem(SKEY); try { localStorage.removeItem(CK); } catch {} visto = null; login(msg); }
+
+// ── 3. Pantalla del trabajador ──
+function entrar() {
+  root.innerHTML = `<header class="head"><div class="brand">${logoHtml()}<div><h1>Faltantes de cocina</h1><p class="sub">${nomTienda()}. Conectado como <b id="who">${esc(S.nombre)}</b></p></div></div><button class="b" data-a="out">Salir</button></header>
+  <div class="layout"><div class="main"><section class="card"><h2>¿Qué falta?</h2><div class="row"><div><label for="fN">Insumo</label><input id="fN" maxlength="60" placeholder="Ej. Ají amarillo"></div>
+  <div><label for="fQ">Cantidad (opcional)</label><input id="fQ" maxlength="12" inputmode="decimal" placeholder="5"></div><div><label for="fU">Unidad (opcional)</label><input id="fU" maxlength="12" list="un" placeholder="kg"></div></div>
+  <datalist id="un"><option>kg</option><option>g</option><option>L</option><option>unid.</option><option>caja</option><option>bolsa</option><option>paquete</option></datalist>
+  <div class="act"><label class="urg"><input type="checkbox" id="fUr"> Es urgente</label><button class="btn" data-a="add">Agregar a la lista</button></div><p class="err" id="fe"></p></section>
+  <h2>Tus avisos</h2><div id="mine">${SKC}</div></div>
+  <aside class="side"><h2><span class="dot"></span>Pendientes del equipo</h2><div id="team">${SKC}</div></aside></div>`;
+  $("fN").addEventListener("keydown", e => { if (e.key === "Enter") act("add"); });
+  cargarCache();
+  unsubR = onSnapshot(tiendaSubDoc(L, "tiendas", ID, "roles", S.roleId), s => {
+    const d = s.data(); if (!s.exists() || !permiso(d)) salir("Tu acceso fue desactivado por el administrador."); else { S.nombre = d.nombre; if ($("who")) $("who").textContent = d.nombre; } }, () => {});
+  unsubI = onSnapshot(query(insCol(), orderBy("creado", "desc")), s => { items = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    nuevosIds = new Set(); if (visto) items.forEach(i => { if (!visto.has(i.id) && i.porId !== S.roleId) nuevosIds.add(i.id); }); visto = new Set(items.map(i => i.id));
+    pintar(); nuevosIds = new Set(); guardarCache(); },
+    () => { $("mine").innerHTML = '<div class="empty">No se pudieron cargar los avisos.</div>'; });
+}
+
+const tags = i => (i.urgente && !i.repuesto ? '<span class="tag">Urgente</span>' : "") + (i.repuesto ? '<span class="tag g">Repuesto</span>' : "");
+const ordenar = a => [...a].sort((x, y) => ((y.urgente && !y.repuesto) - (x.urgente && !x.repuesto)));
+function mineCard(i) {
+  if (editing === i.id) return `<li class="item"><label>Insumo</label><input id="eN" maxlength="60" value="${esc(i.nombre)}"><div class="row" style="grid-template-columns:1fr 1fr"><div><label>Cantidad</label><input id="eQ" maxlength="12" inputmode="decimal" value="${esc(i.cantidad)}"></div><div><label>Unidad</label><input id="eU" maxlength="12" value="${esc(i.unidad)}"></div></div>
+  <label class="urg"><input type="checkbox" id="eUr" ${i.urgente ? "checked" : ""}> Es urgente</label><div class="btns"><button class="b ok" data-a="save" data-id="${i.id}">Guardar cambios</button><button class="b" data-a="cancel">Cancelar</button></div></li>`;
+  const can = !i.repuesto;
+  return `<li class="item${i.urgente && !i.repuesto ? " u" : ""}${i.repuesto ? " d" : ""}${nuevosIds.has(i.id) ? " n" : ""}"><div class="top"><span class="nm">${esc(i.nombre)}</span><span class="qty">${esc(qty(i))}</span></div>
+  <div class="meta">${tags(i)}<span>${fmt(i.creado)}${i.editado ? ", editado " + fmt(i.editado) : ""}</span></div>
+  ${can ? `<div class="btns"><button class="b" data-a="edit" data-id="${i.id}">Editar</button><button class="b dng" data-a="del" data-id="${i.id}">Quitar</button></div>` : ""}</li>`;
+}
+function pintar() {
+  const vivos = items.filter(i => !i.quitado);
+  const team = ordenar(vivos.filter(i => !i.repuesto)), mine = ordenar(vivos.filter(i => i.porId === S.roleId));
+  $("team").innerHTML = team.length ? "<ul>" + team.map(i => `<li class="fi${nuevosIds.has(i.id) ? " n" : ""}">${av(i.por)}<div><div><b>${esc(i.nombre)}</b> ${esc(qty(i))} ${tags(i)}</div><div class="meta">${esc(i.por)}, ${fmt(i.creado)}</div></div></li>`).join("") + "</ul>" : '<div class="empty">No hay faltantes pendientes.</div>';
+  if (editing === null) $("mine").innerHTML = mine.length ? "<ul>" + mine.map(mineCard).join("") + "</ul>" : '<div class="empty">Aún no has avisado nada. Escribe el primer insumo que falta.</div>';
+}
+
+// ── 4. Acciones (solo sobre sus propios avisos) ──
+const num = q => !q || /^[0-9]+([.,][0-9]{1,2})?$/.test(q);
+let ultimo = 0;
+async function act(a, id) {
+  if (!S) return;
+  try {
+    if (a === "add") {
+      const n = clean($("fN").value, 60), q = clean($("fQ").value, 12), u = clean($("fU").value, 12);
+      if (!n) return $("fe").textContent = "Escribe qué insumo falta.";
+      if (!num(q)) return $("fe").textContent = "La cantidad debe ser un número.";
+      if (Date.now() - ultimo < 1500) return; ultimo = Date.now();
+      const bt = document.querySelector('[data-a="add"]'); bt.disabled = true; setTimeout(() => bt.disabled = false, 900);
+      await addDoc(insCol(), { nombre: n, cantidad: q.replace(",", "."), unidad: u, urgente: $("fUr").checked, por: S.nombre, porId: S.roleId, porUsuario: S.usuario,
+        creado: serverTimestamp(), editado: null, repuesto: false, quitado: null });
+      ["fN", "fQ", "fU"].forEach(x => $(x).value = ""); $("fUr").checked = false; $("fe").textContent = ""; $("fN").focus(); toast("Aviso agregado"); vib();
+    }
+    const it = items.find(x => x.id === id);
+    if (["edit", "save", "del"].includes(a) && (!it || it.porId !== S.roleId || it.repuesto)) return;
+    if (a === "edit") { editing = id; $("mine").innerHTML = "<ul>" + items.filter(i => !i.quitado && i.porId === S.roleId).map(mineCard).join("") + "</ul>"; }
+    if (a === "cancel") { editing = null; pintar(); }
+    if (a === "save") {
+      const n = clean($("eN").value, 60), q = clean($("eQ").value, 12);
+      if (!n || !num(q)) return;
+      await updateDoc(insRef(id), { nombre: n, cantidad: q.replace(",", "."), unidad: clean($("eU").value, 12), urgente: $("eUr").checked, editado: serverTimestamp() });
+      editing = null; pintar(); toast("Cambios guardados"); vib();
+    }
+    if (a === "del" && confirm("¿Quitar este aviso de la lista?")) { await updateDoc(insRef(id), { quitado: { por: S.nombre, en: serverTimestamp() } }); toast("Aviso quitado"); vib(); }
+  } catch (e) { alert("No se pudo guardar. Revisa tu conexión e intenta de nuevo."); }
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-a]"); if (!b) return; b.dataset.a === "out" ? salir() : act(b.dataset.a, b.dataset.id); });
+
+init();
+</script>
+</body>
+</html>

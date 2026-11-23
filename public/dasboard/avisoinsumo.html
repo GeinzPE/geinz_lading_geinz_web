@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aviso de insumos</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07070b;--s:#100f18;--s2:#171626;--line:#24223b;--ink:#eceaf5;--mut:#8b88a3;--p1:#7c4dff;--p2:#6236ee;--red:#ff5d5d;--grn:#35d49a}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 "Bricolage Grotesque",system-ui,sans-serif}
+.wrap{max-width:1500px;margin:0 auto;padding:18px 16px 60px}
+p.hint{color:var(--mut);margin:0 0 14px;max-width:760px}
+p.hint b{color:#fff}
+.bar{display:flex;gap:10px;margin-bottom:14px}
+input{flex:1;font:inherit;color:var(--ink);background:var(--s);border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+input:focus-visible,button:focus-visible{outline:2px solid var(--p1);outline-offset:2px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--s);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.stat b{display:block;font:800 28px/1.1 "Bricolage Grotesque",sans-serif}
+.stat span{color:var(--mut);font-size:13px}
+.stat.hot b{color:var(--red)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chips button{border:1px solid var(--line);background:var(--s);color:var(--mut);font:600 13px inherit;font-family:inherit;padding:7px 14px;border-radius:999px;cursor:pointer}
+.chips button[aria-pressed="true"]{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-color:transparent}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.item{background:var(--s);border:1px solid var(--line);border-left:5px solid var(--p1);border-radius:14px;padding:14px 16px;display:grid;gap:8px}
+.item.urg{border-left-color:var(--red)}.item.done{border-left-color:var(--grn);opacity:.65}.item.gone{border-left-color:var(--mut);opacity:.55}
+.item.done .nm{text-decoration:line-through}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.nm{font:700 18px "Bricolage Grotesque",sans-serif;letter-spacing:-.01em}
+.qty{font-weight:700;white-space:nowrap;color:#c9b8ff}
+.meta{color:var(--mut);font-size:13px;display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center}
+.who{display:inline-flex;align-items:center;gap:7px}
+.av{width:26px;height:26px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-weight:700;font-size:11px;flex:none}
+.tag{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--red);color:#fff}
+.tag.g{background:var(--grn);color:#04281c}.tag.x{background:#4a4860}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.b{border:1px solid var(--line);background:var(--s2);color:var(--ink);font:600 13px inherit;font-family:inherit;padding:8px 13px;border-radius:10px;cursor:pointer}
+.b.ok{background:linear-gradient(135deg,var(--p1),var(--p2));border-color:transparent;color:#fff}
+.b.dng{color:var(--red)}
+.empty{text-align:center;color:var(--mut);padding:34px 12px;border:1.5px dashed var(--line);border-radius:16px}
+.live{display:none}
+.live h2{font:700 17px "Bricolage Grotesque",sans-serif;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--grn)}
+@media(prefers-reduced-motion:no-preference){.dot{animation:pl 1.8s infinite}@keyframes pl{50%{opacity:.25}}}
+.fi{display:flex;gap:10px;align-items:flex-start;background:var(--s);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.fi.done,.fi.gone{opacity:.55}
+@media(min-width:1000px){.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:26px;align-items:start}
+.list ul{grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
+.live{display:block;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:var(--s2);border:1px solid var(--line);border-radius:18px;padding:16px}
+.live ul{grid-template-columns:1fr}}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+h1{margin:0;font:800 clamp(28px,5vw,42px)/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.sub{color:var(--mut);margin:6px 0 0}
+.send{border:0;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;font:700 15px "Bricolage Grotesque",sans-serif;padding:12px 22px;border-radius:12px;cursor:pointer;box-shadow:0 6px 20px rgba(124,77,255,.35)}
+dialog{background:var(--s);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:22px;width:min(460px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+dialog h3{margin:0 0 6px;font-size:20px}dialog p{margin:0 0 14px;color:var(--mut);font-size:14px}
+dialog input{width:100%;margin-bottom:14px}
+.row2{display:flex;gap:8px;flex-wrap:wrap}
+.sk{border-radius:14px;background:linear-gradient(90deg,var(--s2) 25%,#222036 37%,var(--s2) 63%);background-size:800px 100%;animation:sh 1.5s ease-in-out infinite}
+@keyframes sh{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@media(prefers-reduced-motion:reduce){.sk{animation:none}}
+.btn,.b,.send{transition:transform .12s ease}.btn:active,.b:active,.send:active{transform:scale(.96)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head"><div><h1>Faltantes de cocina</h1><p class="sub">Lo que tu equipo avisa que falta, en tiempo real.</p></div><button class="send" id="sendLink">Enviar link</button></header>
+  <div class="stats" id="stats"><div class="sk" style="height:76px"></div><div class="sk" style="height:76px"></div><div class="sk" style="height:76px"></div></div>
+  <div class="chips" id="chips" role="group" aria-label="Filtro"></div>
+  <div class="layout">
+    <div class="list" id="list"><ul><li class="sk" style="height:96px"></li><li class="sk" style="height:96px"></li><li class="sk" style="height:96px"></li></ul></div>
+    <aside class="live"><h2><span class="dot"></span>Actividad en vivo</h2><ul id="feed"></ul></aside>
+  </div>
+</div>
+
+<dialog id="dlg"><h3>Link para tus trabajadores</h3><p>Compártelo para que anoten lo que falta con su usuario y contraseña.</p><input id="lnk"><div class="row2"><button class="send" id="cp">Copiar</button><button class="b" id="wa">WhatsApp</button><button class="b" id="cl">Cerrar</button></div></dialog>
+<script type="module">
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getDoc, setDoc, doc, onSnapshot, query, orderBy, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { app, db } from "../js/db/db.js";
+import { tiendaSubCol, tiendaSubDoc, tiendaDoc, tiendaServiciosDoc } from "../js/rutas/rutas.js";
+
+const $ = id => document.getElementById(id);
+const auth = getAuth(app);
+let admin = "Admin", C = null, items = [], filter = "pend", q = "";
+onAuthStateChanged(auth, u => { if (u) admin = u.displayName || u.email || "Admin"; });
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ms = t => t?.toMillis ? t.toMillis() : t?.seconds ? t.seconds * 1000 : Date.now();
+const fmt = t => { const d = new Date(ms(t)), n = new Date(), y = new Date(Date.now() - 864e5);
+  const h = d.toLocaleTimeString("es-PE", {hour:"2-digit", minute:"2-digit"});
+  return d.toDateString() === n.toDateString() ? "hoy, " + h : d.toDateString() === y.toDateString() ? "ayer, " + h
+    : d.toLocaleDateString("es-PE", {day:"numeric", month:"short"}) + ", " + h; };
+const qty = i => ((i.cantidad || "") + " " + (i.unidad || "")).trim();
+const av = n => { n = n || "?"; let h = 0; for (const ch of n) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `<span class="av" style="background:hsl(${h} 45% 36%)">${esc(n.trim().slice(0,2).toUpperCase())}</span>`; };
+const tags = i => (i.urgente && !i.repuesto && !i.quitado ? '<span class="tag">Urgente</span>' : "") + (i.repuesto ? '<span class="tag g">Repuesto</span>' : "") + (i.quitado ? '<span class="tag x">Quitado</span>' : "");
+const sorted = a => [...a].sort((x, y) => ((y.urgente && !y.repuesto) - (x.urgente && !x.repuesto)) || ms(y.creado) - ms(x.creado));
+
+const card = i => `<li class="item${i.urgente && !i.repuesto && !i.quitado ? " urg" : ""}${i.repuesto ? " done" : ""}${i.quitado ? " gone" : ""}">
+<div class="top"><span class="nm">${esc(i.nombre)}</span><span class="qty">${esc(qty(i))}</span></div>
+<div class="meta">${tags(i)}<span class="who">${av(i.por)}${esc(i.por)}</span><span>${fmt(i.creado)}${i.editado ? ", editado " + fmt(i.editado) : ""}</span></div>
+${i.quitado ? `<div class="meta">Quitado por ${esc(i.quitado.por)}, ${fmt(i.quitado.en)}</div>` : ""}
+<div class="btns">${i.quitado ? `<button class="b" data-a="res" data-id="${i.id}">Restaurar</button>`
+ : `<button class="b ok" data-a="rep" data-id="${i.id}">${i.repuesto ? "Volver a pendiente" : "Marcar repuesto"}</button><button class="b dng" data-a="del" data-id="${i.id}">Quitar</button>`}</div></li>`;
+
+function groups(arr) {
+  const g = {}; arr.forEach(i => { const k = (i.nombre || "").trim().toLowerCase(); (g[k] = g[k] || {n: i.nombre, r: []}).r.push(i); });
+  const ks = Object.keys(g); if (!ks.length) return '<div class="empty">No hay nada en esta vista.</div>';
+  return "<ul>" + ks.map(k => { const r = g[k].r, tot = {}, us = new Set();
+    r.forEach(i => { us.add(i.por); const n = parseFloat(i.cantidad); if (!isNaN(n)) { const u = i.unidad || ""; tot[u] = Math.round(((tot[u] || 0) + n) * 100) / 100; } });
+    const sum = Object.keys(tot).map(u => (tot[u] + " " + u).trim()).join(" + ");
+    const who = r.map(i => esc(i.por) + (qty(i) ? " (" + esc(qty(i)) + ")" : "")).join(", ");
+    const urg = r.some(i => i.urgente);
+    return `<li class="item${urg ? " urg" : ""}"><div class="top"><span class="nm">${esc(g[k].n)}</span><span class="qty">${esc(sum)}</span></div><div class="meta">${urg ? '<span class="tag">Urgente</span>' : ""}<span>${us.size} ${us.size === 1 ? "persona avisó" : "personas avisaron"}</span></div><div class="meta">${who}</div></li>`; }).join("") + "</ul>";
+}
+
+function render() {
+  const act = items.filter(i => !i.quitado), pend = act.filter(i => !i.repuesto), urg = pend.filter(i => i.urgente),
+        done = act.filter(i => i.repuesto), gone = items.filter(i => i.quitado);
+  $("stats").innerHTML = `<div class="stat"><b>${pend.length}</b><span>Pendientes</span></div><div class="stat hot"><b>${urg.length}</b><span>Urgentes</span></div><div class="stat"><b>${done.length}</b><span>Repuestos</span></div>`;
+  const F = [["pend","Pendientes",pend],["ins","Por insumo",pend],["urg","Urgentes",urg],["done","Repuestos",done],["gone","Quitados",gone],["all","Todos",act]];
+  $("chips").innerHTML = F.map(f => `<button data-f="${f[0]}" aria-pressed="${filter === f[0]}">${f[1]} (${f[2].length})</button>`).join("");
+  let l = F.find(f => f[0] === filter)[2]; const t = q.trim().toLowerCase();
+  if (t) l = l.filter(i => ((i.nombre || "") + " " + (i.por || "")).toLowerCase().includes(t));
+  $("list").innerHTML = filter === "ins" ? groups(l) : l.length ? "<ul>" + sorted(l).map(card).join("") + "</ul>" : '<div class="empty">No hay avisos en esta vista.</div>';
+  const feed = [...items].sort((a, b) => ms(b.creado) - ms(a.creado)).slice(0, 40);
+  $("feed").innerHTML = feed.length ? feed.map(i => `<li class="fi${i.repuesto ? " done" : ""}${i.quitado ? " gone" : ""}">${av(i.por)}<div><div><b>${esc(i.nombre)}</b> ${esc(qty(i))} ${tags(i)}</div><div class="meta">${esc(i.por)}, ${fmt(i.creado)}</div></div></li>`).join("") : '<li class="empty">Aún no hay avisos.</li>';
+}
+
+const ref = id => tiendaSubDoc(C.loc, "tiendas", C.id, "insumos", id);
+document.addEventListener("click", async e => {
+  const f = e.target.closest("[data-f]"); if (f) { filter = f.dataset.f; return render(); }
+  const b = e.target.closest("[data-a]"); if (!b || !C) return;
+  const it = items.find(x => x.id === b.dataset.id); if (!it) return;
+  try {
+    if (b.dataset.a === "rep") await updateDoc(ref(it.id), {repuesto: !it.repuesto, repuestoPor: admin, repuestoEn: serverTimestamp()});
+    if (b.dataset.a === "del" && confirm("¿Quitar este aviso? Quedará guardado en Quitados.")) await updateDoc(ref(it.id), {quitado: {por: admin, en: serverTimestamp()}});
+    if (b.dataset.a === "res") await updateDoc(ref(it.id), {quitado: null});
+  } catch (err) { alert("No se pudo guardar: " + (err.code || err.message)); }
+});
+
+async function linkTrabajadores() {
+  const id = C.id; let alias = id, dominio = "";
+  try { const s = await getDoc(tiendaDoc(C.loc, "tiendas", id)); if (s.exists()) { const d = s.data(); alias = d.alias_key || d.alias || id; } } catch {}
+  try { const s = await getDoc(tiendaServiciosDoc(C.loc, id)); const d = s.exists() ? s.data() : {}; const ap = d.apartados_dasboard || {};
+    const flag = d.dominio_personalizado ?? d.dominio_perzonalizado ?? ap.dominio_personalizado ?? ap.dominio_perzonalizado;
+    const dom = String(d.dominio || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+    if (flag === true && dom) dominio = dom; } catch {}
+  try { await setDoc(doc(db, "insumos_enlaces", id), { localidad: C.loc, departamento: sessionStorage.getItem("departamento") || "lima", provincia: sessionStorage.getItem("provincia") || "barranca", alias, dominio, actualizado: serverTimestamp() }, { merge: true }); } catch (e) { console.warn("No se pudo registrar el enlace", e); }
+  return dominio ? `https://${dominio}/insumos/${id}` : `https://geinztech.com/perfil/${alias}/insumos/${id}`; }
+$("sendLink").onclick = async () => { if (!C) return; $("lnk").value = "Generando link…"; $("cp").textContent = "Copiar"; $("dlg").showModal(); $("lnk").value = await linkTrabajadores(); };
+$("cp").onclick = async () => { try { await navigator.clipboard.writeText($("lnk").value); } catch { $("lnk").select(); document.execCommand("copy"); } $("cp").textContent = "¡Copiado!"; };
+$("wa").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent("Entra aquí para avisar los insumos que faltan: " + $("lnk").value), "_blank");
+$("cl").onclick = () => $("dlg").close();
+
+function ctx() { let P; try { P = parent.PanelPerfil; } catch {}
+  const p = new URLSearchParams(location.search);
+  return { loc: P?.LOCALIDAD_TIENDA || p.get("localidad"), id: P?.TIENDA_ID || p.get("tienda") }; }
+
+function start(c) {
+  C = c;
+  const col = tiendaSubCol(c.loc, "tiendas", c.id, "insumos");
+  onSnapshot(query(col, orderBy("creado", "desc")),
+    s => { items = s.docs.map(d => ({id: d.id, ...d.data()})); render(); },
+    err => { $("list").innerHTML = `<div class="empty">No se pudieron leer los insumos (${esc(err.code)}). Revisa las reglas de Firestore.</div>`; });
+}
+
+let tries = 0;
+(function wait() {
+  const c = ctx();
+  if (c.loc && c.id) return start(c);
+  if (++tries > 40) { $("list").innerHTML = '<div class="empty">No se pudo identificar el negocio. Recarga el panel.</div>'; return; }
+  setTimeout(wait, 300);
+})();
+</script>
+</body>
+</html>

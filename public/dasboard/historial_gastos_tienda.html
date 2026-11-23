@@ -2,206 +2,142 @@
 <html lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <meta name="theme-color" content="#09080d">
-    <title>Insumos y gastos</title>
-    <link rel="stylesheet" href="../style/dasboardcss/insumos.css">
-    <script type="module" src="../js/dasboardjs/insumos.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#000000">
+  <title>Historial de gastos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="../style/dasboardcss/insumos.css">
+  <script type="module" src="../js/dasboardjs/insumos.js"></script>
 </head>
 
 <body>
 
-    <header class="top">
-        <div class="top-row">
-            <h1>🧮 Insumos y gastos</h1>
-            <label class="mes-wrap">Mes
-                <input type="month" id="mesSel">
-            </label>
+  <header class="top">
+    <div class="top-in">
+      <div class="top-row">
+        <div>
+          <h1>Historial de gastos</h1>
+          <p class="sub" id="subMes">Todo lo que gastas, en un solo lugar.</p>
         </div>
-
-        <div class="chips">
-            <div class="chip"><small>Ventas entregadas</small><b id="chipVentas">…</b></div>
-            <div class="chip"><small>Gastado por el negocio</small><b id="chipGastos">…</b></div>
-            <div class="chip big"><small>Disponible en caja</small><b id="chipCaja">…</b></div>
-            <div class="chip"><small>Inversión del dueño</small><b id="chipInv">…</b></div>
+        <div class="top-actions">
+          <input type="month" id="mesSel" title="Mes">
+          <button class="btn go" id="btnNuevoGasto">+ Anotar gasto</button>
         </div>
-        <button class="link" id="btnRefCaja">↻ Actualizar ventas</button>
+      </div>
 
-        <nav class="tabs">
-            <button class="tab on" data-tab="ins">Insumos y stock</button>
-            <button class="tab" data-tab="gas">Historial de gastos</button>
-        </nav>
-    </header>
-
-    <main>
-
-        <!-- ============ INSUMOS Y STOCK ============ -->
-        <section class="pane" id="pane-ins">
-            <p class="help">Anota lo que compras y cuánto pagaste. Cada compra guarda el precio de <b>ese mes</b> y
-                <b>suma al stock</b> (g, kg, oz, lb, ml, litros o unidades). Si algo se gasta o se malogra, ajusta el
-                stock con el botón “Stock”.</p>
-            <div class="bar">
-                <input type="search" id="qIns" placeholder="Buscar insumo…">
-                <button class="btn go" id="btnNuevoIns">+ Nueva compra</button>
-            </div>
-            <div id="catChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
-            <div id="listIns"></div>
-        </section>
-
-        <!-- ============ HISTORIAL DE GASTOS ============ -->
-        <section class="pane" id="pane-gas" hidden>
-            <p class="help">Todo lo que gastas en el negocio: compras de insumos y otros gastos (papel higiénico,
-                servilletas, agua, limpieza…). El mes se elige arriba.</p>
-            <div class="bar">
-                <button class="btn go" id="btnNuevoGasto">+ Nuevo gasto</button>
-            </div>
-            <h2>Gastos de <span id="gastoMesTitulo" class="mut"></span></h2>
-            <div class="tiles" id="gastoTiles"></div>
-            <div id="listGastos"></div>
-        </section>
-
-    </main>
-
-    <!-- ============ MODAL COMPRA ============ -->
-    <div class="overlay" id="mdCompra">
-        <div class="sheet">
-            <div class="sheet-head">
-                <h3 id="cTitulo">Nueva compra</h3><button class="x" data-close="mdCompra">✕</button>
-            </div>
-            <div class="sheet-body">
-                <label>Insumo
-                    <input id="cNombre" list="dlIns" placeholder="Ej: Pollo, Platos, Vasos" autocomplete="off">
-                    <datalist id="dlIns"></datalist>
-                </label>
-                <p class="hint" id="cHint"></p>
-                <label>Categoría
-                    <select id="cCat"></select>
-                </label>
-                <div class="grid2">
-                    <label>Cantidad que compraste
-                        <input id="cCant" type="number" min="0" step="any" inputmode="decimal" placeholder="12">
-                    </label>
-                    <label>Unidad
-                        <select id="cUnidad"></select>
-                    </label>
-                </div>
-
-                <label>¿Cuánto pagaste en total? (S/)
-                    <input id="cPrecio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="50.00">
-                </label>
-
-                <div class="preview" id="cPreview"></div>
-
-                <label>Mes del precio
-                    <input id="cMes" type="month">
-                </label>
-
-                <fieldset>
-                    <legend>¿De dónde salió el dinero?</legend>
-                    <label class="radio"><input type="radio" name="origen" value="negocio" checked>
-                        <span><b>Del negocio</b><small>Se descuenta de la caja (ventas).</small></span></label>
-                    <label class="radio"><input type="radio" name="origen" value="bolsillo">
-                        <span><b>De mi bolsillo</b><small>Se guarda como inversión del dueño; no baja la
-                                caja.</small></span></label>
-                </fieldset>
-
-                <label class="chk"><input type="checkbox" id="cGasto" checked> Registrar como gasto y sumar al
-                    stock</label>
-                <p class="warn" id="cAviso" hidden></p>
-            </div>
-            <div class="sheet-foot">
-                <button class="btn" data-close="mdCompra">Cancelar</button>
-                <button class="btn go" id="btnGuardarCompra">Guardar</button>
-            </div>
-        </div>
+      <div class="kpis">
+        <div class="kpi big"><small>Te quedó este mes</small><b id="kMesQueda">…</b>
+          <em>lo que vendiste menos lo que gastó el negocio</em></div>
+        <div class="kpi"><small>Vendiste este mes</small><b id="kMesVentas">…</b>
+          <button class="link" id="btnRefCaja">↻ Actualizar ventas</button></div>
+        <div class="kpi"><small>Gastó el negocio este mes</small><b id="kMesGastos">…</b>
+          <em>sale de la caja</em></div>
+        <div class="kpi"><small>Caja total</small><b id="chipCaja">…</b>
+          <em>todo lo vendido − todo lo gastado, de siempre</em></div>
+      </div>
     </div>
+  </header>
 
-    <!-- ============ MODAL STOCK ============ -->
-    <div class="overlay" id="mdStock">
-        <div class="sheet">
-            <div class="sheet-head">
-                <h3 id="sTitulo">Stock</h3><button class="x" data-close="mdStock">✕</button>
-            </div>
-            <div class="sheet-body">
-                <div class="preview" id="sActual"></div>
-                <label>¿Qué quieres hacer?
-                    <select id="sModo">
-                        <option value="restar">Restar (usé / se gastó / se malogró)</option>
-                        <option value="sumar">Sumar (sin registrar gasto)</option>
-                        <option value="fijar">Corregir al valor real (fijar)</option>
-                    </select>
-                </label>
-                <div class="grid2">
-                    <label>Cantidad
-                        <input id="sCant" type="number" min="0" step="any" inputmode="decimal" placeholder="500">
-                    </label>
-                    <label>Unidad
-                        <select id="sUnidad"></select>
-                    </label>
-                </div>
-            </div>
-            <div class="sheet-foot">
-                <button class="btn" data-close="mdStock">Cancelar</button>
-                <button class="btn go" id="btnGuardarStock">Guardar</button>
-            </div>
+  <main>
+
+    <!-- ============ HISTORIAL DE GASTOS ============ -->
+    <section class="pane" id="pane-gas">
+      <div class="guide" id="guide" hidden>
+        <b>Empieza aquí</b>
+        <p>1. Toca <b>“+ Anotar gasto”</b> y escribe lo que pagaste (pollo, luz, gaseosas…).<br>2. Mira cómo baja tu caja y cuánto te queda este mes.<br>3. Si ya tenías plata en caja antes de usar esto, anótala como <b>“Saldo inicial”</b>.</p>
+      </div>
+      <div class="tiles" id="gastoTiles"></div>
+
+      <div class="filters">
+        <div class="seg" id="fTipo">
+          <button class="on" data-f="todos">Todos</button>
+          <button data-f="compra_insumo">Insumos</button>
+          <button data-f="gasto_general">Otros gastos</button>
+          <button data-f="caja">Movimientos de caja</button>
         </div>
-    </div>
+        <select id="fOrigen">
+          <option value="todos">De dónde salió: todos</option>
+          <option value="negocio">Del negocio</option>
+          <option value="bolsillo">Lo pagué yo</option>
+        </select>
+        <input type="search" id="qGas" placeholder="Buscar gasto…">
+        <button class="btn" id="btnCharts">📊 Ver gráficos</button>
+      </div>
 
-    <!-- ============ MODAL GASTO GENERAL ============ -->
-    <div class="overlay" id="mdGasto">
-        <div class="sheet">
-            <div class="sheet-head">
-                <h3>Nuevo gasto</h3><button class="x" data-close="mdGasto">✕</button>
-            </div>
-            <div class="sheet-body">
-                <label>¿Qué compraste o pagaste?
-                    <input id="gNombre" placeholder="Ej: Papel higiénico, servilletas, agua mineral" autocomplete="off">
-                </label>
-                <div class="grid2">
-                    <label>Monto total (S/)
-                        <input id="gMonto" type="number" min="0" step="0.01" inputmode="decimal" placeholder="25.00">
-                    </label>
-                    <label>Tipo
-                        <select id="gCat">
-                            <option>Limpieza y local</option>
-                            <option>Descartables</option>
-                            <option>Bebidas y otros</option>
-                            <option>Servicios (luz, agua, gas)</option>
-                            <option>Transporte</option>
-                            <option>Otro</option>
-                        </select>
-                    </label>
-                </div>
-                <label>Mes
-                    <input id="gMes" type="month">
-                </label>
-                <fieldset>
-                    <legend>¿De dónde salió el dinero?</legend>
-                    <label class="radio"><input type="radio" name="origenG" value="negocio" checked>
-                        <span><b>Del negocio</b><small>Se descuenta de la caja.</small></span></label>
-                    <label class="radio"><input type="radio" name="origenG" value="bolsillo">
-                        <span><b>De mi bolsillo</b><small>Inversión del dueño; no baja la caja.</small></span></label>
-                </fieldset>
-            </div>
-            <div class="sheet-foot">
-                <button class="btn" data-close="mdGasto">Cancelar</button>
-                <button class="btn go" id="btnGuardarGasto">Guardar</button>
-            </div>
+      <div id="chartsBox" class="charts" hidden></div>
+
+      <h2>Gastos de <span id="gastoMesTitulo"></span> <span class="mut" id="gastoCount"></span></h2>
+      <div class="wrap">
+        <table id="tblGastos">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>¿Qué fue?</th>
+              <th class="hide-sm">Tipo</th>
+              <th class="hide-sm">Quién pagó</th>
+              <th class="r">Monto</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="listGastos"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ MODAL GASTO ============ -->
+  <div class="overlay" id="mdGasto">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3 id="gTitulo">Anotar gasto</h3><button class="x" data-close="mdGasto">✕</button>
+      </div>
+      <div class="sheet-body">
+        <label>¿Qué tipo de gasto es?
+          <select id="gCat">
+            <option value="Insumos">Insumos de cocina (pollo, vasos, platos…)</option>
+            <option value="Servicios (luz, agua, gas)">Servicios (luz, agua, gas)</option>
+            <option value="Bebidas y otros">Bebidas y otros</option>
+            <option value="Limpieza y local">Limpieza y local</option>
+            <option value="Descartables">Descartables</option>
+            <option value="Transporte">Transporte</option>
+            <option value="Otro">Otro</option>
+            <option value="__retiro">Retiro del dueño (saqué plata de la caja)</option>
+            <option value="__saldo">Saldo inicial (plata que ya había en caja)</option>
+          </select>
+        </label>
+        <label>¿Qué fue?
+          <input id="gNombre" placeholder="Ej: Pollo, luz de noviembre, gaseosas" autocomplete="off">
+        </label>
+        <div class="grid2">
+          <label>Monto (S/)
+            <input id="gMonto" type="number" min="0" step="0.01" inputmode="decimal" placeholder="25.00">
+          </label>
+          <label>Fecha
+            <input id="gFecha" type="date">
+          </label>
         </div>
+        <fieldset id="gOrigenBox">
+          <legend>¿Quién pagó?</legend>
+          <label class="radio"><input type="radio" name="origenG" value="negocio" checked>
+            <span><b>El negocio</b><small>Se descuenta de la caja.</small></span></label>
+          <label class="radio"><input type="radio" name="origenG" value="bolsillo">
+            <span><b>Lo pagué yo, con mi plata</b><small>No baja la caja. Se anota como lo que pusiste tú.</small></span></label>
+        </fieldset>
+        <p class="warn" id="gAviso" hidden></p>
+      </div>
+      <div class="sheet-foot">
+        <button class="btn" data-close="mdGasto">Cancelar</button>
+        <button class="btn go" id="btnGuardarGasto">Guardar</button>
+      </div>
     </div>
+  </div>
 
-    <!-- ============ MODAL HISTORIAL DE PRECIOS ============ -->
-    <div class="overlay" id="mdHist">
-        <div class="sheet">
-            <div class="sheet-head">
-                <h3 id="hTitulo">Historial de precios</h3><button class="x" data-close="mdHist">✕</button>
-            </div>
-            <div class="sheet-body" id="hBody"></div>
-        </div>
-    </div>
-
-    <div class="toast" id="toast"></div>
+  <div class="toast" id="toast"></div>
 
 </body>
 

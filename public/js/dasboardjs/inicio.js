@@ -10,8 +10,17 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import "../db/db.js";
-import { tiendaDoc, tiendaSubDoc, tiendaSubCol, tiendaServiciosDoc } from "../rutas/rutas.js";
-import { seccionDelPlan, resumenPlan, htmlDetallePlan } from "../../js/structure/structure_min.js";
+import {
+  tiendaDoc,
+  tiendaSubDoc,
+  tiendaSubCol,
+  tiendaServiciosDoc,
+} from "../rutas/rutas.js";
+import {
+  seccionDelPlan,
+  resumenPlan,
+  htmlDetallePlan,
+} from "../../js/structure/structure_min.js";
 // ── Detección dinámica de tienda/localidad (vía postMessage del padre) ──
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
@@ -55,7 +64,13 @@ let SERVICIOS = null; // último snapshot de tiendas_servicios_geinz_activos
 //           null = no depende del plan
 // ══════════════════════════════════════════════════════════════
 // Por si algún botón de inicio.html usa otro nombre en data-perm
-const ALIAS = { comprobante: "comprobantes", resenas: "mispublicaciones", review: "mispublicaciones", miweb: "qr", web: "qr" };
+const ALIAS = {
+  comprobante: "comprobantes",
+  resenas: "mispublicaciones",
+  review: "mispublicaciones",
+  miweb: "qr",
+  web: "qr",
+};
 const resolverClave = (k) => ALIAS[k] || k;
 
 const GRUPOS_ROL = [
@@ -74,6 +89,7 @@ const SECCIONES = [
   { key: "pedidos", label: "Pedidos en vivo", grupo: "operacion" },
   { key: "productos", label: "Productos", grupo: "operacion" },
   { key: "historial", label: "Historial de ventas", grupo: "operacion" },
+  { key: "avisoinsumo", label: "Aviso de insumos", grupo: "operacion" },
   // Clientes y fidelización
   { key: "usuarios", label: "Mis usuarios", grupo: "clientes" },
   { key: "fidelizacion", label: "Cupones y Puntos", grupo: "clientes" },
@@ -90,18 +106,23 @@ const TODOS_LOS_PERMISOS = SECCIONES.map((s) => s.key);
 // Legal solo existe si al menos un ítem de mi_negocio.legal está en true
 function legalActivo() {
   const nodo = SERVICIOS?.mi_negocio?.legal;
-  return !!nodo && typeof nodo === "object" &&
-    Object.values(nodo).some((v) => v === true);
+  return (
+    !!nodo &&
+    typeof nodo === "object" &&
+    Object.values(nodo).some((v) => v === true)
+  );
 }
 // Reseñas puede estar anidada (ej: publicidad.resenas). La busca en todo el doc.
 function resenasActivo(obj, depth = 0) {
   if (!obj || typeof obj !== "object" || depth > 6) return false;
   return Object.entries(obj).some(([k, v]) => {
-    if (/^(rese|review)/i.test(k) && (v === true || v?.activo === true)) return true;
+    if (/^(rese|review)/i.test(k) && (v === true || v?.activo === true))
+      return true;
     return resenasActivo(v, depth + 1);
   });
 }
 function planPermite(key) {
+  if (key === "avisoinsumo") return true;
   if (key === "legal") return legalActivo();
   if (key === "mispublicaciones")
     return seccionDelPlan(SERVICIOS, key) || resenasActivo(SERVICIOS);
@@ -122,9 +143,16 @@ function permisosDelPlan() {
 }
 
 const esc = (s) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
 
-const oculto = (id) => document.getElementById(id)?.classList.contains("hidden") ?? true;
+const oculto = (id) =>
+  document.getElementById(id)?.classList.contains("hidden") ?? true;
 
 // Muestra/oculta los botones de "Acciones rápidas"
 function aplicarVisibilidad() {
@@ -160,22 +188,27 @@ function serviciosParaPadre() {
 }
 function broadcastServicios() {
   const data = serviciosParaPadre();
-  try { sessionStorage.setItem("serviciosActivos", JSON.stringify(data)); } catch (e) { }
+  try {
+    sessionStorage.setItem("serviciosActivos", JSON.stringify(data));
+  } catch (e) {}
   try {
     window.parent.postMessage(
       {
         type: "SERVICIOS_UPDATE",
-        servicios: data,                                       // igual que antes (no rompe nada)
+        servicios: data, // igual que antes (no rompe nada)
         servicios_completo: JSON.parse(JSON.stringify(SERVICIOS || {})), // ← NUEVO: doc completo
       },
-      window.location.origin
+      window.location.origin,
     );
-  } catch (e) { }
+  } catch (e) {}
 }
 function broadcastRolActivo(sesion) {
   try {
-    window.parent.postMessage({ type: "ROL_ACTIVO_UPDATE", rol: sesion }, window.location.origin);
-  } catch (e) { }
+    window.parent.postMessage(
+      { type: "ROL_ACTIVO_UPDATE", rol: sesion },
+      window.location.origin,
+    );
+  } catch (e) {}
 }
 
 let unsubServicios = null;
@@ -237,7 +270,9 @@ function randomCode() {
   return `${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 18)}`;
 }
 function showView(id) {
-  VIEWS.forEach((v) => document.getElementById(v).classList.toggle("hidden", v !== id));
+  VIEWS.forEach((v) =>
+    document.getElementById(v).classList.toggle("hidden", v !== id),
+  );
 }
 function showToast(msg) {
   const t = document.getElementById("toast");
@@ -263,19 +298,32 @@ function saveSession(rolData) {
 }
 function getSession() {
   const raw = sessionStorage.getItem("rolActivo");
-  try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  try {
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
 }
 function resetAuthForms() {
   const loBtn = document.getElementById("loSubmit");
-  if (loBtn) { loBtn.disabled = false; loBtn.textContent = "Ingresar"; }
+  if (loBtn) {
+    loBtn.disabled = false;
+    loBtn.textContent = "Ingresar";
+  }
   document.getElementById("loginForm")?.reset();
   setMsg("loMsg", "", "");
 
   const bsBtn = document.getElementById("bsSubmit");
-  if (bsBtn) { bsBtn.disabled = false; bsBtn.textContent = "Crear cuenta de administrador"; }
+  if (bsBtn) {
+    bsBtn.disabled = false;
+    bsBtn.textContent = "Crear cuenta de administrador";
+  }
 
   const fgBtn = document.getElementById("fgSubmit");
-  if (fgBtn) { fgBtn.disabled = false; fgBtn.textContent = "Restablecer contraseña"; }
+  if (fgBtn) {
+    fgBtn.disabled = false;
+    fgBtn.textContent = "Restablecer contraseña";
+  }
 }
 
 // ══════════════════════════════════════════
@@ -317,7 +365,9 @@ async function boot() {
 function cerrarRol() {
   sessionStorage.removeItem("rolActivo");
   broadcastRolActivo(null);
-  [unsubNegocio, unsubPedidos, unsubServicios, unsubMiRol, unsubRoles].forEach((u) => u && u());
+  [unsubNegocio, unsubPedidos, unsubServicios, unsubMiRol, unsubRoles].forEach(
+    (u) => u && u(),
+  );
   unsubNegocio = unsubPedidos = unsubServicios = unsubMiRol = unsubRoles = null;
   ultimosRoles = null;
   clearInterval(statusTimer);
@@ -327,7 +377,10 @@ function cerrarRol() {
 // Si el admin cambia los permisos de un rol (o lo elimina) mientras está conectado,
 // se actualiza en vivo
 function listenMiRol(sesion) {
-  if (unsubMiRol) { unsubMiRol(); unsubMiRol = null; }
+  if (unsubMiRol) {
+    unsubMiRol();
+    unsubMiRol = null;
+  }
   if (sesion.esAdmin) return;
   unsubMiRol = onSnapshot(
     tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", sesion.roleId),
@@ -337,7 +390,11 @@ function listenMiRol(sesion) {
         return;
       }
       const d = snap.data();
-      const nueva = { ...getSession(), nombre: d.nombre, permisos: d.permisos || [] };
+      const nueva = {
+        ...getSession(),
+        nombre: d.nombre,
+        permisos: d.permisos || [],
+      };
       saveSession(nueva);
       broadcastRolActivo(nueva);
       aplicarVisibilidad();
@@ -349,50 +406,55 @@ function listenMiRol(sesion) {
 // ══════════════════════════════════════════
 //  Crear administrador (primer uso)
 // ══════════════════════════════════════════
-document.getElementById("bootstrapForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  setMsg("bsMsg", "", "");
-  const btn = document.getElementById("bsSubmit");
-  btn.disabled = true;
-  btn.textContent = "Creando…";
-  try {
-    const nombre = document.getElementById("bsNombre").value.trim();
-    const usuario = document.getElementById("bsUsuario").value.trim().toLowerCase();
-    const password = document.getElementById("bsPassword").value;
-    const passwordHash = await hashPassword(password);
-    const recoveryCode = randomCode();
-    const recoveryCodeHash = await hashPassword(recoveryCode);
+document
+  .getElementById("bootstrapForm")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setMsg("bsMsg", "", "");
+    const btn = document.getElementById("bsSubmit");
+    btn.disabled = true;
+    btn.textContent = "Creando…";
+    try {
+      const nombre = document.getElementById("bsNombre").value.trim();
+      const usuario = document
+        .getElementById("bsUsuario")
+        .value.trim()
+        .toLowerCase();
+      const password = document.getElementById("bsPassword").value;
+      const passwordHash = await hashPassword(password);
+      const recoveryCode = randomCode();
+      const recoveryCodeHash = await hashPassword(recoveryCode);
 
-    const docRef = await addDoc(rolesRef(), {
-      nombre,
-      usuario,
-      passwordHash,
-      esAdmin: true,
-      recoveryCodeHash,
-      permisos: TODOS_LOS_PERMISOS,
-      activo: true,
-      creadoEn: serverTimestamp(),
-    });
+      const docRef = await addDoc(rolesRef(), {
+        nombre,
+        usuario,
+        passwordHash,
+        esAdmin: true,
+        recoveryCodeHash,
+        permisos: TODOS_LOS_PERMISOS,
+        activo: true,
+        creadoEn: serverTimestamp(),
+      });
 
-    const sesion = {
-      roleId: docRef.id,
-      nombre,
-      usuario,
-      esAdmin: true,
-      permisos: TODOS_LOS_PERMISOS,
-    };
-    saveSession(sesion);
-    pendingSesion = sesion;
-    recoveryContext = "bootstrap";
-    document.getElementById("recoveryCodeText").textContent = recoveryCode;
-    showView("view-recovery");
-  } catch (err) {
-    console.error(err);
-    setMsg("bsMsg", "No se pudo crear la cuenta. Intenta de nuevo.", "error");
-    btn.disabled = false;
-    btn.textContent = "Crear cuenta de administrador";
-  }
-});
+      const sesion = {
+        roleId: docRef.id,
+        nombre,
+        usuario,
+        esAdmin: true,
+        permisos: TODOS_LOS_PERMISOS,
+      };
+      saveSession(sesion);
+      pendingSesion = sesion;
+      recoveryContext = "bootstrap";
+      document.getElementById("recoveryCodeText").textContent = recoveryCode;
+      showView("view-recovery");
+    } catch (err) {
+      console.error(err);
+      setMsg("bsMsg", "No se pudo crear la cuenta. Intenta de nuevo.", "error");
+      btn.disabled = false;
+      btn.textContent = "Crear cuenta de administrador";
+    }
+  });
 
 // ══════════════════════════════════════════
 //  Login normal
@@ -404,7 +466,10 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
   btn.disabled = true;
   btn.textContent = "Ingresando…";
   try {
-    const usuario = document.getElementById("loUsuario").value.trim().toLowerCase();
+    const usuario = document
+      .getElementById("loUsuario")
+      .value.trim()
+      .toLowerCase();
     const password = document.getElementById("loPassword").value;
     const passwordHash = await hashPassword(password);
 
@@ -431,9 +496,12 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     };
     saveSession(sesion);
 
-    updateDoc(tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", match.id), {
-      ultimoAcceso: serverTimestamp(),
-    }).catch(() => { });
+    updateDoc(
+      tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", match.id),
+      {
+        ultimoAcceso: serverTimestamp(),
+      },
+    ).catch(() => {});
 
     setMsg("loMsg", `Bienvenido, ${data.nombre}. Ingresando…`, "info");
     setTimeout(() => enterPanel(sesion), 400);
@@ -472,14 +540,26 @@ document.getElementById("forgotForm").addEventListener("submit", async (e) => {
   btn.disabled = true;
   btn.textContent = "Verificando…";
   try {
-    const usuario = document.getElementById("fgUsuario").value.trim().toLowerCase();
-    const codigo = document.getElementById("fgCodigo").value.trim().toUpperCase();
+    const usuario = document
+      .getElementById("fgUsuario")
+      .value.trim()
+      .toLowerCase();
+    const codigo = document
+      .getElementById("fgCodigo")
+      .value.trim()
+      .toUpperCase();
     const nuevaPassword = document.getElementById("fgPassword").value;
     const codigoHash = await hashPassword(codigo);
 
-    const q = query(rolesRef(), where("usuario", "==", usuario), where("esAdmin", "==", true));
+    const q = query(
+      rolesRef(),
+      where("usuario", "==", usuario),
+      where("esAdmin", "==", true),
+    );
     const snap = await getDocs(q);
-    const match = snap.docs.find((d) => d.data().recoveryCodeHash === codigoHash);
+    const match = snap.docs.find(
+      (d) => d.data().recoveryCodeHash === codigoHash,
+    );
 
     if (!match) {
       setMsg("fgMsg", "Usuario o código de recuperación incorrectos.", "error");
@@ -492,10 +572,13 @@ document.getElementById("forgotForm").addEventListener("submit", async (e) => {
     const nuevoCodigo = randomCode();
     const nuevoCodigoHash = await hashPassword(nuevoCodigo);
 
-    await updateDoc(tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", match.id), {
-      passwordHash: nuevoHash,
-      recoveryCodeHash: nuevoCodigoHash,
-    });
+    await updateDoc(
+      tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", match.id),
+      {
+        passwordHash: nuevoHash,
+        recoveryCodeHash: nuevoCodigoHash,
+      },
+    );
 
     recoveryContext = "forgot";
     document.getElementById("recoveryCodeText").textContent = nuevoCodigo;
@@ -519,7 +602,9 @@ document.getElementById("logoutBtn").addEventListener("click", cerrarRol);
 function enterPanel(sesion) {
   broadcastRolActivo(sesion);
   document.getElementById("sessionNombre").textContent = sesion.nombre;
-  document.getElementById("sessionRoleBadge").textContent = sesion.esAdmin ? "Admin" : "Rol asignado";
+  document.getElementById("sessionRoleBadge").textContent = sesion.esAdmin
+    ? "Admin"
+    : "Rol asignado";
 
   aplicarVisibilidad();
   showView("view-panel");
@@ -532,13 +617,23 @@ function enterPanel(sesion) {
 // ══════════════════════════════════════════
 //  HORARIO
 // ══════════════════════════════════════════
-const DAY_KEYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+const DAY_KEYS = [
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+  "domingo",
+];
 function normalizeSchedule(h) {
   return DAY_KEYS.map((key) => {
     const diaData = h?.[key];
     if (!diaData || diaData.cerrado === true)
       return { cerrado: true, motivo: diaData?.motivo || null, bloques: [] };
-    const bloques = (diaData.bloques || []).filter((b) => b.h_apertura && b.h_cierre);
+    const bloques = (diaData.bloques || []).filter(
+      (b) => b.h_apertura && b.h_cierre,
+    );
     return { cerrado: false, motivo: null, bloques };
   });
 }
@@ -554,7 +649,9 @@ function calcOpenNow(horarioMap) {
     return h * 60 + m;
   };
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  return today.bloques.some((b) => nowMin >= toMin(b.h_apertura) && nowMin < toMin(b.h_cierre));
+  return today.bloques.some(
+    (b) => nowMin >= toMin(b.h_apertura) && nowMin < toMin(b.h_cierre),
+  );
 }
 
 function setStatus(isOpen) {
@@ -571,8 +668,14 @@ function setLogo(url) {
     fallback.style.opacity = "1";
     return;
   }
-  img.onload = () => { img.classList.add("loaded"); fallback.style.opacity = "0"; };
-  img.onerror = () => { img.classList.remove("loaded"); fallback.style.opacity = "1"; };
+  img.onload = () => {
+    img.classList.add("loaded");
+    fallback.style.opacity = "0";
+  };
+  img.onerror = () => {
+    img.classList.remove("loaded");
+    fallback.style.opacity = "1";
+  };
   img.src = url;
 }
 
@@ -585,13 +688,17 @@ function listenNegocio() {
     (snap) => {
       if (!snap.exists()) return;
       const biz = snap.data();
-      document.getElementById("bizName").textContent = biz.nombre_tienda || biz.nombre || "Mi negocio";
+      document.getElementById("bizName").textContent =
+        biz.nombre_tienda || biz.nombre || "Mi negocio";
       setLogo(biz.img_tienda?.logo_tienda || null);
       bizHorario = biz.horario_atencion;
       setStatus(calcOpenNow(bizHorario));
       const puntos = Number(biz.puntos_tienda) || 0;
       const soles = puntos * CREDITO_A_SOLES;
-      setTextPulse(document.getElementById("balanceValue"), `S/ ${soles.toFixed(2)}`);
+      setTextPulse(
+        document.getElementById("balanceValue"),
+        `S/ ${soles.toFixed(2)}`,
+      );
       document.getElementById("balanceSub").textContent = `${puntos} créditos`;
     },
     (err) => console.error("Error escuchando negocio:", err),
@@ -614,21 +721,32 @@ function listenPedidos() {
     ref,
     (snap) => {
       const hoy = todayStr();
-      let ventas = 0, atendidos = 0, cocina = 0;
+      let ventas = 0,
+        atendidos = 0,
+        cocina = 0;
       snap.forEach((docSnap) => {
         const p = docSnap.data();
         if (p.fecha !== hoy) return;
         const estado = (p.estado || "").toLowerCase();
-        const rechazado = estado.includes("rechaz") || estado.includes("cancel");
+        const rechazado =
+          estado.includes("rechaz") || estado.includes("cancel");
         const enCocina = estado.includes("cocina");
         if (!rechazado) ventas += Number(p.total) || 0;
         if (enCocina) cocina++;
         else if (!rechazado) atendidos++;
       });
-      setTextPulse(document.getElementById("ventasValue"), `S/ ${ventas.toFixed(2)}`);
-      setTextPulse(document.getElementById("atendidosValue"), String(atendidos));
+      setTextPulse(
+        document.getElementById("ventasValue"),
+        `S/ ${ventas.toFixed(2)}`,
+      );
+      setTextPulse(
+        document.getElementById("atendidosValue"),
+        String(atendidos),
+      );
       setTextPulse(document.getElementById("cocinaValue"), String(cocina));
-      document.getElementById("urgentCard").classList.toggle("active", cocina > 0);
+      document
+        .getElementById("urgentCard")
+        .classList.toggle("active", cocina > 0);
     },
     (err) => console.error("Error escuchando pedidos:", err),
   );
@@ -639,8 +757,14 @@ function listenPedidos() {
 // ══════════════════════════════════════════
 function navigateTo(seccionRaw) {
   const seccion = resolverClave(seccionRaw);
-  if (seccion === "ajustes") { openAjustes(); return; }
-  if (seccion === "roles") { openRoles(); return; }
+  if (seccion === "ajustes") {
+    openAjustes();
+    return;
+  }
+  if (seccion === "roles") {
+    openRoles();
+    return;
+  }
 
   if (!seccionVisible(seccion)) {
     showToast("No tienes acceso a esta sección.");
@@ -648,14 +772,18 @@ function navigateTo(seccionRaw) {
   }
 
   try {
-    window.parent.postMessage({ tipo: "NAVEGAR", seccion }, window.location.origin);
+    window.parent.postMessage(
+      { tipo: "NAVEGAR", seccion },
+      window.location.origin,
+    );
   } catch (e) {
     console.error("No se pudo navegar:", e);
   }
 }
-window.navigateTo = navigateTo;   // 👈 AGREGA ESTA LÍNEA AQUÍ
+window.navigateTo = navigateTo; // 👈 AGREGA ESTA LÍNEA AQUÍ
 
-const on = (id, fn) => document.getElementById(id)?.addEventListener("click", fn);
+const on = (id, fn) =>
+  document.getElementById(id)?.addEventListener("click", fn);
 
 on("rechargeBtn", () => navigateTo("recargas"));
 on("btnPerfil", () => navigateTo("perfil"));
@@ -682,22 +810,37 @@ on("backToPanelAjustes", () => showView("view-panel"));
 function buildPermGrid(gridId) {
   const grid = document.getElementById(gridId);
   if (!grid) return;
-  const marcados = new Set([...grid.querySelectorAll("input:checked")].map((i) => i.value));
+  const marcados = new Set(
+    [...grid.querySelectorAll("input:checked")].map((i) => i.value),
+  );
   const disponibles = permisosDelPlan();
 
   grid.innerHTML = disponibles.length
     ? GRUPOS_ROL.map((g) => {
         const items = disponibles.filter((p) => p.grupo === g.id);
         if (!items.length) return "";
-        return `<p class="perm-grupo-t">${esc(g.titulo)}</p>` +
-          items.map((p) => `<label class="perm-chip"><input type="checkbox" value="${p.key}"> ${esc(p.label)}</label>`).join("");
+        return (
+          `<p class="perm-grupo-t">${esc(g.titulo)}</p>` +
+          items
+            .map(
+              (p) =>
+                `<label class="perm-chip"><input type="checkbox" value="${p.key}"> ${esc(p.label)}</label>`,
+            )
+            .join("")
+        );
       }).join("")
     : `<p class="empty" style="grid-column:1/-1;">Tu plan no tiene secciones para asignar.</p>`;
 
-  grid.querySelectorAll("input").forEach((i) => (i.checked = marcados.has(i.value)));
+  grid
+    .querySelectorAll("input")
+    .forEach((i) => (i.checked = marcados.has(i.value)));
 }
-function initPermGrid() { buildPermGrid("permGrid"); }
-function initEditPermGrid() { buildPermGrid("editPermGrid"); }
+function initPermGrid() {
+  buildPermGrid("permGrid");
+}
+function initEditPermGrid() {
+  buildPermGrid("editPermGrid");
+}
 
 function contarNoAdmin() {
   return (ultimosRoles || []).filter((d) => !d.data().esAdmin).length;
@@ -707,7 +850,8 @@ function renderRoles(docs) {
   ultimosRoles = docs;
   const list = document.getElementById("rolesList");
   const noAdmin = docs.filter((d) => !d.data().esAdmin);
-  document.getElementById("countPill").textContent = `${noAdmin.length} / ${MAX_ROLES}`;
+  document.getElementById("countPill").textContent =
+    `${noAdmin.length} / ${MAX_ROLES}`;
   document.getElementById("formSubmit").disabled = noAdmin.length >= MAX_ROLES;
 
   if (!docs.length) {
@@ -721,11 +865,11 @@ function renderRoles(docs) {
       const perms = data.esAdmin
         ? `<span class="admin-tag">Acceso total</span>`
         : (data.permisos || [])
-          .map((p) => {
-            const found = SECCIONES.find((x) => x.key === p);
-            return `<span class="perm-tag">${esc(found ? found.label : p)}</span>`;
-          })
-          .join("");
+            .map((p) => {
+              const found = SECCIONES.find((x) => x.key === p);
+              return `<span class="perm-tag">${esc(found ? found.label : p)}</span>`;
+            })
+            .join("");
       return `
         <div class="role-item">
           <div>
@@ -733,32 +877,42 @@ function renderRoles(docs) {
             <p class="role-user">@${esc(data.usuario)}</p>
             <div class="role-perms">${perms}</div>
           </div>
-          ${data.esAdmin
-          ? ""
-          : `<div style="display:flex;flex-direction:column;gap:6px;">
+          ${
+            data.esAdmin
+              ? ""
+              : `<div style="display:flex;flex-direction:column;gap:6px;">
                   <button class="delete-btn" data-id="${d.id}">Eliminar</button>
                   <button class="back-btn" data-edit-id="${d.id}" data-edit-nombre="${esc(data.nombre)}"
                     data-edit-permisos="${esc(JSON.stringify(data.permisos || []))}">Editar permisos</button>
                   <button class="back-btn" data-reset-id="${d.id}" data-reset-nombre="${esc(data.nombre)}">Nueva contraseña</button>
                 </div>`
-        }
+          }
         </div>`;
     })
     .join("");
 
   list.querySelectorAll(".delete-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      if (!confirm("¿Eliminar este rol? La persona ya no podrá ingresar.")) return;
-      await deleteDoc(tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", btn.dataset.id));
+      if (!confirm("¿Eliminar este rol? La persona ya no podrá ingresar."))
+        return;
+      await deleteDoc(
+        tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", btn.dataset.id),
+      );
     });
   });
   list.querySelectorAll("[data-reset-id]").forEach((btn) => {
-    btn.addEventListener("click", () => openResetWorker(btn.dataset.resetId, btn.dataset.resetNombre));
+    btn.addEventListener("click", () =>
+      openResetWorker(btn.dataset.resetId, btn.dataset.resetNombre),
+    );
   });
   list.querySelectorAll("[data-edit-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const permisosActuales = JSON.parse(btn.dataset.editPermisos || "[]");
-      openEditPermisos(btn.dataset.editId, btn.dataset.editNombre, permisosActuales);
+      openEditPermisos(
+        btn.dataset.editId,
+        btn.dataset.editNombre,
+        permisosActuales,
+      );
     });
   });
 }
@@ -787,38 +941,45 @@ document.getElementById("epCancel").addEventListener("click", () => {
   editPermRoleId = null;
 });
 
-document.getElementById("editPermisosForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!editPermRoleId) return;
+document
+  .getElementById("editPermisosForm")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!editPermRoleId) return;
 
-  const marcados = Array.from(document.querySelectorAll("#editPermGrid input:checked")).map((i) => i.value);
-  // Conserva permisos que hoy el plan no ofrece (por si el plan se reactiva)
-  const fueraDelPlan = editPermActuales.filter((k) => !planPermite(k));
-  const nuevosPermisos = [...new Set([...marcados, ...fueraDelPlan])];
+    const marcados = Array.from(
+      document.querySelectorAll("#editPermGrid input:checked"),
+    ).map((i) => i.value);
+    // Conserva permisos que hoy el plan no ofrece (por si el plan se reactiva)
+    const fueraDelPlan = editPermActuales.filter((k) => !planPermite(k));
+    const nuevosPermisos = [...new Set([...marcados, ...fueraDelPlan])];
 
-  if (!marcados.length) {
-    setMsg("epMsg", "Debe tener al menos una sección permitida.", "error");
-    return;
-  }
+    if (!marcados.length) {
+      setMsg("epMsg", "Debe tener al menos una sección permitida.", "error");
+      return;
+    }
 
-  const btn = document.getElementById("epSubmit");
-  btn.disabled = true;
-  btn.textContent = "Guardando…";
-  try {
-    await updateDoc(tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", editPermRoleId), {
-      permisos: nuevosPermisos,
-    });
-    showToast("Permisos actualizados correctamente.");
-    document.getElementById("view-edit-permisos").classList.add("hidden");
-    editPermRoleId = null;
-  } catch (err) {
-    console.error(err);
-    setMsg("epMsg", "No se pudo guardar. Intenta de nuevo.", "error");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Guardar permisos";
-  }
-});
+    const btn = document.getElementById("epSubmit");
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+    try {
+      await updateDoc(
+        tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", editPermRoleId),
+        {
+          permisos: nuevosPermisos,
+        },
+      );
+      showToast("Permisos actualizados correctamente.");
+      document.getElementById("view-edit-permisos").classList.add("hidden");
+      editPermRoleId = null;
+    } catch (err) {
+      console.error(err);
+      setMsg("epMsg", "No se pudo guardar. Intenta de nuevo.", "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Guardar permisos";
+    }
+  });
 
 function openResetWorker(roleId, nombre) {
   resetWorkerId = roleId;
@@ -831,29 +992,34 @@ document.getElementById("rwCancel").addEventListener("click", () => {
   document.getElementById("view-reset-worker").classList.add("hidden");
   resetWorkerId = null;
 });
-document.getElementById("resetWorkerForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!resetWorkerId) return;
-  const btn = document.getElementById("rwSubmit");
-  btn.disabled = true;
-  btn.textContent = "Guardando…";
-  try {
-    const nuevaPassword = document.getElementById("rwPassword").value;
-    const nuevoHash = await hashPassword(nuevaPassword);
-    await updateDoc(tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", resetWorkerId), {
-      passwordHash: nuevoHash,
-    });
-    showToast("Contraseña actualizada. Compártela con el trabajador.");
-    document.getElementById("view-reset-worker").classList.add("hidden");
-    resetWorkerId = null;
-  } catch (err) {
-    console.error(err);
-    setMsg("rwMsg", "No se pudo guardar. Intenta de nuevo.", "error");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Guardar nueva contraseña";
-  }
-});
+document
+  .getElementById("resetWorkerForm")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!resetWorkerId) return;
+    const btn = document.getElementById("rwSubmit");
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+    try {
+      const nuevaPassword = document.getElementById("rwPassword").value;
+      const nuevoHash = await hashPassword(nuevaPassword);
+      await updateDoc(
+        tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", resetWorkerId),
+        {
+          passwordHash: nuevoHash,
+        },
+      );
+      showToast("Contraseña actualizada. Compártela con el trabajador.");
+      document.getElementById("view-reset-worker").classList.add("hidden");
+      resetWorkerId = null;
+    } catch (err) {
+      console.error(err);
+      setMsg("rwMsg", "No se pudo guardar. Intenta de nuevo.", "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Guardar nueva contraseña";
+    }
+  });
 
 function openRoles() {
   const sesion = getSession();
@@ -881,9 +1047,14 @@ document.getElementById("roleForm").addEventListener("submit", async (e) => {
   if (!sesion?.esAdmin) return;
 
   const nombre = document.getElementById("fNombre").value.trim();
-  const usuario = document.getElementById("fUsuario").value.trim().toLowerCase();
+  const usuario = document
+    .getElementById("fUsuario")
+    .value.trim()
+    .toLowerCase();
   const password = document.getElementById("fPassword").value;
-  const permisos = Array.from(document.querySelectorAll("#permGrid input:checked")).map((i) => i.value);
+  const permisos = Array.from(
+    document.querySelectorAll("#permGrid input:checked"),
+  ).map((i) => i.value);
 
   if (!permisos.length) {
     setMsg("formMsg", "Selecciona al menos una sección.", "error");
@@ -898,7 +1069,9 @@ document.getElementById("roleForm").addEventListener("submit", async (e) => {
   btn.disabled = true;
   btn.textContent = "Creando…";
   try {
-    const dup = await getDocs(query(rolesRef(), where("usuario", "==", usuario)));
+    const dup = await getDocs(
+      query(rolesRef(), where("usuario", "==", usuario)),
+    );
     if (!dup.empty) {
       setMsg("formMsg", "Ese nombre de usuario ya existe.", "error");
       return;
@@ -916,7 +1089,9 @@ document.getElementById("roleForm").addEventListener("submit", async (e) => {
     });
     setMsg("formMsg", `Rol "${nombre}" creado correctamente.`, "info");
     e.target.reset();
-    document.querySelectorAll("#permGrid input").forEach((i) => (i.checked = false));
+    document
+      .querySelectorAll("#permGrid input")
+      .forEach((i) => (i.checked = false));
   } catch (err) {
     console.error(err);
     setMsg("formMsg", "No se pudo crear el rol. Intenta de nuevo.", "error");
@@ -963,7 +1138,8 @@ function renderAjustes() {
 
   // ── Apartados disponibles (detalle, solo lectura) ──
   // ── Apartados disponibles (detalle tal cual de la DB) ──
-  document.getElementById("ajApartadosList").innerHTML = htmlDetallePlan(SERVICIOS);
+  document.getElementById("ajApartadosList").innerHTML =
+    htmlDetallePlan(SERVICIOS);
 
   // ── Sonidos de alertas ──
   const sonidosEl = document.getElementById("ajSonidosGrid");
@@ -973,7 +1149,10 @@ function renderAjustes() {
       <label>Sonido — ${key}</label>
       <select data-sonido-key="${key}">
         ${Object.entries(SONIDOS_LOCALES)
-          .map(([val, label]) => `<option value="${val}" ${cargarSonidoGuardado(key) === val ? "selected" : ""}>${label}</option>`)
+          .map(
+            ([val, label]) =>
+              `<option value="${val}" ${cargarSonidoGuardado(key) === val ? "selected" : ""}>${label}</option>`,
+          )
           .join("")}
       </select>
     </div>`,

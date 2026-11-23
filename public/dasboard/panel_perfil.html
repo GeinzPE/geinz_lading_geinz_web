@@ -123,6 +123,8 @@
                         <span class="sbb-label">Operación y ventas</span>
                         <span class="sidebar-group-arrow">▼</span>
                     </button>
+
+
                     <div class="sidebar-group-body">
                         <div class="sgb-inner">
 
@@ -142,11 +144,18 @@
                                 <span class="sbb-label">Historial de ventas</span>
                             </button>
 
-                    <button class="sidebar-btn" id="sbb-historialgasto_tienda" onclick="PanelPerfil.loadHistorial_gastos()">
-                        <span class="sbb-icon">📊</span>
-                        <span class="sbb-label">Historial de gastos</span>
-                    </button>
+                            <button class="sidebar-btn" id="sbb-historialgasto_tienda"
+                                onclick="PanelPerfil.loadHistorial_gastos()">
+                                <span class="sbb-icon">📊</span>
+                                <span class="sbb-label">Historial de gastos</span>
+                            </button>
 
+
+                            <button class="sidebar-btn" id="sbb-avisoinsumo"
+                                onclick="PanelPerfil.showSection('avisoinsumo')">
+                                <span class="sbb-icon">🧺</span>
+                                <span class="sbb-label">Aviso insumo</span>
+                            </button>
 
                         </div>
                     </div>
@@ -374,9 +383,10 @@
                     </iframe>
                 </div>
 
-    <!-- ===== HISTORIAL DE GASTO ===== -->
-    <div class="section" id="sec-historialgasto_tienda">
-        <iframe id="iframeHistorialGasto_tienda" src="historial_gastos_tienda.html" style="
+
+                <!-- ===== HISTORIAL DE GASTO ===== -->
+                <div class="section" id="sec-historialgasto_tienda">
+                    <iframe id="iframeHistorialGasto_tienda" src="historial_gastos_tienda.html" style="
             width:100%;
             height:100vh;
             border:none;
@@ -384,9 +394,21 @@
             overflow:hidden;
             background:#0a0a0a;
         ">
-        </iframe>
-    </div>
+                    </iframe>
+                </div>
 
+
+                <!-- ===== AVISO INSUMO ===== -->
+                <div class="section" id="sec-avisoinsumo">
+                    <iframe id="iframeAvisoInsumo" src="avisoinsumo.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    "></iframe>
+                </div>
                 <!-- ===== PRODUCTOS ===== -->
                 <div class="section" id="sec-productos">
                     <iframe id="iframeProductos" src="productos.html" style="
@@ -552,12 +574,17 @@
                                     <span>📊</span>
                                     <span>Historial de ventas</span>
                                 </button>
-<button class="mobile-menu-item" id="mmb-historialgasto_tienda"
-    onclick="PanelPerfil.loadHistorial_gastos(); PanelPerfil.toggleMobileMenu()">
-    <span>📊</span>
-    <span>Historial de gastos</span>
-</button>
+                                <button class="mobile-menu-item" id="mmb-historialgasto_tienda"
+                                    onclick="PanelPerfil.loadHistorial_gastos(); PanelPerfil.toggleMobileMenu()">
+                                    <span>📊</span>
+                                    <span>Historial de gastos</span>
+                                </button>
 
+                                <button class="mobile-menu-item" id="mmb-avisoinsumo"
+                                    onclick="PanelPerfil.showSection('avisoinsumo'); PanelPerfil.toggleMobileMenu()">
+                                    <span>🧺</span>
+                                    <span>Aviso insumo</span>
+                                </button>
 
                             </div>
                         </div>

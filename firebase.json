@@ -35,6 +35,8 @@
       }
     ],
     "rewrites": [
+      { "source": "/perfil/*/insumos/*", "destination": "/insumos.html" },
+      { "source": "/insumos/*", "destination": "/insumos.html" },
       { "source": "/perfil/*/carrito", "destination": "/carrito/carrito.html" },
       { "source": "/perfil/*/carrito-oferta", "function": "carritoShare" },
       { "source": "/carrito", "destination": "/carrito/carrito.html" },
@@ -133,7 +135,7 @@
       { "source": "/logindata/login", "function": "staticSSR" },
       { "source": "/scree/nostros", "function": "staticSSR" },
       { "source": "/generatorqr", "function": "staticSSR" },
-{ "source": "/sw.js", "destination": "/sw.js" },
+      { "source": "/sw.js", "destination": "/sw.js" },
       {
         "source": "/legal/libro_reclamaciones/**",
         "destination": "/legal/libro_reclamaciones.html"
