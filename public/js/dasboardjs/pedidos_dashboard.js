@@ -89,6 +89,14 @@ const RESERVA_Y_URL = "../../sounds/y.mp3";
 const SND_PAGO_RECIBIDO = "../../sounds/comprovante_de_pago_recibido.mp3";
 const voucherNotificados = new Set();
 
+const SND_PAGO_EXTRA = "../../sounds/nuevo_comprovante_de_pago_recivido.mp3";
+const SND_DELIVERY_ACEPTADO = "../../sounds/cliente_acepto_precio_de_envio.mp3";
+function playPagoExtraAlarm() {
+  playSoundOnce(SND_PAGO_EXTRA);
+}
+function playDeliveryAceptadoAlarm() {
+  playSoundOnce(SND_DELIVERY_ACEPTADO);
+}
 function playPagoRecibidoAlarm() {
   playSoundOnce(SND_PAGO_RECIBIDO);
 }
@@ -846,6 +854,10 @@ const MAPA_CSS = `
 .np-adic-chip{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
 .np-adic-chip:hover{border-color:#7c5cff;}
 .np-adic-chip:active{transform:scale(.96);}
+.order-card.oc-pago-extra{
+  border-color:#22d3ee !important;
+  box-shadow:0 0 0 3px rgba(34,211,238,.45), 0 8px 26px rgba(34,211,238,.3) !important;
+}
 `;
 
 styleTag.textContent =
@@ -1487,70 +1499,139 @@ function abrirModalPausa(id, p) {
 
   const seleccionados = new Set();
 
-
   body.querySelectorAll("#pausaProdRow .np-opt-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-  btn.classList.toggle("active");
-  const idx = Number(btn.dataset.idx);
-  if (btn.classList.contains("active")) seleccionados.add(idx);
-  else seleccionados.delete(idx);
-  pintarCat();
-});
+    btn.addEventListener("click", () => {
+      btn.classList.toggle("active");
+      const idx = Number(btn.dataset.idx);
+      if (btn.classList.contains("active")) seleccionados.add(idx);
+      else seleccionados.delete(idx);
+      pintarCat();
+    });
   });
 
-const prodsElegidos = new Map(); // "cat::id" -> {id, categoria}
-const listEl = body.querySelector("#pausaProdList");
-const buscarEl = body.querySelector("#pausaBuscar");
-const catSel = body.querySelector("#pausaCatSel");
-const resumen = body.querySelector("#pausaElegidosTxt");
+  const prodsElegidos = new Map(); // "cat::id" -> {id, categoria}
+  const listEl = body.querySelector("#pausaProdList");
+  const buscarEl = body.querySelector("#pausaBuscar");
+  const catSel = body.querySelector("#pausaCatSel");
+  const resumen = body.querySelector("#pausaElegidosTxt");
 
-const catalogoPausa = () => {
-  const afectadosIds = new Set([...seleccionados].map((i) => productos[i].id));
-  return NuevoPedido.productos.filter(
-    (p) => !p.esPromo && !p.agotado && !afectadosIds.has(p.id),
-  );
-};
-const pintarCat = () => {
-  const q = NuevoPedido.normalizeText(buscarEl.value);
-  const cat = catSel.value;
-  const lista = catalogoPausa()
-    .filter((p) => (!cat || p.categoria === cat) && (!q || p.nombreNorm.includes(q)))
-    .slice(0, 80);
-  listEl.innerHTML =
-    lista.map((p) => {
-      const k = `${p.categoria}::${p.id}`;
-      const on = prodsElegidos.has(k);
-      return `<div class="dlv-item pick mt-row${on ? " mt-on" : ""}" data-k="${escapeHtml(k)}">
+  const catalogoPausa = () => {
+    const afectadosIds = new Set(
+      [...seleccionados].map((i) => productos[i].id),
+    );
+    return NuevoPedido.productos.filter(
+      (p) => !p.esPromo && !p.agotado && !afectadosIds.has(p.id),
+    );
+  };
+    const precioRef = () => {
+    const arr = [...seleccionados].map(
+      (i) => Number(productos[i].precio_unitario) || 0,
+    );
+    return arr.length ? Math.max(...arr) : 0;
+  };
+  const rangoPrecio = (p) => {
+    const base = NuevoPedido.calcPrecioFinal(p, null);
+    let min = base,
+      max = base;
+    (p.condiciones || []).forEach((c) => {
+      const ex = (c.opciones || []).map((o) => Number(o.costoAdicional) || 0);
+      if (!ex.length) return;
+      if (c.multiple) {
+        max += ex.reduce((s, x) => s + x, 0);
+        if (c.obligatoria) min += Math.min(...ex);
+      } else {
+        max += Math.max(...ex);
+        if (c.obligatoria) min += Math.min(...ex);
+      }
+    });
+    return { min: +min.toFixed(2), max: +max.toFixed(2) };
+  };
+  const pintarCat = () => {
+    const q = NuevoPedido.normalizeText(buscarEl.value);
+    const cat = catSel.value;
+    const lista = catalogoPausa()
+      .filter(
+        (p) =>
+          (!cat || p.categoria === cat) && (!q || p.nombreNorm.includes(q)),
+      )
+      .slice(0, 80);
+       const ref = precioRef();
+    listEl.innerHTML =
+      lista
+        .map((p) => {
+          const k = `${p.categoria}::${p.id}`;
+          const on = prodsElegidos.has(k);
+          const { min, max } = rangoPrecio(p);
+          let tag = "",
+            col = "transparent";
+          if (ref > 0) {
+            if (max < ref - 0.009) {
+              tag = "↓ Más barato que lo agotado";
+              col = "#f87171";
+            } else if (min < ref - 0.009) {
+              tag = "≈ Depende de la variante";
+              col = "#fbbf24";
+            } else {
+              tag = "✓ Igual o más caro";
+              col = "#4ade80";
+            }
+          }
+          const precioTxt =
+            max > min ? `${fmtMoney(min)} – ${fmtMoney(max)}` : fmtMoney(min);
+          const vars = (p.condiciones || [])
+            .map(
+              (c) =>
+                `${c.nombre}: ` +
+                c.opciones
+                  .map(
+                    (o) =>
+                      `${o.nombre}${o.costoAdicional ? ` +${fmtMoney(o.costoAdicional)}` : ""}`,
+                  )
+                  .join(" · "),
+            )
+            .join(" | ");
+          return `<div class="dlv-item pick mt-row${on ? " mt-on" : ""}" data-k="${escapeHtml(k)}" style="border-left:4px solid ${col};">
         <div class="dlv-info"><b>${escapeHtml(p.nombre)}</b>
-        <small>${escapeHtml(p.categoria)} · ${fmtMoney(p.precio)}${p.condiciones?.length ? " · con variantes" : ""}</small></div>
+        <small>${escapeHtml(p.categoria)} · <b>${precioTxt}</b>${tag ? ` · <span style="color:${col};font-weight:800;">${tag}</span>` : ""}</small>
+        ${vars ? `<small style="display:block;color:var(--ink-faint);">${escapeHtml(vars)}</small>` : ""}</div>
         <span class="mt-check">${on ? "●" : "○"}</span></div>`;
-    }).join("") || `<div class="dlv-empty">Sin resultados</div>`;
-  resumen.textContent = `${prodsElegidos.size} producto(s) elegido(s)`;
-};
+        })
+        .join("") || `<div class="dlv-empty">Sin resultados</div>`;
+    resumen.textContent =
+      `${prodsElegidos.size} producto(s) elegido(s)` +
+      (ref > 0 ? ` · Lo agotado cuesta ${fmtMoney(ref)} c/u` : "");
+  };
 
-const pintarCats = () => {
-  catSel.innerHTML = `<option value="">Todas</option>` +
-    NuevoPedido.categorias.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
-};
+  const pintarCats = () => {
+    catSel.innerHTML =
+      `<option value="">Todas</option>` +
+      NuevoPedido.categorias
+        .map(
+          (c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`,
+        )
+        .join("");
+  };
 
-listEl.addEventListener("click", (e) => {
-  const row = e.target.closest("[data-k]");
-  if (!row) return;
-  const k = row.dataset.k;
-  if (prodsElegidos.has(k)) prodsElegidos.delete(k);
-  else {
-    const [categoria, id] = k.split("::");
-    prodsElegidos.set(k, { id, categoria });
-  }
+  listEl.addEventListener("click", (e) => {
+    const row = e.target.closest("[data-k]");
+    if (!row) return;
+    const k = row.dataset.k;
+    if (prodsElegidos.has(k)) prodsElegidos.delete(k);
+    else {
+      const [categoria, id] = k.split("::");
+      prodsElegidos.set(k, { id, categoria });
+    }
+    pintarCat();
+  });
+  buscarEl.addEventListener("input", pintarCat);
+  catSel.addEventListener("change", pintarCat);
+
+  NuevoPedido.cargarCatalogo().finally(() => {
+    pintarCats();
+    pintarCat();
+  });
+  pintarCats();
   pintarCat();
-});
-buscarEl.addEventListener("input", pintarCat);
-catSel.addEventListener("change", pintarCat);
-
-NuevoPedido.cargarCatalogo().finally(() => { pintarCats(); pintarCat(); });
-pintarCats(); pintarCat();
-
-
 
   document.getElementById("pausaConfirmarBtn").onclick = async (ev) => {
     const btn = ev.currentTarget;
@@ -1591,15 +1672,15 @@ pintarCats(); pintarCat();
         tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id),
         {
           estado: "en_pausa",
-        pausa: {
-  motivo,
-  productos_afectados: productosAfectados,
-  productos_reemplazo: [...prodsElegidos.values()], // ← NUEVO
-  tiempo_espera: { valor, unidad },
-  estado_anterior: p.estado,
-  creado_en: serverTimestamp(),
-  resuelto: false,
-},
+          pausa: {
+            motivo,
+            productos_afectados: productosAfectados,
+            productos_reemplazo: [...prodsElegidos.values()], // ← NUEVO
+            tiempo_espera: { valor, unidad },
+            estado_anterior: p.estado,
+            creado_en: serverTimestamp(),
+            resuelto: false,
+          },
           respuesta_cliente: null,
         },
       );
@@ -3958,11 +4039,14 @@ function buildCard(id, p) {
     (Date.now() - tsMs) / 60000 >= autoRejectMinutes * 0.7;
 
   const card = document.createElement("div");
-  const voucherPendienteVer = !!p.pago?.voucher_url && !p.pago?.voucher_visto;
+  const extraPend = !!p.pago_extra?.voucher_url && !p.pago_extra?.voucher_visto;
+  const voucherPendienteVer =
+    !extraPend && !!p.pago?.voucher_url && !p.pago?.voucher_visto;
   const enLocalPend = !!p.cliente_en_local && !p.cliente_en_local_visto;
   card.className =
     "order-card" +
     (voucherPendienteVer ? " oc-pago-recibido" : "") +
+    (extraPend ? " oc-pago-extra" : "") +
     (enLocalPend ? " oc-en-local" : "") +
     (deliveryBrillo.has(id) ? " oc-delivery-ok" : "");
   card.id = `order-${id}`;
@@ -4002,6 +4086,32 @@ function buildCard(id, p) {
   return card;
 }
 
+function aplicarPagoExtra(container, estado, p) {
+  const x = p.pago_extra;
+  if (estado !== "en_pausa" || !x || x.estado === "confirmado") return;
+  if (x.tipo === "devolucion") {
+    container.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="oc-puntos-aceptar" style="width:100%;">↩️ El nuevo total es menor: devuelve <strong>${fmtMoney(x.monto)}</strong> al cliente (pagó ${fmtMoney(x.ya_pagado)}). Luego reanuda el pedido.</div>`,
+    );
+    return;
+  }
+  const b = container.querySelector(
+    '[data-action="en_proceso"],[data-action="listo"]',
+  );
+  if (b && !x.voucher_url) {
+    b.disabled = true;
+    b.textContent = "⏳ Esperando pago de la diferencia";
+  }
+  container.insertAdjacentHTML(
+    "afterbegin",
+    `<div class="oc-puntos-aceptar" style="width:100%;">💳 Diferencia a cobrar: <strong>${fmtMoney(x.monto)}</strong> ${
+      x.voucher_url
+        ? `· <a href="${escapeHtml(x.voucher_url)}" target="_blank" rel="noopener" style="color:#fcd34d;text-decoration:underline;">Ver comprobante</a>. Revísalo y reanuda.`
+        : "· el cliente aún no sube el comprobante."
+    }</div>`,
+  );
+}
 function renderCardActions(container, id, estado, p) {
   container.innerHTML = "";
 
@@ -4085,7 +4195,7 @@ function renderCardActions(container, id, estado, p) {
         <span class="oc-undo" data-action="pendiente">↺ Reactivar</span>
       </div>`;
   }
-
+  aplicarPagoExtra(container, estado, p);
   container.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -4112,6 +4222,11 @@ function openDetail(id) {
   if (p?.pago?.voucher_url && !p.pago?.voucher_visto) {
     const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
     updateDoc(ref, { "pago.voucher_visto": true }).catch(() => {});
+  }
+  if (p?.pago_extra?.voucher_url && !p.pago_extra?.voucher_visto) {
+    updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id), {
+      "pago_extra.voucher_visto": true,
+    }).catch(() => {});
   }
   if (p?.cliente_en_local && !p.cliente_en_local_visto) {
     updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id), {
@@ -5464,13 +5579,25 @@ function renderDetail(id) {
     `Hola ${cliente.nombre || ""}, te escribimos de ${bizNombreGlobal} por tu pedido ` +
     `#${id.slice(0, 6).toUpperCase()}. Puedes ver el estado en tiempo real aquí:\n${linkPedido}`;
 
+  const confirmarEfectivo =
+    pago.metodo === "Efectivo" &&
+    estado === "pendiente" &&
+    ["Delivery", "Recojo en local", "Recojo en punto"].includes(
+      cliente.tipo_entrega,
+    );
   const whatsappBlock = waLimpio
     ? `<div class="dm-meta-item full">
        <div class="dm-meta-label">📱 WhatsApp del cliente</div>
-       <div class="dm-meta-value">
-         ${escapeHtml(cliente.whatsapp)} ·
-         <a href="https://wa.me/${waLimpio}?text=${encodeURIComponent(mensajeWa)}"
-            target="_blank" rel="noopener" style="color:#25d366;font-weight:800;">Escribir →</a>
+       <div class="dm-meta-value">${escapeHtml(cliente.whatsapp)}</div>
+       ${
+         confirmarEfectivo
+           ? `<div class="oc-puntos-aceptar" style="margin-top:8px;">📞 <strong>Llama al cliente para confirmar</strong> el pedido: es en efectivo y se paga contra entrega. Así evitas pedidos falsos.</div>`
+           : ""
+       }
+       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+         <a class="oc-btn ghost" style="text-decoration:none;text-align:center;flex:1;min-width:90px;color:#25d366;" href="https://wa.me/${waLimpio}?text=${encodeURIComponent(mensajeWa)}" target="_blank" rel="noopener">💬 Escribir</a>
+         <a class="oc-btn ghost" style="text-decoration:none;text-align:center;flex:1;min-width:90px;" href="tel:+${waLimpio}">📞 Llamar</a>
+         <button type="button" class="oc-btn ghost" style="flex:1;min-width:90px;" data-copiar-num="${waLimpio}">📋 Copiar</button>
        </div>
      </div>`
     : "";
@@ -5528,14 +5655,22 @@ function renderDetail(id) {
         </div>`
       : "";
 
-  const voucherBlock = p.pago?.voucher_url
-    ? `<div class="dm-meta-item full">
-        <div class="dm-meta-label">💸 Comprobante de pago</div>
-        <a href="${escapeHtml(p.pago.voucher_url)}" target="_blank" rel="noopener">
-          <img src="${escapeHtml(p.pago.voucher_url)}" alt="Comprobante de pago" style="width:100%;max-width:220px;border-radius:12px;margin-top:6px;border:1px solid var(--line);display:block;">
-        </a>
-      </div>`
-    : "";
+  const vImg = (url, titulo) =>
+    `<div style="flex:1;min-width:140px;">
+       <div class="dm-meta-label">${titulo}</div>
+       <a href="${escapeHtml(url)}" target="_blank" rel="noopener">
+         <img src="${escapeHtml(url)}" alt="${titulo}" style="width:100%;max-width:220px;border-radius:12px;margin-top:6px;border:1px solid var(--line);display:block;">
+       </a>
+     </div>`;
+  const voucherBlock =
+    p.pago?.voucher_url || p.pago_extra?.voucher_url
+      ? `<div class="dm-meta-item full">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            ${p.pago?.voucher_url ? vImg(p.pago.voucher_url, "💸 Comprobante de pago") : ""}
+            ${p.pago_extra?.voucher_url ? vImg(p.pago_extra.voucher_url, `💸 Comprobante de la diferencia (${fmtMoney(p.pago_extra.monto)})`) : ""}
+          </div>
+        </div>`
+      : "";
   const dlvBtnBlock =
     origen.tipo !== "mesa" && cliente.tipo_entrega === "Delivery"
       ? `<div class="dm-meta-item full">
@@ -5615,6 +5750,15 @@ function renderDetail(id) {
   `;
 
   bindMapaDeliveryClicks();
+    document.querySelector("[data-copiar-num]")?.addEventListener("click", async (e) => {
+    const n = "+" + e.currentTarget.dataset.copiarNum;
+    try {
+      await navigator.clipboard.writeText(n);
+      showToast("📋 Número copiado: " + n);
+    } catch {
+      showToast("No se pudo copiar", true);
+    }
+  });
   enlazarDeliveryFijar(id, p);
   document
     .querySelector("[data-abrir-ruta-negocio]")
@@ -5705,6 +5849,7 @@ function renderModalActions(container, id, estado, p) {
   }
   quitarPausaSiOff(container);
   bloquearAceptarDelivery(container, estado, p);
+  aplicarPagoExtra(container, estado, p);
   container.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation?.();
@@ -6040,7 +6185,17 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     }
     if (nuevoEstado === "en_proceso")
       payload.tiempo_estimado_desde = serverTimestamp();
-
+    const peExtra = pedidosMap.get(pedidoId);
+    if (
+      peExtra?.pago_extra &&
+      (peExtra.pago_extra.voucher_url ||
+        peExtra.pago_extra.tipo === "devolucion") &&
+      peExtra.pago_extra.estado !== "confirmado" &&
+      ["en_proceso", "listo"].includes(nuevoEstado)
+    ) {
+      payload["pago_extra.estado"] = "confirmado";
+      payload["pago.monto_pagado"] = Number(peExtra.total) || 0;
+    }
     // ═══ 1) Actualiza el estado YA MISMO, sin esperar nada más ═══
     await updateDoc(ref, payload);
     if (!opts.auto) showToast(`Pedido movido a ${labelEstado(nuevoEstado)}`);
@@ -9516,6 +9671,7 @@ function suscribirPedidos() {
       const canceladosPorClienteEnPausa = []; // canceló estando en pausa
       const canceladosPorClientePendiente = []; // canceló estando pendiente (sin pasar por pausa)
       const pagosRecibidosNuevos = [];
+      const pagosExtraNuevos = [];
       const enLocalNuevos = [];
       const deliveryAceptados = [];
       snap.docChanges().forEach((change) => {
@@ -9585,6 +9741,14 @@ function suscribirPedidos() {
             voucherNotificados.add(id);
             pagosRecibidosNuevos.push({ id, data });
           }
+          if (
+            data.pago_extra?.voucher_url &&
+            !anterior?.pago_extra?.voucher_url &&
+            !voucherNotificados.has(id + "_x")
+          ) {
+            voucherNotificados.add(id + "_x");
+            pagosExtraNuevos.push({ id, data });
+          }
           if (esAvisoLlegadaNuevo(anterior, data))
             enLocalNuevos.push({ id, data });
           if (
@@ -9644,7 +9808,7 @@ function suscribirPedidos() {
         );
       }
       if (pagosRecibidosNuevos.length) {
-        playPagoRecibidoAlarm();
+        playDeliveryAceptadoAlarm();
         bellRingFeedback();
         const nombres = pagosRecibidosNuevos
           .map(({ data }) => data.cliente?.nombre || "Cliente")
@@ -9655,8 +9819,20 @@ function suscribirPedidos() {
             : `💸 ${pagosRecibidosNuevos.length} clientes enviaron su comprobante de pago`,
         );
       }
+      if (pagosExtraNuevos.length) {
+        playPagoExtraAlarm();
+        bellRingFeedback();
+        showToast(
+          pagosExtraNuevos
+            .map(
+              ({ data }) =>
+                `💸 ${data.cliente?.nombre || "Cliente"} envió el comprobante de la diferencia (${fmtMoney(data.pago_extra?.monto)})`,
+            )
+            .join(" · "),
+        );
+      }
       if (deliveryAceptados.length) {
-        playPagoRecibidoAlarm();
+        playDeliveryAceptadoAlarm();
         bellRingFeedback();
         showToast(
           deliveryAceptados
@@ -13074,7 +13250,6 @@ npOptCss.textContent = `
 @keyframes optShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
 `;
 document.head.appendChild(npOptCss);
-
 
 const dlgFix = document.createElement("style");
 dlgFix.textContent = `

@@ -1761,7 +1761,18 @@ function renderPausaBanner(data, pedidoRef) {
       confirmarBtn.disabled = false;
       confirmarBtn.style.opacity = "1";
     }
-    confirmarBtn.textContent = `Continuar · ${items} item${items === 1 ? "" : "s"} · S/ ${total.toFixed(2)}`;
+    const pagadoPrev =
+      data.pago?.voucher_url && data.pago?.metodo && data.pago.metodo !== "Efectivo"
+        ? Number(data.pago.monto_pagado ?? data.total) || 0
+        : null;
+    const dif = pagadoPrev != null ? +(total - pagadoPrev).toFixed(2) : 0;
+    confirmarBtn.textContent =
+      `Continuar · ${items} item${items === 1 ? "" : "s"} · S/ ${total.toFixed(2)}` +
+      (dif > 0.009
+        ? ` · pagas S/ ${dif.toFixed(2)} más`
+        : dif < -0.009
+          ? ` · te devolvemos S/ ${(-dif).toFixed(2)}`
+          : "");
     wrap.dataset.faltante = faltante;
     refrescarRepl();
   }
@@ -1947,6 +1958,101 @@ function notificarDelivery(data) {
       },
     );
   } catch (e) {}
+}
+/* ══════════ Pago de la diferencia (tras responder la pausa) ══════════ */
+function renderPagoExtra(data, estadoActual) {
+  const x = data.pago_extra;
+  const activo =
+    x && x.estado !== "confirmado" && !["rechazado", "entregado"].includes(estadoActual);
+  let wrap = el("pago-extra-wrap");
+  if (!activo) {
+    wrap?.remove();
+    return;
+  }
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "pago-extra-wrap";
+    wrap.className = "card fade-in";
+    wrap.style.borderColor = "#fbbf24";
+    el("content").insertBefore(wrap, el("content").querySelector("section.card"));
+  }
+  const key = `${x.tipo || ""}|${x.estado}|${x.monto}|${x.voucher_url || ""}|${negocioMetodosPagoActual ? 1 : 0}`;
+  if (wrap.dataset.key === key) return;
+  wrap.dataset.key = key;
+
+  if (x.tipo === "devolucion") {
+    wrap.innerHTML = `
+      <span class="eyebrow" style="color:#4ade80;">↩️ Te devolveremos una diferencia</span>
+      <p style="margin:.6rem 0 0;font-size:.9rem;">Tu nuevo pedido cuesta menos de lo que pagaste (S/ ${Number(x.ya_pagado || 0).toFixed(2)}). El negocio te devolverá:</p>
+      <p class="font-mono" style="margin:.4rem 0 0;font-size:1.6rem;font-weight:800;text-align:center;">S/ ${Number(x.monto || 0).toFixed(2)}</p>`;
+    return;
+  }
+
+  const monto = Number(x.monto || 0).toFixed(2);
+
+  if (x.voucher_url) {
+    wrap.innerHTML = `
+      <span class="eyebrow" style="color:#fbbf24;">⏳ Pago adicional en revisión</span>
+      <p style="margin:.6rem 0 0;font-size:.9rem;">El negocio está revisando tu comprobante de <b>S/ ${monto}</b>. Te avisaremos apenas lo confirme.</p>
+      <img src="${esc(x.voucher_url)}" alt="Comprobante adicional" style="margin-top:.8rem;width:100%;max-width:220px;border-radius:.8rem;display:block;">`;
+    return;
+  }
+
+  const mk = detectarMetodoPagoConDatos(data.pago?.metodo);
+  const info = mk ? negocioMetodosPagoActual?.[mk] : null;
+  const datosPago =
+    info && info.enable
+      ? `
+    ${info.qr ? `<img src="${esc(info.qr)}" alt="QR de pago" style="margin:.8rem auto 0;width:180px;max-width:100%;background:#fff;border-radius:.8rem;padding:6px;display:block;">` : ""}
+    <p style="margin:.6rem 0 0;font-size:.85rem;text-align:center;">
+      ${esc(LABELS_METODO_PAGO_DATOS[mk] || mk)} · ${esc(nombreOfuscado(info.nombre) || "")}<br>
+      <b class="font-mono">${esc(info.numero || "")}</b>
+    </p>`
+      : "";
+
+  wrap.innerHTML = `
+    <span class="eyebrow" style="color:#fbbf24;">💳 Falta pagar una diferencia</span>
+    <p style="margin:.6rem 0 0;font-size:.9rem;">Cambiaste tu pedido y el nuevo total es mayor. Ya pagaste <b>S/ ${Number(x.ya_pagado || 0).toFixed(2)}</b>; falta:</p>
+    <p class="font-mono" style="margin:.4rem 0 0;font-size:1.6rem;font-weight:800;text-align:center;">S/ ${monto}</p>
+    ${datosPago}
+    <p id="px-err" style="display:none;margin:.6rem 0 0;font-size:.78rem;color:#e5484d;"></p>
+    <input type="file" id="px-input" accept="image/*" style="display:none">
+    <button id="px-btn" style="margin-top:1rem;width:100%;padding:.8rem;border-radius:.8rem;border:none;background:#fbbf24;color:#2a1d00;font-weight:700;cursor:pointer;">📎 Subir comprobante de S/ ${monto}</button>`;
+
+  const btn = wrap.querySelector("#px-btn");
+  const inp = wrap.querySelector("#px-input");
+  const err = wrap.querySelector("#px-err");
+  btn.onclick = () => inp.click();
+  inp.onchange = async () => {
+    const file = inp.files[0];
+    if (!file) return;
+    err.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Subiendo…";
+    try {
+      const dataURL = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      const comprimida = await comprimirImagenGenerica(dataURL, 900, 0.85);
+      const r = await llamar("subirComprobanteExtra", { imagen: comprimida });
+      if (!r.ok) {
+        err.textContent = r.mensaje || "No se pudo enviar el comprobante";
+        err.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = `📎 Subir comprobante de S/ ${monto}`;
+      }
+    } catch (e) {
+      console.error(e);
+      err.textContent = "No se pudo leer la imagen. Intenta con otra";
+      err.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = `📎 Subir comprobante de S/ ${monto}`;
+    }
+    inp.value = "";
+  };
 }
 
 function labelEstadoMostrado(estadoActual, data) {
@@ -2177,7 +2283,7 @@ function renderPedido(data) {
   if (enPausa) renderPausaBanner(data, pedidoRefGlobal);
   else quitarPausaBanner();
   renderDeliveryPropuesta(data, estadoActual);
-
+  renderPagoExtra(data, estadoActual);
   el("status-label").textContent = labelEstadoMostrado(estadoActual, data);
 
   // El negocio ya no puede ser contactado sobre un pedido que el propio
