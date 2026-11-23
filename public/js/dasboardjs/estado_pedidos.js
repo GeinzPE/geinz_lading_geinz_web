@@ -1326,6 +1326,161 @@ function textoRespuesta(r) {
    solo se confirma lo elegido. Si no, puede ajustar cantidades/variantes
    (solo hacia abajo) o cambiar lo que falta por otro producto del pedido.
    El servidor recalcula precios y totales: lo que se vea aquí es solo vista previa. */
+   const _reemplazoCache = new Map();
+
+function mapearProductoCliente(id, categoria, d) {
+  const condiciones = (d.condiciones || []).map((c) => {
+    const multiple = c.tipo ? c.tipo === "multiple" : d.variantesMultiples === true;
+    return {
+      nombre: c.nombre,
+      multiple,
+      obligatoria: c.obligatoria !== undefined ? c.obligatoria !== false : d.variantesObligatoria !== false,
+      conCantidad: multiple && (c.conCantidad !== undefined ? c.conCantidad === true : d.variantesConCantidad === true),
+      max: Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
+      opciones: (c.opciones || [])
+        .filter((o) => o.activo && opDisponible(o) && o.agotado !== true)
+        .map((o) => ({
+          nombre: o.nombre,
+          costoAdicional: Number(o.costoAdicional) || 0,
+          stock: typeof o.stock === "number" ? o.stock : null,
+        })),
+    };
+  }).filter((c) => c.nombre && c.opciones.length);
+  return {
+    id, categoria,
+    nombre: d.nombre || "Producto",
+    precio: Number(d.precio) || 0,
+    imagen: d.imagenes?.[0]?.url || "",
+    stock: typeof d.stock === "number" ? d.stock : null,
+    condiciones,
+  };
+}
+
+async function cargarProductoReemplazo({ id, categoria }) {
+  const key = `${categoria}::${id}`;
+  if (_reemplazoCache.has(key)) return _reemplazoCache.get(key);
+  let r = null;
+  try {
+    const s = await getDoc(
+      tiendaSubDoc(ids.localidad, "tiendas", ids.negocioId, "productos", categoria, categoria, id),
+    );
+    if (s.exists() && s.data().disponible !== false)
+      r = mapearProductoCliente(id, categoria, s.data());
+  } catch (e) {
+    console.warn("[pedidos] producto de reemplazo:", e);
+  }
+  _reemplazoCache.set(key, r);
+  return r;
+}
+
+const limpiarSel = (sel) => {
+  const o = {};
+  Object.keys(sel).forEach((k) => { if (entradasDeOpcion(sel[k]).length) o[k] = sel[k]; });
+  return o;
+};
+
+function seleccionATexto(sel) {
+  return Object.entries(sel || {})
+    .map(([cond, v]) =>
+      entradasDeOpcion(v)
+        .map(([n, q]) => (q > 1 ? `${n} x${q}` : n))
+        .join(", "),
+    )
+    .filter(Boolean)
+    .join(" · ");
+}
+// Selector tipo "Nuevo pedido": variantes (única / varias / con cantidad) + cantidad
+function abrirSelectorReemplazo(prod, maxQty, onAdd) {
+  const sel = {};
+  let qty = 1;
+  const ov = document.createElement("div");
+  ov.style.cssText = "position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;";
+  const box = document.createElement("div");
+  box.style.cssText = "background:var(--card,#16161c);border:1px solid var(--card-border);border-radius:1.2rem 1.2rem 0 0;width:min(480px,100%);max-height:90vh;overflow-y:auto;padding:1rem;";
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  const cerrar = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) cerrar(); });
+
+  const faltan = () => prod.condiciones.some((c) => c.obligatoria && !entradasDeOpcion(sel[c.nombre]).length);
+  const btn = (act, txt, extra = "", dis = false) =>
+    `<button type="button" data-act="${act}" ${extra} ${dis ? "disabled" : ""} style="min-width:2.4rem;height:2.4rem;border-radius:.6rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-primary);font-weight:700;cursor:pointer;${dis ? "opacity:.35;" : ""}">${txt}</button>`;
+
+  const pintar = () => {
+    const unit = +(prod.precio + extrasDe(prod.condiciones, sel)).toFixed(2);
+    box.innerHTML = `
+      <div style="display:flex;gap:.8rem;align-items:center;margin-bottom:1rem;">
+        <div id="rs-th"></div>
+        <div style="flex:1;min-width:0;"><b>${esc(prod.nombre)}</b>
+          <div class="font-mono" style="font-size:.85rem;">S/ ${unit.toFixed(2)} c/u</div></div>
+        ${btn("x", "✕")}
+      </div>
+      ${prod.condiciones.map((c, ci) => {
+        const ent = entradasDeOpcion(sel[c.nombre]);
+        const total = ent.reduce((s, [, q]) => s + q, 0);
+        return `<p style="margin:0 0 .4rem;font-weight:700;font-size:.85rem;">${esc(c.nombre)}
+          <small style="color:var(--text-muted);font-weight:500;">${c.obligatoria ? "Obligatorio" : "Opcional"}${c.multiple ? " · varias" : ""}${c.max ? " · máx " + c.max : ""}</small></p>
+          <div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem;">
+          ${c.opciones.map((o, oi) => {
+            const cur = ent.find(([n]) => n === o.nombre)?.[1] || 0;
+            const precio = o.costoAdicional ? ` (+S/ ${o.costoAdicional.toFixed(2)})` : "";
+            const idx = `data-ci="${ci}" data-oi="${oi}"`;
+            const fila = (inner, on) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.6rem .8rem;border-radius:.8rem;border:1px solid ${on ? "#38bdf8" : "var(--card-border)"};background:${on ? "color-mix(in srgb,#38bdf8 14%,transparent)" : "transparent"};">${inner}</div>`;
+            if (c.conCantidad)
+              return fila(`<span style="font-size:.85rem;">${esc(o.nombre)}${precio}</span>
+                <span style="display:flex;align-items:center;gap:.5rem;">
+                ${cur ? btn("menos", "−", idx) + `<b>${cur}</b>` : ""}
+                ${btn("mas", cur ? "+" : "Agregar", idx, !!c.max && total >= c.max)}</span>`, cur > 0);
+            return fila(`<button type="button" data-act="tog" ${idx} style="all:unset;cursor:pointer;flex:1;font-size:.85rem;">${cur ? "✓ " : ""}${esc(o.nombre)}${precio}${o.stock != null ? ` · quedan ${o.stock}` : ""}</button>`, cur > 0);
+          }).join("")}</div>`;
+      }).join("")}
+      <div style="display:flex;align-items:center;gap:.6rem;margin-top:.5rem;">
+        ${btn("qm", "−", "", qty <= 1)}<b style="min-width:1.5rem;text-align:center;">${qty}</b>${btn("qp", "+", "", qty >= maxQty)}
+        <button type="button" data-act="add" ${faltan() ? "disabled" : ""} style="flex:1;padding:.8rem;border-radius:.8rem;border:none;background:#38bdf8;color:#04222f;font-weight:700;cursor:pointer;${faltan() ? "opacity:.5;" : ""}">
+          ${faltan() ? "Elige una opción" : `Agregar · S/ ${(unit * qty).toFixed(2)}`}</button>
+      </div>`;
+    box.querySelector("#rs-th")?.appendChild(crearMiniaturaProducto(prod));
+  };
+
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-act]");
+    if (!b || b.disabled) return;
+    const act = b.dataset.act;
+    if (act === "x") return cerrar();
+    if (act === "qm") { qty = Math.max(1, qty - 1); return pintar(); }
+    if (act === "qp") { qty = Math.min(maxQty, qty + 1); return pintar(); }
+    if (act === "add") {
+      if (faltan()) return;
+      onAdd({ prod, cantidad: qty, seleccion: limpiarSel(sel) });
+      return cerrar();
+    }
+    const c = prod.condiciones[+b.dataset.ci];
+    const o = c.opciones[+b.dataset.oi];
+    const ent = entradasDeOpcion(sel[c.nombre]);
+    const cur = ent.find(([n]) => n === o.nombre)?.[1] || 0;
+    const total = ent.reduce((s, [, q]) => s + q, 0);
+
+    if (!c.multiple) {
+      if (cur && !c.obligatoria) delete sel[c.nombre];
+      else sel[c.nombre] = o.nombre;
+    } else if (c.conCantidad) {
+      const nuevo = act === "mas" ? cur + 1 : cur - 1;
+      if (act === "mas" && c.max && total >= c.max) return;
+      if (o.stock != null && nuevo * qty > o.stock) return;
+      const obj = Object.fromEntries(ent);
+      if (nuevo <= 0) delete obj[o.nombre]; else obj[o.nombre] = nuevo;
+      if (Object.keys(obj).length) sel[c.nombre] = obj; else delete sel[c.nombre];
+    } else {
+      const arr = ent.map(([n]) => n);
+      const i = arr.indexOf(o.nombre);
+      if (i >= 0) arr.splice(i, 1);
+      else { if (c.max && arr.length >= c.max) return; arr.push(o.nombre); }
+      if (arr.length) sel[c.nombre] = arr; else delete sel[c.nombre];
+    }
+    pintar();
+  });
+  pintar();
+}
 function renderPausaBanner(data, pedidoRef) {
   let wrap = el("pausa-wrap");
   if (!wrap) {
@@ -1341,14 +1496,8 @@ function renderPausaBanner(data, pedidoRef) {
   const respuesta = data.respuesta_cliente;
   const afectados = pausa.productos_afectados || [];
   const productosActuales = Array.isArray(data.productos) ? data.productos : [];
-  // Reemplazos válidos: ni afectados, ni promos, ni canjes, ni adicionales
-  const otros = productosActuales.filter(
-    (p) =>
-      !afectados.some((a) => a.id === p.id) &&
-      !p.esCanje &&
-      !p.esPromo &&
-      !/^(promo|adic)__/.test(p.id),
-  );
+  const idsRepl = pausa.productos_reemplazo || [];
+  const reemplazos = []; // { prod, cantidad, seleccion }
 
   let restanteTexto = "";
   const creado = toDateFS(pausa.creado_en);
@@ -1382,7 +1531,6 @@ function renderPausaBanner(data, pedidoRef) {
     if (!linea) return;
     const seleccion = JSON.parse(JSON.stringify(linea.opciones || {}));
 
-    // Si la variante que tenía ya no tiene stock, se corrige a una disponible
     (a.condiciones || []).forEach((c) => {
       const disponibles = (c.opciones || [])
         .filter(opDisponible)
@@ -1408,7 +1556,6 @@ function renderPausaBanner(data, pedidoRef) {
     });
   });
 
-  // Tope por producto: nunca más de lo pedido (el servidor solo acepta ajustes hacia abajo)
   const maxCant = (a, st) => {
     const pedida = Number(st.linea.cantidad) || 0;
     let max =
@@ -1425,13 +1572,10 @@ function renderPausaBanner(data, pedidoRef) {
     return Math.max(0, max);
   };
 
-  // Al inicio la cantidad no puede pasar del tope
   afectados.forEach((a) => {
     const st = estado.get(a.id);
     if (st) st.cantidad = Math.min(st.cantidad, maxCant(a, st));
   });
-
-  let reemplazo = null; // { id, nombre }
 
   const precioUnit = (a, st) =>
     typeof a.precio_base === "number"
@@ -1440,7 +1584,7 @@ function renderPausaBanner(data, pedidoRef) {
 
   const construir = () => {
     let faltante = 0;
-    let lista = [];
+    const lista = [];
     productosActuales.forEach((it) => {
       const st = estado.get(it.id);
       if (!st || st.linea !== it) {
@@ -1459,17 +1603,23 @@ function renderPausaBanner(data, pedidoRef) {
         subtotal: +(unit * st.cantidad).toFixed(2),
       });
     });
-    if (reemplazo && faltante > 0) {
-      lista = lista.map((it) => {
-        if (it.id !== reemplazo.id) return it;
-        const c = (Number(it.cantidad) || 0) + faltante;
-        return {
-          ...it,
-          cantidad: c,
-          subtotal: +(c * Number(it.precio_unitario || 0)).toFixed(2),
-        };
+
+    reemplazos.forEach((r) => {
+      const unit = +(
+        r.prod.precio + extrasDe(r.prod.condiciones, r.seleccion)
+      ).toFixed(2);
+      lista.push({
+        id: r.prod.id,
+        nombre: r.prod.nombre,
+        categoria: r.prod.categoria,
+        imagen: r.prod.imagen,
+        cantidad: r.cantidad,
+        opciones: Object.keys(r.seleccion).length ? r.seleccion : null,
+        precio_unitario: unit,
+        subtotal: +(unit * r.cantidad).toFixed(2),
       });
-    }
+    });
+
     const total = +lista
       .reduce((s, it) => s + Number(it.subtotal || 0), 0)
       .toFixed(2);
@@ -1477,12 +1627,20 @@ function renderPausaBanner(data, pedidoRef) {
     return { lista, total, items, faltante };
   };
 
+  const motivoTxt = pausa.motivo || "Elige con qué reemplazar lo que falta";
+
   wrap.innerHTML = `
     <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
-    <p style="margin:0.6rem 0 0;font-size:0.9rem;">${esc(pausa.motivo) || "Algunos productos de tu pedido no están completos."}</p>
+    <p style="margin:0.6rem 0 0;font-size:0.9rem;">${esc(motivoTxt)}</p>
     ${restanteTexto ? `<p style="margin:0.3rem 0 0;font-size:0.78rem;color:var(--text-muted);">${restanteTexto}</p>` : ""}
     <div id="pausa-ajustes" style="margin-top:1rem;display:flex;flex-direction:column;gap:0.8rem;"></div>
-    ${otros.length ? `<p style="margin:1rem 0 0.4rem;font-size:0.8rem;color:var(--text-secondary);">¿Quieres cambiar lo que falta por otro producto? (opcional)</p><div id="pausa-otros" style="display:flex;flex-direction:column;gap:0.5rem;"></div>` : ""}
+    ${
+      idsRepl.length
+        ? `<p style="margin:1rem 0 .4rem;font-size:.85rem;font-weight:700;">Elige con qué reemplazar lo que falta</p>
+      <div id="pausa-repl" style="display:flex;flex-direction:column;gap:.5rem;"></div>
+      <div id="pausa-repl-sel" style="margin-top:.6rem;display:flex;flex-direction:column;gap:.4rem;"></div>`
+        : ""
+    }
     <p id="pausa-hint" style="margin:0.8rem 0 0;font-size:0.78rem;color:#e5484d;display:none;"></p>
     <button id="pausa-confirmar" style="margin-top:1rem;width:100%;padding:0.8rem;border-radius:0.8rem;border:none;background:#38bdf8;color:#04222f;font-weight:700;cursor:pointer;">Continuar con mi pedido</button>
     <button id="pausa-cancelar" style="margin-top:0.6rem;width:100%;padding:0.75rem;border-radius:0.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">Cancelar pedido</button>
@@ -1494,6 +1652,16 @@ function renderPausaBanner(data, pedidoRef) {
 
   const chipCss = (on) =>
     `padding:0.4rem 0.7rem;border-radius:0.6rem;font-size:0.78rem;cursor:pointer;color:var(--text-primary);background:${on ? "color-mix(in srgb, #38bdf8 20%, transparent)" : "var(--card)"};border:1px solid ${on ? "#38bdf8" : "var(--card-border)"};`;
+
+  let refrescarRepl = () => {}; // lo asigna pintarReemplazos()
+
+  // Si el cliente sube cantidades de los afectados, el faltante baja:
+  // se quitan reemplazos del final hasta que no sobren unidades.
+  const sumaRepl = () => reemplazos.reduce((s, r) => s + r.cantidad, 0);
+  const recortarReemplazos = () => {
+    const { faltante } = construir();
+    while (reemplazos.length && sumaRepl() > faltante) reemplazos.pop();
+  };
 
   function pintarTodo() {
     ajustesWrap.innerHTML = "";
@@ -1579,6 +1747,8 @@ function renderPausaBanner(data, pedidoRef) {
       ajustesWrap.appendChild(card);
     });
 
+    recortarReemplazos();
+
     const { total, items, faltante, lista } = construir();
     if (!lista.length) {
       hint.style.display = "block";
@@ -1593,32 +1763,70 @@ function renderPausaBanner(data, pedidoRef) {
     }
     confirmarBtn.textContent = `Continuar · ${items} item${items === 1 ? "" : "s"} · S/ ${total.toFixed(2)}`;
     wrap.dataset.faltante = faltante;
+    refrescarRepl();
   }
 
-  // Cambiar lo que falta por otro producto (opcional)
-  const otrosWrap = wrap.querySelector("#pausa-otros");
-  if (otrosWrap) {
-    otros.forEach((p) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      const paint = () =>
-        (b.style.cssText =
-          chipCss(reemplazo?.id === p.id) + "text-align:left;");
-      b.textContent = `Cambiar lo que falta por: ${p.nombre}`;
-      paint();
-      b.onclick = () => {
-        reemplazo =
-          reemplazo?.id === p.id ? null : { id: p.id, nombre: p.nombre };
-        otrosWrap
-          .querySelectorAll("button")
-          .forEach(
-            (x) => (x.style.cssText = chipCss(false) + "text-align:left;"),
-          );
-        paint();
-        pintarTodo();
-      };
-      otrosWrap.appendChild(b);
-    });
+  /* ── Productos de reemplazo (el negocio manda solo los IDs) ── */
+  async function pintarReemplazos() {
+    const cont = wrap.querySelector("#pausa-repl");
+    const selBox = wrap.querySelector("#pausa-repl-sel");
+    if (!cont || !selBox) return;
+    cont.innerHTML = `<p style="font-size:.8rem;color:var(--text-muted);">Cargando opciones…</p>`;
+    const prods = (
+      await Promise.all(idsRepl.map(cargarProductoReemplazo))
+    ).filter(Boolean);
+    if (!wrap.isConnected) return; // el banner se repintó mientras cargaba
+
+    const libres = () => construir().faltante - sumaRepl();
+
+    const pintarSel = () => {
+      selBox.innerHTML = reemplazos
+        .map(
+          (r, i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.6rem .8rem;border:1px solid #38bdf8;border-radius:.8rem;font-size:.85rem;">
+          <span><b>${r.cantidad}× ${esc(r.prod.nombre)}</b>${seleccionATexto(r.seleccion) ? `<br><small style="color:var(--text-muted);">${esc(seleccionATexto(r.seleccion))}</small>` : ""}</span>
+          <button type="button" data-q="${i}" style="border:none;background:none;color:#e5484d;cursor:pointer;">Quitar</button>
+        </div>`,
+        )
+        .join("");
+      selBox.querySelectorAll("[data-q]").forEach((b) => {
+        b.onclick = () => {
+          reemplazos.splice(+b.dataset.q, 1);
+          pintarTodo();
+        };
+      });
+    };
+
+    const pintarCards = () => {
+      const libre = libres();
+      cont.innerHTML = "";
+      if (!prods.length) {
+        cont.innerHTML = `<p style="font-size:.8rem;color:var(--text-muted);">Los productos de reemplazo ya no están disponibles.</p>`;
+        return;
+      }
+      prods.forEach((p) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.disabled = libre <= 0;
+        b.style.cssText = `display:flex;gap:.7rem;align-items:center;text-align:left;padding:.6rem;border-radius:.8rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-primary);cursor:pointer;${libre <= 0 ? "opacity:.4;" : ""}`;
+        b.append(crearMiniaturaProducto(p));
+        const t = document.createElement("div");
+        t.innerHTML = `<b style="font-size:.88rem;">${esc(p.nombre)}</b><div class="font-mono" style="font-size:.8rem;">S/ ${p.precio.toFixed(2)}${p.condiciones.length ? " · con opciones" : ""}</div>`;
+        b.append(t);
+        b.onclick = () =>
+          abrirSelectorReemplazo(p, libre, (r) => {
+            reemplazos.push(r);
+            pintarTodo();
+          });
+        cont.appendChild(b);
+      });
+    };
+
+    refrescarRepl = () => {
+      pintarSel();
+      pintarCards();
+    };
+    refrescarRepl();
   }
 
   // El cliente solo manda ids, cantidades y opciones. El servidor recalcula precios y total.
@@ -1641,11 +1849,14 @@ function renderPausaBanner(data, pedidoRef) {
     confirmarBtn.textContent = "Enviando…";
     const r = await llamar("responderPausa", {
       ajustes,
-      reemplazoId: reemplazo?.id || null,
+      reemplazos: reemplazos.map((x) => ({
+        id: x.prod.id,
+        categoria: x.prod.categoria,
+        cantidad: x.cantidad,
+        opciones: Object.keys(x.seleccion).length ? x.seleccion : null,
+      })),
     });
     if (!r.ok) {
-      hint.style.display = "block";
-      hint.textContent = r.mensaje || "No se pudo enviar tu respuesta";
       confirmarBtn.disabled = false;
       pintarTodo();
       // pintarTodo() oculta el hint si la lista es válida: se vuelve a mostrar el error
@@ -1657,6 +1868,7 @@ function renderPausaBanner(data, pedidoRef) {
   wrap.querySelector("#pausa-cancelar").onclick = () =>
     abrirModalCancelar(pedidoRef);
   pintarTodo();
+  pintarReemplazos();
 }
 
 function quitarPausaBanner() {
