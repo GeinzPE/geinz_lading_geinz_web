@@ -43,7 +43,11 @@ let tiendaPathActual = null;
 
 async function llamar(nombre, extra = {}) {
   if (!tiendaPathActual || !pedidoIdActual) {
-    return { ok: false, motivo: "sin_contexto", mensaje: "Aún se está cargando el pedido. Intenta de nuevo" };
+    return {
+      ok: false,
+      motivo: "sin_contexto",
+      mensaje: "Aún se está cargando el pedido. Intenta de nuevo",
+    };
   }
   try {
     const r = await httpsCallable(
@@ -55,14 +59,28 @@ async function llamar(nombre, extra = {}) {
       token: TOKEN_URL,
       ...extra,
     });
-    return r.data || { ok: false, motivo: "vacio", mensaje: "Respuesta vacía del servidor" };
+    return (
+      r.data || {
+        ok: false,
+        motivo: "vacio",
+        mensaje: "Respuesta vacía del servidor",
+      }
+    );
   } catch (e) {
     console.error(`[pedidos] ${nombre}:`, e);
     const code = String(e?.code || "");
     if (code.includes("permission-denied")) {
-      return { ok: false, motivo: "permiso", mensaje: "Este pedido no es tuyo. Inicia sesión con la cuenta correcta" };
+      return {
+        ok: false,
+        motivo: "permiso",
+        mensaje: "Este pedido no es tuyo. Inicia sesión con la cuenta correcta",
+      };
     }
-    return { ok: false, motivo: "red", mensaje: "No se pudo conectar. Intenta de nuevo" };
+    return {
+      ok: false,
+      motivo: "red",
+      mensaje: "No se pudo conectar. Intenta de nuevo",
+    };
   }
 }
 
@@ -285,6 +303,7 @@ let cuponCanjeActual = null; // cupón de fidelización usado en este pedido (si
 let negocioMetodosPagoActual = null;
 let pedidoActualParaPago = null;
 let puntoNegocioActual = null;
+let deliveryEstadoPrev = null;
 const esPedidoCampana = (d) =>
   d?.cliente?.tipo_entrega === "Campaña física" || !!d?.campanaId;
 
@@ -416,7 +435,12 @@ function actualizarComprobante() {
   el("comprobante-monto").textContent = `S/ ${Number(p.total || 0).toFixed(2)}`;
   const f = toDateFS(p.pago?.voucher_subido_en);
   el("comprobante-fecha").textContent = f
-    ? f.toLocaleString("es-PE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    ? f.toLocaleString("es-PE", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     : "Hace un momento";
 }
 
@@ -443,7 +467,11 @@ function irAlPagoSiCorresponde(estadoActual) {
 
   // 1) baja hasta el pago
   setTimeout(
-    () => card.scrollIntoView({ behavior: reducir ? "auto" : "smooth", block: "start" }),
+    () =>
+      card.scrollIntoView({
+        behavior: reducir ? "auto" : "smooth",
+        block: "start",
+      }),
     350,
   );
 
@@ -523,7 +551,11 @@ el("pago-voucher-input")?.addEventListener("change", async (e) => {
     actualizarBloquePagoQR();
     actualizarComprobante();
     setTimeout(
-      () => el("comprobante-card")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      () =>
+        el("comprobante-card")?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        }),
       250,
     );
   } catch (err) {
@@ -594,7 +626,10 @@ function renderResumenCupon(data) {
   const descManual =
     Number(data.descuentoCupon) > 0 ? Number(data.descuentoCupon) : 0;
 
-  // Delivery = lo que sobra del total una vez descontados los productos
+  const dp = data.delivery_pendiente;
+  const deliveryPendiente =
+    !!data.delivery_pendiente && data.delivery_pendiente.estado !== "aceptado";
+
   const delivery =
     sumaLineas > 0
       ? Math.max(0, +(total - sumaLineas + descManual).toFixed(2))
@@ -602,18 +637,24 @@ function renderResumenCupon(data) {
   const esDelivery = /delivery|domicilio|env[ií]o/i.test(
     data.cliente?.tipo_entrega || "",
   );
-  const verDelivery = delivery > 0 || esDelivery;
+  const verDelivery = delivery > 0 || esDelivery || deliveryPendiente;
 
   if (!verDelivery && ahorro <= 0) {
     wrap.classList.add("hidden");
     return;
   }
 
-  el("resumen-subtotal").textContent = `S/ ${(total - delivery + ahorro).toFixed(2)}`;
+  el("resumen-subtotal").textContent =
+    `S/ ${(total - delivery + ahorro).toFixed(2)}`;
 
   el("resumen-delivery-row").classList.toggle("hidden", !verDelivery);
-  el("resumen-delivery").textContent =
-    delivery > 0 ? `+ S/ ${delivery.toFixed(2)}` : "Gratis";
+  el("resumen-delivery").textContent = deliveryPendiente
+    ? data.delivery_pendiente.estado === "propuesto"
+      ? `S/ ${Number(data.delivery_pendiente.costo || 0).toFixed(2)} (por aceptar)`
+      : "⏳ Esperando confirmación del negocio"
+    : delivery > 0
+      ? `+ S/ ${delivery.toFixed(2)}`
+      : "Gratis";
 
   el("resumen-cupon-row").classList.toggle("hidden", ahorro <= 0);
   if (ahorro > 0) {
@@ -749,12 +790,21 @@ function renderCampanaInfo(data, estadoActual) {
   }
   box.classList.remove("hidden");
 
-  const pt = data.punto_entrega?.nombre ? data.punto_entrega : puntoNegocioActual;
+  const pt = data.punto_entrega?.nombre
+    ? data.punto_entrega
+    : puntoNegocioActual;
   const metodo = data.pago?.metodo || "";
   const pagoTxt = /efectivo/i.test(metodo)
     ? "Pagas en efectivo en el punto"
     : `Pagas con ${metodo || "tu método elegido"} en el punto`;
-  const key = [pt?.nombre, pt?.referencia, pt?.lat, pt?.lng, metodo, pedidoIdActual].join("|");
+  const key = [
+    pt?.nombre,
+    pt?.referencia,
+    pt?.lat,
+    pt?.lng,
+    metodo,
+    pedidoIdActual,
+  ].join("|");
   if (box.dataset.key === key) return; // no repinta si no cambió nada
   box.dataset.key = key;
 
@@ -1081,9 +1131,17 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
       ) {
         notificarCambioEstado(nuevoEstado, data);
       }
+      const dpEst = data.delivery_pendiente?.estado || null;
+      if (
+        !primerRenderPedido &&
+        dpEst === "propuesto" &&
+        deliveryEstadoPrev !== "propuesto"
+      ) {
+        notificarDelivery(data);
+      }
+      deliveryEstadoPrev = dpEst;
       estadoAnterior = nuevoEstado;
       primerRenderPedido = false;
-
       if (!primeraVezMostrado) {
         primeraVezMostrado = true;
         if (colorListo) await colorListo;
@@ -1605,6 +1663,80 @@ function quitarPausaBanner() {
   el("pausa-wrap")?.remove();
 }
 
+/* ══════════ Delivery por confirmar (el negocio pone el precio) ══════════ */
+function renderDeliveryPropuesta(data, estadoActual) {
+  const d = data.delivery_pendiente;
+  const activo = d && d.estado !== "aceptado" && estadoActual === "pendiente";
+  let wrap = el("delivery-wrap");
+  if (!activo) {
+    wrap?.remove();
+    return;
+  }
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "delivery-wrap";
+    wrap.className = "card fade-in";
+    wrap.style.borderColor = "#fbbf24";
+    el("content").insertBefore(
+      wrap,
+      el("content").querySelector("section.card"),
+    );
+  }
+  const key = `${d.estado}|${d.costo}|${d.total_propuesto}`;
+  if (wrap.dataset.key === key) return;
+  wrap.dataset.key = key;
+
+  if (d.estado === "por_fijar") {
+    wrap.innerHTML = `
+      <span class="eyebrow" style="color:#fbbf24;">🛵 Delivery por confirmar</span>
+      <p style="margin:.6rem 0 0;font-size:.9rem;">El negocio está evaluando tu ruta para ponerle precio al delivery. Te avisaremos apenas lo tenga.</p>`;
+    return;
+  }
+
+  const costo = Number(d.costo || 0).toFixed(2);
+  const nuevo = Number(d.total_propuesto || 0).toFixed(2);
+  wrap.innerHTML = `
+    <span class="eyebrow" style="color:#fbbf24;">🛵 El negocio puso el precio del delivery</span>
+    <div style="margin-top:.8rem;display:flex;flex-direction:column;gap:.4rem;font-size:.9rem;">
+      <div style="display:flex;justify-content:space-between;"><span>Delivery</span><b class="font-mono">S/ ${costo}</b></div>
+      <div style="display:flex;justify-content:space-between;"><span>Nuevo total</span><b class="font-mono">S/ ${nuevo}</b></div>
+    </div>
+    <p id="delivery-err" style="display:none;margin:.6rem 0 0;font-size:.78rem;color:#e5484d;"></p>
+    <button id="delivery-aceptar" style="margin-top:1rem;width:100%;padding:.8rem;border-radius:.8rem;border:none;background:#fbbf24;color:#2a1d00;font-weight:700;cursor:pointer;">Aceptar delivery · S/ ${costo}</button>
+    <button id="delivery-rechazar" style="margin-top:.6rem;width:100%;padding:.75rem;border-radius:.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">No acepto, cancelar pedido</button>`;
+
+  wrap.querySelector("#delivery-aceptar").onclick = async (ev) => {
+    const b = ev.currentTarget;
+    b.disabled = true;
+    b.textContent = "Enviando…";
+    const r = await llamar("aceptarDelivery", { costoVisto: d.costo });
+    if (!r.ok) {
+      b.disabled = false;
+      b.textContent = `Aceptar delivery · S/ ${costo}`;
+      const e = wrap.querySelector("#delivery-err");
+      e.textContent = r.mensaje || "No se pudo aceptar";
+      e.style.display = "block";
+    }
+  };
+  wrap.querySelector("#delivery-rechazar").onclick = () =>
+    abrirModalCancelar(pedidoRefGlobal);
+}
+
+function notificarDelivery(data) {
+  if (!window.Notification || Notification.permission !== "granted") return;
+  const d = data.delivery_pendiente || {};
+  try {
+    new Notification(
+      `${el("negocio-nombre")?.textContent || "Geinz"} · Delivery`,
+      {
+        body: `El delivery cuesta S/ ${Number(d.costo || 0).toFixed(2)}. Nuevo total S/ ${Number(d.total_propuesto || 0).toFixed(2)}. Entra para aceptarlo.`,
+        icon: el("logo-img")?.src || undefined,
+        tag: "geinz-delivery-" + Date.now(),
+      },
+    );
+  } catch (e) {}
+}
+
 function labelEstadoMostrado(estadoActual, data) {
   if (estadoActual === "rechazado" && data.cancelado_por_cliente) {
     return "Pedido cancelado";
@@ -1689,7 +1821,8 @@ function configurarCuentaLlegada(activo, data, esPunto) {
     aviso = document.createElement("p");
     aviso.id = "en-local-aviso";
     aviso.className = "text-secondary hidden";
-    aviso.style.cssText = "margin:0 0 0.7rem;font-size:0.85rem;line-height:1.5;";
+    aviso.style.cssText =
+      "margin:0 0 0.7rem;font-size:0.85rem;line-height:1.5;";
     btn.insertAdjacentElement("beforebegin", aviso);
   }
 
@@ -1724,7 +1857,9 @@ function configurarCuentaLlegada(activo, data, esPunto) {
     } else {
       btn.disabled = false;
       btn.style.opacity = "";
-      btn.textContent = yaAviso ? "🔔 Volver a avisar que estoy aquí" : textoBtnLlegada;
+      btn.textContent = yaAviso
+        ? "🔔 Volver a avisar que estoy aquí"
+        : textoBtnLlegada;
       clearInterval(timerLlegada);
       timerLlegada = null;
     }
@@ -1733,7 +1868,73 @@ function configurarCuentaLlegada(activo, data, esPunto) {
   tick();
   if (yaAviso && fin > Date.now()) timerLlegada = setInterval(tick, 1000);
 }
+/* ══════════════ Miniatura de producto: foto o logo del negocio ══════════════ */
+function inyectarEstilosMiniatura() {
+  if (document.getElementById("prodThumbStyle")) return;
+  const st = document.createElement("style");
+  st.id = "prodThumbStyle";
+  st.textContent = `
+    .prod-thumb{width:48px;height:48px;border-radius:12px;overflow:hidden;flex-shrink:0;background:#111;}
+    .prod-thumb > img{width:100%;height:100%;object-fit:cover;display:block;}
+    .logo-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+      background:radial-gradient(circle,
+        color-mix(in srgb,var(--accent,#888) 22%,transparent),
+        color-mix(in srgb,var(--accent,#888) 6%,transparent));}
+    .logo-ph img{width:34px;height:34px;object-fit:cover;border-radius:50%;background:#111;
+      box-shadow:0 2px 8px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.06);}
+    .logo-ph .ph-letter{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+      justify-content:center;font-size:.95rem;font-weight:800;color:var(--accent,#fff);
+      background:color-mix(in srgb,var(--accent,#888) 14%,transparent);
+      border:1px solid color-mix(in srgb,var(--accent,#888) 35%,transparent);}
+  `;
+  document.head.appendChild(st);
+}
 
+function crearLogoPlaceholder() {
+  const ph = document.createElement("div");
+  ph.className = "logo-ph";
+  if (bizLogoActual) {
+    const im = document.createElement("img");
+    im.alt = bizNombreActual || "Logo";
+    im.decoding = "async";
+    im.onerror = () => {
+      im.remove();
+      const l = document.createElement("span");
+      l.className = "ph-letter";
+      l.textContent = (bizNombreActual || "?").trim().charAt(0).toUpperCase();
+      ph.appendChild(l);
+    };
+    im.src = bizLogoActual;
+    ph.appendChild(im);
+  } else {
+    const l = document.createElement("span");
+    l.className = "ph-letter";
+    l.textContent = (bizNombreActual || "?").trim().charAt(0).toUpperCase();
+    ph.appendChild(l);
+  }
+  return ph;
+}
+
+function crearMiniaturaProducto(p) {
+  inyectarEstilosMiniatura();
+  const wrap = document.createElement("div");
+  wrap.className = "prod-thumb";
+  const mostrarLogo = () => {
+    wrap.innerHTML = "";
+    wrap.appendChild(crearLogoPlaceholder());
+  };
+  if (p.imagen) {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.loading = "lazy";
+    img.onerror = mostrarLogo; // si la foto falla, también logo
+    img.src = p.imagen;
+    wrap.appendChild(img);
+  } else {
+    mostrarLogo();
+  }
+  return wrap;
+}
 function renderPedido(data) {
   const estadoActual = normalizarEstado(data.estado);
   const esRechazado = estadoActual === "rechazado";
@@ -1746,8 +1947,9 @@ function renderPedido(data) {
     : estadoActual;
   const camp = esPedidoCampana(data);
   const estadoTL = camp
-    ? { pendiente_pago: "pendiente", listo: "en_proceso" }[estadoParaTimeline] ||
-      estadoParaTimeline
+    ? { pendiente_pago: "pendiente", listo: "en_proceso" }[
+        estadoParaTimeline
+      ] || estadoParaTimeline
     : estadoParaTimeline;
 
   renderTiempoEstimado(data, estadoActual);
@@ -1762,6 +1964,7 @@ function renderPedido(data) {
 
   if (enPausa) renderPausaBanner(data, pedidoRefGlobal);
   else quitarPausaBanner();
+  renderDeliveryPropuesta(data, estadoActual);
 
   el("status-label").textContent = labelEstadoMostrado(estadoActual, data);
 
@@ -1879,16 +2082,7 @@ function renderPedido(data) {
     const row = document.createElement("div");
     row.className = "producto";
 
-    const img = document.createElement("img");
-    img.src = p.imagen || "";
-    img.alt = "";
-    img.loading = "lazy";
-    img.width = 48;
-    img.height = 48;
-    img.onerror = () => {
-      img.style.visibility = "hidden";
-    };
-
+    const thumb = crearMiniaturaProducto(p);
     const info = document.createElement("div");
     info.className = "info";
     const nombre = document.createElement("p");
@@ -1926,7 +2120,7 @@ function renderPedido(data) {
       ? "GRATIS"
       : `S/ ${Number(p.subtotal || 0).toFixed(2)}`;
 
-    row.append(img, info, subtotal);
+    row.append(thumb, info, subtotal);
     frag.appendChild(row);
   });
   cont.appendChild(frag);

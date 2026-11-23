@@ -2,6 +2,7 @@ import { setFaviconCircular } from "../favicon/favicon.js";
 import { registrarTokenWeb } from "../../notificaciones.js";
 import { montarTarjetaFidelizacion } from "../../tarjeta_fidelizacion_desing/tarjeta.js";
 import { mostrarBienvenidaRegistro } from "../share/registra_bievenida.js";
+import { abrirComoLlegar } from "../../modales/modal_google_maps.js";
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
@@ -37,6 +38,7 @@ document.addEventListener("selectstart", (e) => {
   e.preventDefault();
 });
 // ═══════════ EMOJI → IMAGEN (automático) ═══════════
+let _cartaSelNombre = null;
 const ICON_BASE = "/img/iconos_perfil/";
 const EMOJI_MAP = {
   "🎁": "caja_regalo.webp",
@@ -833,6 +835,13 @@ function urlPerfilCompartir(alias) {
   if (alias) return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}`;
   return null;
 }
+// URL para compartir la carta digital (termina en -carta)
+function urlCompartirCarta(alias) {
+  if (_esDominioPersonalizado) return `${_baseShareUrl}/-carta`;
+  if (alias)
+    return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}-carta`;
+  return null;
+}
 
 // URL a la que vuelve el usuario después del login (reabre el diálogo de registro)
 function urlVolverRegistro() {
@@ -1598,6 +1607,10 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
   const gridEl = document.getElementById("cartaGrid");
   if (!sec || !filtersEl || !gridEl) return;
 
+  secciones = [...secciones].sort(
+    (a, b) => b.imagenes.length - a.imagenes.length,
+  );
+
   injectCartaTextStyles();
 
   const esComida = (categoria || "").toLowerCase().includes("comida");
@@ -1659,21 +1672,25 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
     paintDesc(idx);
   }
 
+  let activo = secciones.findIndex((s) => s.nombre === _cartaSelNombre);
+  if (activo < 0) activo = 0;
+
   secciones.forEach((s, idx) => {
     const chip = document.createElement("button");
-    chip.className = "carta-filter-chip" + (idx === 0 ? " active" : "");
+    chip.className = "carta-filter-chip" + (idx === activo ? " active" : "");
     chip.textContent = s.nombre;
     chip.addEventListener("click", () => {
       filtersEl
         .querySelectorAll(".carta-filter-chip")
         .forEach((el) => el.classList.remove("active"));
       chip.classList.add("active");
+      _cartaSelNombre = s.nombre;
       paintGrid(idx);
     });
     filtersEl.appendChild(chip);
   });
 
-  paintGrid(0);
+  paintGrid(activo); // ← solo este, borra el paintGrid(0)
 
   const shareBtn = document.getElementById("cartaShareBtn");
   if (shareBtn) {
@@ -5706,6 +5723,10 @@ const PERFIL_CART_CSS = `
   .perfil-cart-popup.open .perfil-cart-box{ opacity:1; transform:translateY(0) scale(1); }
   .pcp-item{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.06); }
   .pcp-item img{ width:44px; height:44px; border-radius:10px; object-fit:cover; flex-shrink:0; background:#111; }
+    .pcp-item .pcp-thumb{ width:44px; height:44px; border-radius:10px; overflow:hidden; flex-shrink:0; background:#111; }
+  .pcp-item .pcp-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .pcp-item .pcp-thumb .geinz-logo-placeholder img,
+  .pcp-item .pcp-thumb .geinz-logo-placeholder .ph-letter{ width:30px; height:30px; font-size:.95rem; }
   .pcp-item-info{ flex:1; min-width:0; }
   .pcp-item-info .nombre{ font-size:13.5px; font-weight:700; color:#fff; }
   .pcp-item-info .precio{ font-size:12px; color:var(--muted,#9c9ca3); }
@@ -6028,10 +6049,10 @@ function pintarPerfilCartPopup() {
     const row = document.createElement("div");
     row.className = "pcp-item";
     row.innerHTML = `
-        <img src="${it.imagen || ""}" alt="">
+        <div class="pcp-thumb"></div>
         <div class="pcp-item-info">
           <div class="nombre">${escapeHtml(it.nombre)}</div>
-                    ${it.detalle ? `<div class="precio">${escapeHtml(it.detalle)}</div>` : ""}
+          ${it.detalle ? `<div class="precio">${escapeHtml(it.detalle)}</div>` : ""}
           <div class="precio">S/ ${it.precio.toFixed(2)} c/u</div>
         </div>
         <div class="pcp-qty">
@@ -6039,6 +6060,23 @@ function pintarPerfilCartPopup() {
           <span>${it.cantidad}</span>
           <button data-plus>+</button>
         </div>`;
+
+    // Miniatura: foto si existe y carga; si no, logo del negocio
+    const thumb = row.querySelector(".pcp-thumb");
+    const mostrarLogo = () => {
+      thumb.innerHTML = "";
+      thumb.appendChild(createLogoPlaceholder(it.nombre));
+    };
+    if (it.imagen) {
+      const im = document.createElement("img");
+      im.alt = "";
+      im.onerror = mostrarLogo;
+      im.src = it.imagen;
+      thumb.appendChild(im);
+    } else {
+      mostrarLogo();
+    }
+
     row.querySelector("[data-minus]").addEventListener("click", () => {
       it.cantidad -= 1;
       if (it.cantidad <= 0) _perfilCarritoItems.splice(idx, 1);
@@ -6202,20 +6240,9 @@ let _F = {
   bannerGeinz: false,
 };
 function tryHideLoader() {
-  if (
-    _colorReady &&
-    _followReady &&
-    _reviewsReady &&
-    _bannerReady &&
-    _promosReady &&
-    _catalogoReady &&
-    _puntosReady &&
-    _pedidosReady &&
-    _serviciosReady &&
-    _cartaReady
-  ) {
-    hideBizLoader();
-  }
+  // Solo se espera lo visual crítico: logo/color de marca y banner promo (si hay).
+  // Lo demás (promos, catálogo, reseñas, carta, mesas, pedidos, puntos) entra progresivo.
+  if (_colorReady && _bannerReady) hideBizLoader();
 }
 async function loadServicios({ localidad, id }) {
   try {
@@ -6274,8 +6301,9 @@ function calcFlags(s = {}) {
     ),
     // módulos (con respaldo a la estructura vieja)
     carta: on(
+      "operacion_ventas.produtos.carta.activo",
+      "cliente_y_fidelizacion.miqr.carta",
       "cliente_y_fidelizacion.carta",
-      "operacion_ventas.produtos.carta",
       "modulos.productos.cartas",
     ),
     carrito:
@@ -6696,7 +6724,6 @@ async function render(biz, isInitial = true) {
     });
   }
 
-
   // Contactos (NO tiempo real)
   if (isInitial) {
     _contactosCache = contactos;
@@ -6945,15 +6972,15 @@ async function render(biz, isInitial = true) {
   // Botones
   const routeBtn = document.getElementById("routeBtn");
   if (routeBtn)
-    routeBtn.onclick = () => {
-      const lat = ubicacion.latitud,
-        lng = ubicacion.longitud;
-      if (!lat || !lng) showToast("Ubicación no disponible");
-      else
-        window.open(
-          `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-          "_blank",
-        );
+    routeBtn.onclick = async () => {
+      const ok = await abrirComoLlegar({
+        lat: ubicacion.latitud,
+        lng: ubicacion.longitud,
+        nombre,
+        direccion: ubicacion.dirección,
+        referencia: ubicacion.referencia,
+      });
+      if (!ok) showToast("Ubicación no disponible");
     };
 
   const shareBtn = document.getElementById("shareBtn");
@@ -8686,12 +8713,15 @@ function diaEspecialProximo() {
     await render(biz, true);
     renderInstallBanner();
     listenServiciosRealtime(params, ck);
-    await bannerPromise;
+
+    // ya no se bloquea el resto del init esperando al banner
+    bannerPromise.then(tryHideLoader);
+
     if (params.wantsRegistro) {
       setTimeout(hideBizLoader, 300); // el progreso ya cubre la pantalla
     } else {
       tryHideLoader();
-      setTimeout(hideBizLoader, 6000); // seguro anti-bloqueo
+      setTimeout(hideBizLoader, 3500); // seguro anti-bloqueo
     }
 
     injectReviewsStyles();
@@ -8826,6 +8856,25 @@ function diaEspecialProximo() {
   }
 })();
 injectLightboxStyles();
+(function injectProgressiveStyles() {
+  if (document.getElementById("progStyle")) return;
+  const st = document.createElement("style");
+  st.id = "progStyle";
+  st.textContent = `
+    @keyframes progIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+    #secPromosActivas, #secCatalogo, #secCarta, #secMesas, #secPromos,
+    #secReviews, #reviewsGalleryWrap, #pedidoActualWidget .pw-pill,
+    #secRedes, #secDiasEspeciales, #secBannerCumple, #secBlackFriday{
+      animation:progIn .5s cubic-bezier(.22,.85,.32,1) both;
+    }
+    #reviewsList .review-item{will-change:opacity,transform;}
+    @media (prefers-reduced-motion:reduce){
+      #secPromosActivas,#secCatalogo,#secCarta,#secMesas,#secPromos,#secReviews,
+      #reviewsGalleryWrap,#secRedes,#secDiasEspeciales,#secBannerCumple,#secBlackFriday{animation:none;}
+    }
+  `;
+  document.head.appendChild(st);
+})();
 injectMesasStyles();
 bindMesaReservaEvents();
 bindLoginPromptEvents();
@@ -8838,6 +8887,23 @@ document
     e.preventDefault();
     if (_contactosCache.length) abrirContactoModal();
   });
+// Footer: los enlaces internos hacen scroll suave sin salir de la página
+document.getElementById("geinzFooter")?.addEventListener("click", (e) => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  e.preventDefault(); // evita que cambie la URL o abra otra pestaña
+
+  const id = a.getAttribute("href").slice(1);
+  if (!id) return; // "Contacto" usa href="#" y lo maneja su propio listener
+
+  const el = document.getElementById(id);
+  if (!el || el.offsetParent === null) {
+    showToast("Esta sección no está disponible");
+    return;
+  }
+  el.style.scrollMarginTop = "90px"; // deja aire arriba
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
 const observer = new IntersectionObserver(
@@ -9369,7 +9435,9 @@ function cpDesde(p, sinDesc = false) {
   let varia = false;
   p.condiciones.forEach((c) => {
     if (!c.obligatoria) return;
-    const costos = c.opciones.filter((o) => !o.todas).map((o) => o.costoAdicional);
+    const costos = c.opciones
+      .filter((o) => !o.todas)
+      .map((o) => o.costoAdicional);
     const min = Math.min(...costos);
     if (min !== Math.max(...costos)) varia = true;
     const o = c.opciones.find((x) => !x.todas && x.costoAdicional === min);
@@ -9524,7 +9592,7 @@ function cpAlternar(c, n) {
     return true;
   }
   const opE = c.opciones.find((o) => o.nombre === n);
-    if (opE?.todas) return cpAlternarTodas(c);
+  if (opE?.todas) return cpAlternarTodas(c);
   const exE = cpExcl(c);
   if (opE?.exclusiva) {
     if (exE?.nombre === n) delete _cpSel[k];
@@ -10003,17 +10071,7 @@ const BF_CSS = `
     .bf-ico.i-heart{width:92px;right:22%;bottom:-18px;}
     .bf-ico.i-pct2{width:70px;left:22%;bottom:-14px;}    .bf-ico.i-star{width:84px;left:31%;top:-22px;}
   }
-    .de-clock{position:relative;z-index:2;margin-top:6px;display:inline-flex;align-items:center;gap:10px;
-  padding:8px 16px;border-radius:14px;color:#fff;
-  background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.3);
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
-.de-clock-label{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.9;}
-.de-clock-time{display:flex;gap:6px;font-variant-numeric:tabular-nums;}
-.de-clock-unit{display:flex;flex-direction:column;align-items:center;min-width:34px;}
-.de-clock-unit b{font-size:20px;font-weight:900;line-height:1;}
-.de-clock-unit span{font-size:9px;font-weight:700;text-transform:uppercase;opacity:.8;margin-top:2px;}
-.de-clock.live{border-color:#4ade80;}
-.de-clock.live .de-clock-label{color:#4ade80;}
+
   @media (prefers-reduced-motion:reduce){.bf-ico,.bf-inner::after{animation:none;}}
 `;
 
@@ -10228,13 +10286,30 @@ const DE_CSS = `
     background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);
     transform:skewX(-20deg);animation:deShine 6s ease-in-out 1s infinite;pointer-events:none;}
   @keyframes deShine{0%{left:-60%;}55%,100%{left:140%;}}
-  .de-copy{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:8px;max-width:560px;}
+  .de-copy{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:8px;max-width:560px;width:100%;text-align:center;}
   .de-tag{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:999px;font-size:10.5px;font-weight:800;
     letter-spacing:.24em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.35);
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
   .de-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff;}
-  .de-title{margin:0;font-size:clamp(26px,5.2vw,44px);font-weight:900;line-height:1.05;letter-spacing:-.03em;color:#fff;text-shadow:0 4px 18px rgba(0,0,0,.45);}
-  .de-text{margin:0;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.92);text-shadow:0 1px 8px rgba(0,0,0,.4);}
+  .de-title{margin:0;width:100%;text-align:center;align-self:center;font-size:clamp(26px,5.2vw,44px);font-weight:900;line-height:1.05;letter-spacing:-.03em;color:#fff;text-shadow:0 4px 18px rgba(0,0,0,.45);}
+  .de-text{margin:0;width:100%;text-align:center;align-self:center;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.92);text-shadow:0 1px 8px rgba(0,0,0,.4);}
+
+  /* Reloj */
+  .de-clock{position:relative;z-index:2;margin-top:6px;display:inline-flex;flex-direction:row;align-items:center;justify-content:center;gap:12px;
+    padding:8px 16px;border-radius:14px;color:#fff;
+    background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.3);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+  .de-clock-label{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.9;white-space:nowrap;}
+  .de-clock-time{display:flex;flex-direction:row;gap:8px;font-variant-numeric:tabular-nums;}
+  .de-clock-unit{display:flex;flex-direction:column;align-items:center;min-width:34px;}
+  .de-clock-unit b{font-size:20px;font-weight:900;line-height:1;}
+  .de-clock-unit span{font-size:9px;font-weight:700;text-transform:uppercase;opacity:.8;margin-top:2px;}
+  .de-clock.live{border-color:#4ade80;}
+  .de-clock.live .de-clock-label{color:#4ade80;}
+  @media (max-width:520px){
+    .de-clock{flex-direction:column;gap:6px;}
+  }
+
   .de-ico{position:absolute;z-index:1;pointer-events:none;user-select:none;object-fit:contain;
     filter:drop-shadow(0 14px 18px rgba(0,0,0,.5));will-change:transform;
     animation:deFloat var(--d,6s) ease-in-out var(--dl,0s) infinite;}
@@ -10328,7 +10403,7 @@ function renderDiasEspeciales(biz) {
   let sec = document.getElementById("secDiasEspeciales");
   const cfg = biz?.dias_especiales;
   const dias = cfg?.activo === true ? cfg.dias || {} : {};
-
+  console.log("DE cfg:", cfg, "dias:", dias);
   // Busca hoy o el próximo día especial activo
   const hoy = Math.max(0, DE_KEYS.indexOf(diaHoyLima()));
   let k = null,

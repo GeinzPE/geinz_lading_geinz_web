@@ -1,0 +1,13 @@
+<!-- Requiere modales-base.css en la página (una sola vez). Mantiene los mismos id que usa productos.js -->
+<div class="overlay dlg top" id="overlay-scan">
+  <div class="modal dlg-box" role="dialog" aria-modal="true">
+    <div class="dlg-head"><h3 id="scan-titulo">Escanear producto</h3><p>Usa tu lector de código de barras (haz clic en el campo y escanea) o la cámara.</p></div>
+    <div class="dlg-body">
+      <div id="scan-categoria-wrap" class="dlg-field"><label class="dlg-label" for="scan-categoria">Guardar en la sección</label><select id="scan-categoria" class="dlg-input"></select></div>
+      <input type="text" id="scan-input-usb" class="dlg-input mono" inputmode="numeric" autocomplete="off" placeholder="Lector USB: escanea aquí">
+      <button type="button" id="scan-btn-cam" class="dlg-btn soft">📷 Usar cámara</button>
+      <div id="scan-video-wrap" class="hidden dlg-video"><video id="scan-video" playsinline muted></video><div class="dlg-line"></div></div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="dlg-btn ghost" data-close="overlay-scan">Cerrar</button></div>
+  </div>
+</div>

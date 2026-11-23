@@ -2776,6 +2776,7 @@ function renderMetodosPago(biz) {
   metodoPagoKey = primero;
   metodoPago = (METODOS_PAGO_CONFIG[primero] || { label: primero }).label;
   setCollapseOpen(efectivoCollapse, metodoPagoKey === "efectivo");
+  actualizarTextoWhatsapp();
 }
 function aplicarModeloNegocio(biz) {
   if (esCampana()) return;
@@ -2933,10 +2934,33 @@ function aplicarPuntoEntrega() {
   actualizarDireccionPorEntrega();
 }
 
+function getLocalEntrega() {
+  const u = bizData?.ubicacion || {};
+  const lat = Number(u.latitud),
+    lng = Number(u.longitud);
+  if (
+    u.latitud == null ||
+    u.longitud == null ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng)
+  )
+    return null;
+  return {
+    nombre: bizNombre || "Nuestro local",
+    // ajusta estos campos si en tu Firestore la dirección se llama distinto
+    referencia: String(
+      u.direccion || u.calle || u.referencia || bizData?.direccion || "",
+    ).trim(),
+    lat,
+    lng,
+  };
+}
+
 function pintarPuntoEntrega() {
   let el = document.getElementById("puntoEntregaInfo");
-  const punto = getPuntoEntrega();
-  if ((tipoEntrega !== TIPO_PUNTO && !esCampana()) || !punto) {
+  const esLocal = tipoEntrega === "Recojo en local" && !esCampana();
+  const punto = esLocal ? getLocalEntrega() : getPuntoEntrega();
+  if ((!esLocal && tipoEntrega !== TIPO_PUNTO && !esCampana()) || !punto) {
     el?.classList.add("hidden");
     return;
   }
@@ -2975,7 +2999,7 @@ function pintarPuntoEntrega() {
 
   // Si ya está pintado con el mismo punto, no se vuelve a crear (evita que el mapa recargue)
   const camp = esCampana();
-  const key = `${punto.lat},${punto.lng},${punto.nombre},${punto.referencia},${camp}`;
+  const key = `${punto.lat},${punto.lng},${punto.nombre},${punto.referencia},${camp},${esLocal}`;
   if (el.dataset.key === key) {
     el.classList.remove("hidden");
     return;
@@ -2985,7 +3009,7 @@ function pintarPuntoEntrega() {
   const embed = `https://www.google.com/maps?q=${punto.lat},${punto.lng}&z=17&output=embed`;
   const ruta = `https://www.google.com/maps/dir/?api=1&destination=${punto.lat},${punto.lng}&travelmode=driving`;
   el.innerHTML = `
-    <div class="dlv-title">📍 Recojo en punto destinado</div>
+    <div class="dlv-title">${esLocal ? "🏬 Recojo en nuestro local" : "📍 Recojo en punto destinado"}</div>
     <div style="font-weight:700;">${escapeHtmlCarrito(punto.nombre)}</div>
     ${punto.referencia ? `<div class="dlv-muted">${escapeHtmlCarrito(punto.referencia)}</div>` : ""}
     ${
@@ -3204,6 +3228,23 @@ function normalizarWhatsapp(raw) {
   }
   return d.length >= 11 && d.length <= 15 ? d : null;
 }
+// 9 dígitos, empieza con 9 y sin números repetitivos (999999999, 911111111, 989898989…)
+function whatsappValido9(raw) {
+  let n = String(raw || "").replace(/\D/g, "");
+  if (n.length === 11 && n.startsWith("51")) n = n.slice(2);
+  if (!/^9\d{8}$/.test(n)) return false;
+  if (new Set(n.split("")).size <= 2) return false;
+  return true;
+}
+
+const whatsappObligatorio = () =>
+  !mesaId && (!usuarioLogeado || metodoPagoKey === "efectivo");
+
+function actualizarTextoWhatsapp() {
+  const t = document.getElementById("whatsappOpcionalTxt");
+  if (t) t.textContent = whatsappObligatorio() ? "(obligatorio)" : "(opcional)";
+}
+
 function prepararCheckoutInvitado() {
   const esInvitado = !usuarioLogeado;
   document
@@ -3211,8 +3252,7 @@ function prepararCheckoutInvitado() {
     ?.classList.toggle("hidden", !esInvitado);
   const biz = document.getElementById("guestNoticeBiz");
   if (biz) biz.textContent = bizNombre || "este negocio";
-  const opt = document.getElementById("whatsappOpcionalTxt");
-  if (opt) opt.textContent = esInvitado ? "(obligatorio)" : "(opcional)";
+  actualizarTextoWhatsapp();
 
   // Recordar datos del invitado en este dispositivo
   const nom = document.getElementById("clienteNombre");
@@ -3335,34 +3375,86 @@ function applyFilters() {
   renderLista(resultado);
 }
 
-/* ══════════════ Construcción de tarjetas (UNA sola vez, se reutilizan siempre) ══════════════ */
-function buildAllCards(productos) {
+/* ══════════════ Carga progresiva (scroll infinito) ══════════════ */
+const BLOQUE_CARDS = 20; // cuántas tarjetas se pintan por bloque
+let listaFiltrada = []; // todo lo que coincide con el filtro (solo datos, sin DOM)
+let renderedCount = 0; // cuántas ya están pintadas
+let scrollObs = null;
+let sentinelEl = null;
+
+function renderSiguienteBloque() {
+  if (renderedCount >= listaFiltrada.length) return false;
   const lista = document.getElementById("lista");
-  lista.innerHTML = "";
-  cardElements.clear();
   const frag = document.createDocumentFragment();
-  productos.forEach((p, i) => {
-    const card = productoCard(p, i);
+  const fin = Math.min(renderedCount + BLOQUE_CARDS, listaFiltrada.length);
+  for (let i = renderedCount; i < fin; i++) {
+    const p = listaFiltrada[i];
+    const card = productoCard(p, i - renderedCount); // delay de animación relativo al bloque
     cardElements.set(p.id, card);
     frag.appendChild(card);
-  });
+  }
   lista.appendChild(frag);
+  renderedCount = fin;
+  if (sentinelEl) sentinelEl.style.display = renderedCount >= listaFiltrada.length ? "none" : "block";
+  return true;
+}
+
+// Fuerza a re-evaluar si el sentinel sigue visible (pantallas altas / bloque corto)
+function reobservarSentinel() {
+  if (!scrollObs || !sentinelEl) return;
+  scrollObs.unobserve(sentinelEl);
+  requestAnimationFrame(() => scrollObs.observe(sentinelEl));
+}
+
+// Se llama una sola vez (desde init, vía buildAllCards)
+function buildAllCards() {
+  const lista = document.getElementById("lista");
+  if (!sentinelEl) {
+    sentinelEl = document.createElement("div");
+    sentinelEl.id = "listaSentinel";
+    sentinelEl.style.cssText = "height:60px;display:none;";
+    lista.after(sentinelEl);
+  }
+  if (!scrollObs && "IntersectionObserver" in window) {
+    scrollObs = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting) return;
+        if (renderSiguienteBloque()) reobservarSentinel();
+      },
+      { rootMargin: "800px 0px" }, // empieza a cargar ANTES de llegar al final
+    );
+    scrollObs.observe(sentinelEl);
+  }
+}
+
+// Asegura que una tarjeta concreta esté pintada (para links ?oferta= / ?promo=)
+function asegurarCardRenderizada(id) {
+  const idx = listaFiltrada.findIndex((p) => p.id === id);
+  if (idx < 0) return;
+  while (renderedCount <= idx && renderSiguienteBloque()) {}
 }
 
 function renderLista(productosFiltrados) {
   const lista = document.getElementById("lista");
   const noResults = document.getElementById("noResultsMsg");
-  const matchedIds = new Set(productosFiltrados.map((p) => p.id));
 
-  cardElements.forEach((card, id) => {
-    card.style.display = matchedIds.has(id) ? "" : "none";
-  });
+  listaFiltrada = productosFiltrados;
+  renderedCount = 0;
+  cardElements.clear();
+  lista.innerHTML = "";
 
-  const sinResultados =
-    !productosFiltrados.length && productosGlobal.length > 0;
+  const sinResultados = !productosFiltrados.length && productosGlobal.length > 0;
   noResults.classList.toggle("hidden", !sinResultados);
   noResults.classList.toggle("flex", sinResultados);
   lista.classList.toggle("hidden", sinResultados);
+
+  if (!scrollObs && "IntersectionObserver" in window === false) {
+    // navegador viejo sin IntersectionObserver: se pinta todo
+    while (renderSiguienteBloque()) {}
+    return;
+  }
+  renderSiguienteBloque();
+  reobservarSentinel();
 }
 
 /* ══════════════ Placeholder de logo (sin foto / foto rota) ══════════════ */
@@ -6245,9 +6337,23 @@ function renderCheckoutSummary() {
     (deliv
       ? `<div class="step-summary-row ${deliv.gratis ? "text-green-400" : ""}">
       <span>🛵 Delivery${deliv.zona ? ` · ${deliv.zona}` : ""}${deliv.aprox ? " (aprox.)" : ""}</span>
-      <span>${deliv.sinPrecio ? "Por confirmar" : deliv.gratis ? "Gratis" : "S/ " + deliv.costo.toFixed(2)}</span>
+        <span>${deliv.sinPrecio ? "Por confirmar" : deliv.gratis ? "Gratis" : "S/ " + deliv.costo.toFixed(2)}</span>
     </div>`
       : "") +
+    (() => {
+      const cfgD = getDeliveryCfg();
+      const sinTarifa = !cfgD || !cfgD.tarifaActiva;
+      return !deliv &&
+        sinTarifa &&
+        tipoEntrega === "Delivery" &&
+        !mesaId &&
+        !esCampana() &&
+        !delivDesactivado()
+        ? `<div class="step-summary-row" style="display:block;margin-top:6px;padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.45;font-weight:600;color:#fcd34d;background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.35);">
+      🛵 El precio del delivery se colocará en la siguiente pantalla, ya que el negocio debe evaluar tu ruta y asignarle el costo. El total mostrado <b>no incluye el delivery</b>.
+    </div>`
+        : "";
+    })() +
     (() => {
       const t = tiempoEstimadoPedido();
       return t
@@ -6274,6 +6380,7 @@ function renderCheckoutSummary() {
   }
 
   renderCuponBar(subtotal);
+  actualizarChipsVuelto();
 }
 
 document.getElementById("entregaToggle").addEventListener("click", (e) => {
@@ -6295,9 +6402,94 @@ document.getElementById("pagoToggle").addEventListener("click", (e) => {
     o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
   });
   setCollapseOpen(efectivoCollapse, metodoPagoKey === "efectivo");
+  actualizarTextoWhatsapp();
 });
 
-/* Inicializar colores activos de los toggles al cargar */
+/* ══════════ Chips de "¿Con cuánto paga?" ══════════ */
+const BILLETES_VUELTO = [10, 20, 50, 100, 200];
+
+(function () {
+  if (document.getElementById("vueltoStyle")) return;
+  const st = document.createElement("style");
+  st.id = "vueltoStyle";
+  st.textContent = `
+  .vuelto-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;}
+  .vuelto-chip{
+    padding:9px 16px;border-radius:14px;font-size:13.5px;font-weight:800;cursor:pointer;
+    color:#e4e4e7;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+    box-shadow:0 2px 0 rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+    transition:transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .12s ease;
+  }
+  .vuelto-chip:active{transform:translateY(2px);box-shadow:0 0 0 rgba(0,0,0,.35);}
+  .vuelto-chip.exacto{
+    color:rgb(var(--dr),var(--dg),var(--db));
+    background:rgba(var(--dr),var(--dg),var(--db),.10);
+    border-color:rgba(var(--dr),var(--dg),var(--db),.45);
+  }
+  .vuelto-chip.on{
+    color:#fff;background:rgb(var(--dr),var(--dg),var(--db));
+    border-color:transparent;
+    box-shadow:0 6px 16px -6px rgba(var(--dr),var(--dg),var(--db),.7);
+  }
+  .vuelto-chip:disabled{opacity:.3;cursor:not-allowed;transform:none;}`;
+  document.head.appendChild(st);
+})();
+
+function setVueltoModo(modo, monto = "") {
+  const input = document.getElementById("clienteVuelto");
+  if (!input) return;
+  const box = document.getElementById("vueltoChips");
+  const exacto = modo === "exacto";
+  input.style.display = exacto ? "none" : "";
+  input.value = exacto ? "" : String(monto);
+  box?.querySelectorAll(".vuelto-chip").forEach((b) => {
+    const activo = exacto
+      ? b.dataset.modo === "exacto"
+      : b.dataset.monto && Number(b.dataset.monto) === Number(monto);
+    b.classList.toggle("on", !!activo);
+  });
+}
+
+function actualizarChipsVuelto() {
+  const box = document.getElementById("vueltoChips");
+  if (!box) return;
+  const total =
+    parseFloat(document.getElementById("checkoutTotal")?.textContent) || 0;
+  box.querySelectorAll("[data-monto]").forEach((b) => {
+    b.disabled = Number(b.dataset.monto) < total; // no se puede pagar con menos del total
+  });
+}
+
+function montarChipsVuelto() {
+  const input = document.getElementById("clienteVuelto");
+  if (!input || document.getElementById("vueltoChips")) return;
+
+  const box = document.createElement("div");
+  box.id = "vueltoChips";
+  box.className = "vuelto-chips";
+  box.innerHTML =
+    `<button type="button" class="vuelto-chip exacto" data-modo="exacto">✓ Monto exacto</button>` +
+    BILLETES_VUELTO.map(
+      (n) =>
+        `<button type="button" class="vuelto-chip" data-monto="${n}">S/ ${n}</button>`,
+    ).join("");
+  input.before(box);
+
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest(".vuelto-chip");
+    if (!b || b.disabled) return;
+    if (b.dataset.modo === "exacto") setVueltoModo("exacto");
+    else setVueltoModo("billete", b.dataset.monto);
+  });
+
+  // si escribe a mano, se desmarcan los chips
+  input.addEventListener("input", () => {
+    box.querySelectorAll(".vuelto-chip").forEach((b) => b.classList.remove("on"));
+  });
+
+  actualizarChipsVuelto();
+}
+
 function paintToggleDefaults() {
   document.querySelector("#entregaToggle .toggle-opt.active").style.background =
     "rgb(var(--dr),var(--dg),var(--db))";
@@ -6367,10 +6559,20 @@ document
     const whatsapp = normalizarWhatsapp(whatsappRaw);
     const esInvitado = !usuarioLogeado;
 
+    const esEfectivo = metodoPagoKey === "efectivo";
+
     if (esInvitado && !whatsapp) {
       waInput.classList.add("field-error");
       waInput.focus();
       showToast("Falta un WhatsApp válido para contactarte");
+      return;
+    }
+    if (esEfectivo && !whatsappValido9(whatsappRaw)) {
+      waInput.classList.add("field-error");
+      waInput.focus();
+      showToast(
+        "Con pago en efectivo el WhatsApp es obligatorio: 9 dígitos, sin números repetidos",
+      );
       return;
     }
     if (!esInvitado && whatsappRaw && !whatsapp) {
@@ -6391,6 +6593,14 @@ document
     const deliv = infoDeliveryPedido();
     const total = +(subtotal - descuentoCupon + (deliv?.costo || 0)).toFixed(2);
 
+        if (metodoPagoKey === "efectivo" && vuelto) {
+      const paga = parseFloat(vuelto.replace(",", "."));
+      if (!Number.isFinite(paga) || paga < total) {
+        document.getElementById("clienteVuelto").classList.add("field-error");
+        showToast(`Con cuánto pagas debe ser al menos S/ ${total.toFixed(2)}`);
+        return;
+      }
+    }
     if (
       cuponAplicado?.tipo === "manual" &&
       !cuponAplicado.envioGratis &&
@@ -6411,7 +6621,7 @@ document
       nombre,
       whatsapp: whatsapp || null,
       direccion,
-      vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
+      vuelto: metodoPagoKey === "efectivo" ? vuelto || "" : "",
       nota: nota || "",
       totalCliente: total,
       tokenSeguimiento,
@@ -7354,6 +7564,7 @@ function aplicarOfertaDesdeLink(ofertaId) {
   }
   setActiveCategoria(p.categoria); // "ofertas 🔥" o "momentaneas⏰"
   setTimeout(() => {
+    asegurarCardRenderizada(p.id);   // ← NUEVO
     document
       .getElementById(`card-${p.id}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -7374,6 +7585,7 @@ function aplicarPromoDesdeLink(promoId) {
   }
   addToCart(p);
   setTimeout(() => {
+    asegurarCardRenderizada(p.id);   // ← NUEVO
     document
       .getElementById(`card-${p.id}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -7564,6 +7776,16 @@ function cargarCalles() {
   .calle-vacio{padding:12px 14px;font-size:12.5px;color:#8b8b95;}
   #calleRefWrap{display:none;margin-top:10px;}
   #calleRefWrap.show{display:block;}`;
+  document.head.appendChild(st);
+})();
+
+(function () {
+  if (document.getElementById("collapseFixStyle")) return;
+  const st = document.createElement("style");
+  st.id = "collapseFixStyle";
+  st.textContent = `
+  #direccionCollapse.open{max-height:none !important;overflow:visible !important;}
+  #direccionCollapse.open .collapse-inner{overflow:visible !important;}`;
   document.head.appendChild(st);
 })();
 
@@ -8666,6 +8888,7 @@ async function init() {
   aplicarDisponibilidadDelivery();
   aplicarPuntoEntrega();
   renderMetodosPago(biz);
+  montarChipsVuelto();
   aplicarModoCampana();
   horarioEstado = evaluarHorarioNegocio(bizData, new Date());
   pintarBannerHorario(horarioEstado);

@@ -1,0 +1,11 @@
+<!-- Requiere modales-base.css en la página (una sola vez). Mantiene los mismos id que usa productos.js -->
+<div class="overlay dlg top" id="overlay-confirm">
+  <div class="modal dlg-box sm" role="alertdialog" aria-modal="true">
+    <div class="dlg-body dlg-center">
+      <div class="dlg-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z"/></svg></div>
+      <h3 id="confirm-title">¿Eliminar elemento?</h3><p id="confirm-body">Esta acción es permanente.</p>
+    </div>
+    <div class="dlg-foot"><button type="button" class="dlg-btn ghost" data-close="overlay-confirm">Cancelar</button>
+      <button type="button" id="btn-confirm-action" class="dlg-btn danger"><span id="btn-confirm-action-label">Eliminar</span></button></div>
+  </div>
+</div>

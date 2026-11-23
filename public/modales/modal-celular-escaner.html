@@ -1,0 +1,12 @@
+<!-- Requiere modales-base.css en la página (una sola vez). Mantiene los mismos id que usa productos.js -->
+<div class="overlay dlg top" id="overlay-pair">
+  <div class="modal dlg-box sm" role="dialog" aria-modal="true">
+    <div class="dlg-head dlg-center"><h3>📱 Celular como escáner</h3></div>
+    <div class="dlg-body">
+      <div class="dlg-field"><label class="dlg-label" for="pair-categoria">Guardar productos escaneados en</label><select id="pair-categoria" class="dlg-input"></select></div>
+      <div id="pair-body"></div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="dlg-btn ghost" data-close="overlay-pair">Cerrar</button>
+      <button type="button" id="pair-fin" class="dlg-btn danger">Terminar sesión</button></div>
+  </div>
+</div>

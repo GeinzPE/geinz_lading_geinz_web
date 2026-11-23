@@ -58,7 +58,7 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
 
   // Nombres entendibles (solo para mostrar; el campo real sigue siendo la clave de Firestore)
   const ETQ = {
-    plan:"Tu plan", fecha_fin:"Vence el", creditos_ia500:"Créditos de IA", roles_max:"Trabajadores / roles permitidos",
+    plan:"Tu plan", fecha_fin:"Vence el", creditos_ia500:"Créditos de IA", creditos_ia:"Créditos de IA", roles_max:"Trabajadores / roles permitidos",
     cliente_y_fidelizacion:"Clientes y fidelización", mi_negocio:"Mi negocio", operacion_ventas:"Operación y ventas", panel_admin:"Panel y límites",
     cupones_puntos:"Cupones y puntos", cupones_metricas:"Estadísticas de cupones", miqr:"Mi QR", carta:"Carta digital",
     libro_reclamaciones:"Libro de reclamaciones", mesas:"Mesas", cantidad_max:"Máximo de mesas", mis_productos:"Mis productos",
@@ -74,6 +74,8 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
     config_avanzado:"Configuración avanzada", variantes_maximas:"Variantes máximas por producto", max_colecciones:"Máximo de colecciones",
     max_productos_por_colecciones:"Máximo de productos por colección", modo_avanzado:"Modo avanzado", modo_basico:"Modo básico",
     carrito:"Carrito de compras",
+    creacion_cupones:"Crear cupones", maximo_cupones:"Máximo de cupones", adicionales:"Adicionales", cantidad_adicionales:"Máximo de adicionales",
+    reservas:"Reservas", footer_cabezero:"Cabezote y pie de página", tipo_tienda:"Tipo de tienda", negocio:"Negocio",
   };
   const etiquetaDe = (k) => (typeof k === "string" && ETQ[k]) || null;
 
@@ -387,7 +389,7 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
         return;
       }
       datos = r.datos; params = p; rutaDoc = r.ruta; ignorados = r.ignorados || [];
-      dirty.clear(); cerrados.clear();
+      dirty.clear(); cerrados.clear(); asg.tipo = null;
       consulta = ""; $buscar.value = "";
       $estado.innerHTML = `✔ ${esc(r.ruta)}<br>Traídos: ${Object.keys(r.datos).join(", ") || "(ninguno)"}` +
         (r.faltantes?.length ? `<br>No existen en el doc: ${r.faltantes.join(", ")}` : "") +
@@ -520,6 +522,79 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
   };
   const VALOR_ILIMITADO = 999999;
 
+  // ═════════════════════════════════════════════════════════════
+  //  ESTRUCTURA BASE DEL NEGOCIO
+  //  Es el esqueleto que se CREA en el negocio cuando no existe.
+  //  Si algo ya existe, la base no lo pisa (solo la plantilla del plan
+  //  y los límites/módulos del plan lo reemplazan).
+  //  >>> AJUSTA los nombres/jerarquía aquí para que calcen con tu Firestore real. <<<
+  // ═════════════════════════════════════════════════════════════
+  const ESQUEMA_BASE = {
+    cliente_y_fidelizacion: {
+      cupones_puntos: { activo: true, creacion_cupones: true, maximo_cupones: 20 },
+      miqr: {
+        carta: true,
+        libro_reclamaciones: true,
+        mesas: { activo: true, cantidad_max: 5 },
+        mis_productos: true,
+        perfil: true,
+        review: true,
+      },
+      mis_usuarios: true,
+      publicidad_ofertas: {
+        mis_publicaciones: true,
+        ofertas: { baner: true, cantidad_ofertas: 5 },
+        publicidad: { fanpage: true, review: true },
+      },
+    },
+    mi_negocio: {
+      comprobantes: true,
+      legal: { libro_reclamaciones: true, politicas: true, terminos: true },
+      mis_trabajadores: true,
+      perfil: true,
+      negocio: true,
+    },
+    operacion_ventas: {
+      historial_ventas: true,
+      pedidos_vivos: {
+        activo: {
+          carrito: {
+            activo: true, auto_off: true, auto_reserva: true, delivery_config: true, estado_pedidos: true,
+            mis_delivery: { activo: true, maximo_delivery: 10 },
+            tiempos: true,
+          },
+          mesa: { activo: true, config_mesas: true, mozos: true, reservas: true },
+          nuevo_pedido: { activo: true, uso_camara_scaner: true, uso_celular_scaner: true },
+        },
+      },
+      produtos: {
+        adicionales: { activo: true, cantidad_adicionales: 20 },
+        carta: {
+          activo: true,
+          cantidad_imagenes_colecciones: 10,
+          colecciones: 10,
+          config_avanzado: { variantes_maximas: 10, max_colecciones: 20, max_productos_por_colecciones: 10 },
+          modo_avanzado: true,
+          modo_basico: true,
+        },
+        uso_camara_scaner: true,
+        uso_celular_scaner: true,
+      },
+    },
+    panel_admin: {
+      footer_cabezero: {
+        baner_descuble_mas_negocios_geinz: false,
+        cabezero_geinz: false,
+        columnaexplora_soporte_registra_geinz: true,
+        derechos_autor_geinz: true,
+        footer_geinz: true,
+      },
+    },
+  };
+
+  // Apartados raíz que structure_min deja guardar. Cualquier otro se descarta al aplicar un plan.
+  const RAICES_OK = new Set(["cliente_y_fidelizacion", "mi_negocio", "operacion_ventas", "panel_admin"]);
+
   let planes = null, planesDirty = false, planesCargado = false, planesMsg = "Sin cargar.";
 
   // recAnt: recalcula "antes" mensual con margen · fijarAnual: respeta precio_anual y deriva el % · recAntAn: recalcula "antes" anual con margen anual
@@ -593,7 +668,7 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
         </div>
         <div style="margin:6px 0">${precios}</div>
         <div>${lims}</div>
-        <small style="color:var(--mut)">Módulos: ${Object.keys(p.modulos || {}).length} · Plantilla: ${p.plantilla ? contar(p.plantilla) + " campos" : "sin plantilla"}</small>
+        <small style="color:var(--mut)">Módulos: ${Object.keys(p.modulos || {}).length} · Plantilla: ${p.plantilla ? contar(p.plantilla) + " campos" : "sin plantilla (usa la estructura base)"}</small>
       </div>`;
     }).join("");
     $pb.innerHTML = `<div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -684,21 +759,46 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
     return r;
   }
   const contar = (o) => Object.values(o).reduce((n, v) => n + (v && typeof v === "object" ? contar(v) : 1), 0);
-  function volcar(dest, tpl, raiz, log, raices) {
+  const esMapa = (v) => v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Timestamp);
+
+  // Escribe tpl dentro de dest.
+  //  sobrescribir = true  → crea lo que falta Y reemplaza lo que ya existe
+  //  sobrescribir = false → solo crea lo que falta (no pisa nada existente)
+  function volcar(dest, tpl, raiz, log, raices, sobrescribir = true) {
     for (const [k, v] of Object.entries(tpl)) {
       const r = raiz ?? k;
-      if (v && typeof v === "object") {
-        if (!dest[k] || typeof dest[k] !== "object" || Array.isArray(dest[k]) || dest[k] instanceof Timestamp) dest[k] = {};
-        volcar(dest[k], v, r, log, raices);
-      } else if (dest[k] !== v) { dest[k] = v; raices.add(r); log.push(`${k} = ${v}`); }
+      if (esMapa(v)) {
+        if (!esMapa(dest[k])) {
+          if (k in dest && !sobrescribir) continue;       // existe y no es mapa: no lo piso
+          dest[k] = {}; raices.add(r); log.push(`${k} (creado)`);
+        }
+        volcar(dest[k], v, r, log, raices, sobrescribir);
+      } else if (!(k in dest)) {
+        dest[k] = v; raices.add(r); log.push(`${k} = ${v} (creado)`);
+      } else if (sobrescribir && dest[k] !== v) {
+        dest[k] = v; raices.add(r); log.push(`${k} = ${v}`);
+      }
     }
+  }
+
+  // Mezcla b sobre a (b gana) y devuelve un objeto nuevo
+  function mezclar(a, b) {
+    const out = structuredClone(a);
+    const rec = (d, s) => {
+      for (const [k, v] of Object.entries(s)) {
+        if (esMapa(v)) { if (!esMapa(d[k])) d[k] = {}; rec(d[k], v); }
+        else d[k] = v;
+      }
+    };
+    rec(out, b);
+    return out;
   }
 
   // ── Barra "Asignar plan" (visible al cargar un negocio) ──
   const $a = document.createElement("div");
   $a.style.cssText = "display:none;margin:12px 0;padding:12px 14px;border:1px solid var(--bd);border-radius:10px;background:var(--card)";
   $estado.insertAdjacentElement("afterend", $a);
-  const asg = { plan: "", periodo: "mensual", cant: 1, sumar: true, creditos: "reset" };
+  const asg = { plan: "", periodo: "mensual", cant: 1, sumar: true, creditos: "reset", modo: "completar", tipo: null };
   const rango = (id) => { const p = planes?.[id]; return !p ? 0 : p.es_cotizacion ? Infinity : Number(p.precio_mensual) || 0; };
   const tipoCambio = (nuevo) => {
     const act = planActual();
@@ -727,9 +827,13 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
         <label>Créditos <select data-as="creditos">
           <option value="reset" ${asg.creditos === "reset" ? "selected" : ""}>Restablecer mes completo</option>
           <option value="arrastrar" ${asg.creditos === "arrastrar" ? "selected" : ""}>Arrastrar créditos (saldo + plan)</option></select></label>
-        <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" data-as="sumar" ${asg.sumar ? "checked" : ""}> Sumar al vencimiento vigente</label>
+        <label>Modo <select data-as="modo">
+          <option value="completar" ${asg.modo === "completar" ? "selected" : ""}>Crear lo que falta y reemplazar lo del plan</option>
+          <option value="reemplazar" ${asg.modo === "reemplazar" ? "selected" : ""}>Reemplazar secciones completas (borra lo demás)</option></select></label>
+        <label>Tipo de tienda <input data-as="tipo" list="tiposTienda" value="${esc(asg.tipo ?? datos.panel_admin?.tipo_tienda ?? "")}" placeholder="virtual" style="width:120px"><datalist id="tiposTienda"><option value="virtual"><option value="fisica"><option value="mixta"></datalist></label>
+                <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" data-as="sumar" ${asg.sumar ? "checked" : ""}> Sumar al vencimiento vigente</label>
       </div>
-      <div style="font-size:12px;margin:8px 0;color:var(--mut)">${esc(tipoCambio(asg.plan))} · nuevo vencimiento <b style="color:var(--tx)">${esc(fmtFecha(Timestamp.fromDate(calcFin(asg))))}</b> · créditos quedan en <b style="color:var(--tx)">${credNuevo}</b> · cobro <b style="color:var(--tx)">${esc(precio)}</b>${pl.plantilla ? "" : ' · <span style="color:var(--warn)">este plan no tiene plantilla: solo se ajustan límites y módulos</span>'}</div>
+      <div style="font-size:12px;margin:8px 0;color:var(--mut)">${esc(tipoCambio(asg.plan))} · nuevo vencimiento <b style="color:var(--tx)">${esc(fmtFecha(Timestamp.fromDate(calcFin(asg))))}</b> · créditos quedan en <b style="color:var(--tx)">${credNuevo}</b> · cobro <b style="color:var(--tx)">${esc(precio)}</b> · estructura: ${pl.plantilla ? "plantilla del plan sobre la base" : "base (sin plantilla propia)"}</div>
       <button type="button" class="btn" data-as="aplicar">Aplicar plan al negocio</button>`;
   }
 
@@ -741,23 +845,49 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
     if (k === "cant") asg.cant = Math.max(1, parseInt(el.value) || 1);
     if (k === "sumar") asg.sumar = el.checked;
     if (k === "creditos") asg.creditos = el.value;
+    if (k === "modo") asg.modo = el.value;
+    if (k === "tipo") asg.tipo = el.value;
     pintarAsignar();
   });
-  $a.addEventListener("click", (e) => { if (e.target.closest('[data-as="aplicar"]')) aplicarPlan(asg.plan, asg); });
+  $a.addEventListener("click", (e) => { if (e.target.closest('[data-as="aplicar"]')) aplicarPlan(asg.plan, { ...asg, tipo: asg.tipo ?? datos?.panel_admin?.tipo_tienda ?? "" }); });
 
-  // ── Aplicar plan: plantilla exacta + límites + módulos + créditos + fecha_fin ──
+  // ── Aplicar plan: crea lo que falta + reemplaza con la plantilla/límites/módulos + créditos + fecha_fin ──
   function aplicarPlan(id, o) {
     const plan = planes?.[id];
     if (!plan || !datos) return alert("Carga un negocio y los planes primero");
     const cambio = tipoCambio(id), log = [], raices = new Set(["panel_admin"]);
     const marcar = (r, t) => { raices.add(r); log.push(t); };
-    if (!datos.panel_admin || typeof datos.panel_admin !== "object" || Array.isArray(datos.panel_admin)) datos.panel_admin = {};
+    if (!esMapa(datos.panel_admin)) datos.panel_admin = {};
     const P = datos.panel_admin;
     const credPrev = typeof P.creditos_ia === "number" && P.creditos_ia < VALOR_ILIMITADO ? P.creditos_ia : 0;
 
-    if (plan.plantilla) volcar(datos, plan.plantilla, null, log, raices);
+    // 1) Estructura: base (+ plantilla del plan encima)
+    const base = structuredClone(ESQUEMA_BASE);
+    const baseP = base.panel_admin || {};
+    delete base.panel_admin;
+    const tpl = plan.plantilla ? structuredClone(plan.plantilla) : {};
+    const tplP = tpl.panel_admin || {};
+    delete tpl.panel_admin;
+    volcar(P, baseP, "panel_admin", log, raices, false);        // crea lo que falte en panel_admin (footer_cabezero, etc.)
+    if (plan.plantilla) volcar(P, tplP, "panel_admin", log, raices, true);
+    const descartadas = [];
+    for (const o2 of [base, tpl]) for (const k of Object.keys(o2)) if (!RAICES_OK.has(k)) { descartadas.push(k); delete o2[k]; }
+    if (descartadas.length) console.warn("Raíces no permitidas descartadas:", [...new Set(descartadas)]);
+    const efectivo = mezclar(base, tpl);
 
-    // panel_admin: plan, vencimiento (timestamp_fin + fecha_fin texto dd/mm/aaaa), trabajadores y créditos
+    if (o.modo === "reemplazar") {
+      // cada sección del plan se sustituye entera
+      for (const [raiz, val] of Object.entries(efectivo)) {
+        datos[raiz] = structuredClone(val);
+        marcar(raiz, `${raiz} (reemplazado completo)`);
+      }
+    } else {
+      // crea lo que falta (base) y reemplaza con lo que da el plan (plantilla)
+      volcar(datos, base, null, log, raices, false);
+      if (plan.plantilla) volcar(datos, tpl, null, log, raices, true);
+    }
+
+    // 2) panel_admin: plan, vencimiento (timestamp_fin + fecha_fin texto dd/mm/aaaa), trabajadores y créditos
     const fin = calcFin(o);
     P.plan = id;
     P.timestamp_fin = Timestamp.fromDate(fin);
@@ -772,7 +902,16 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
       P.creditos_ia = nv; log.push(`panel_admin.creditos_ia = ${nv}`);
     }
 
-    // resto de límites y módulos (donde existan en el negocio)
+    // tipo de tienda: solo lo que tú colocas
+    if (o.tipo && String(o.tipo).trim()) { P.tipo_tienda = String(o.tipo).trim(); log.push(`panel_admin.tipo_tienda = ${P.tipo_tienda}`); }
+
+    // espejo en la raíz del documento (plan, roles_max, creditos_ia500, fecha_fin)
+    datos.plan = id; raices.add("plan");
+    datos.fecha_fin = Timestamp.fromDate(fin); raices.add("fecha_fin");
+    if (typeof P.roles_max === "number") { datos.roles_max = P.roles_max; raices.add("roles_max"); }
+    if (typeof P.creditos_ia === "number") { datos.creditos_ia500 = P.creditos_ia; raices.add("creditos_ia500"); }
+
+    // 3) límites y módulos del plan (ahora existen en el negocio, así que siempre se escriben)
     recorrer((c, k, padre, raiz) => {
       for (const [lim, par, clave] of LIM_MAP) {
         if (k !== clave || (par && padre !== par) || !(lim in (plan.limites || {})) || typeof c[k] === "object") continue;
@@ -796,8 +935,8 @@ import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.c
     pintarAsignar();
     console.log("Plan aplicado:", log);
     $estado.className = "ok";
-    $estado.textContent = `Plan "${plan.nombre}" aplicado en pantalla (${cambio}, ${log.length} campos). Revisa y guarda.`;
-    if (confirm(`Plan "${plan.nombre}" aplicado (${cambio}).\nVence: ${P.fecha_fin}\nCréditos: ${P.creditos_ia}\n\n¿Guardar en Firestore ahora?`)) guardar([...dirty]);
+    $estado.textContent = `Plan "${plan.nombre}" aplicado en pantalla (${cambio}, ${log.length} cambios, secciones: ${[...raices].join(", ")}). Revisa y guarda.`;
+    if (confirm(`Plan "${plan.nombre}" aplicado (${cambio}).\nVence: ${P.fecha_fin}\nCréditos: ${P.creditos_ia}\nSecciones a guardar: ${[...raices].join(", ")}\n\n¿Guardar en Firestore ahora?`)) guardar([...dirty]);
   }
 
   // ── Eventos del panel ──

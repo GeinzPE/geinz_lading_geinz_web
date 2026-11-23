@@ -840,9 +840,7 @@ function renderRecVariantes() {
     if (ops)
       html += `<div><p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-1.5">${escR(cond.nombre)}</p><div class="flex flex-col gap-2">${ops}</div></div>`;
   });
-  box.innerHTML =
-    html ||
-    `<p class="text-[11px] text-purple-300/40 italic">Aún no hay variantes. Créalas en la pestaña Avanzado.</p>`;
+  box.innerHTML = html;
 }
 const opcionesActivas = (cond) =>
   (cond.opciones || []).filter(
@@ -1265,10 +1263,14 @@ document.addEventListener(
 function openOverlay(id) {
   document.getElementById(id).classList.add("show");
 }
-
 function closeOverlay(id) {
   document.getElementById(id).classList.remove("show");
   if (id === "overlay-scan") detenerCamaraScan();
+  if (id === "overlay-producto") {
+    modoMasivoCat = null;
+    document.getElementById("overlay-producto").classList.remove("modo-masivo");
+    document.getElementById("producto-titulo").textContent = "Nuevo producto";
+  }
 }
 document.querySelectorAll("[data-close]").forEach((btn) => {
   btn.addEventListener("click", () => closeOverlay(btn.dataset.close));
@@ -1665,7 +1667,7 @@ async function quitarProductoDeCarritoPerfilSiExiste(productoId) {
 let categoriaActivaParaProducto = null;
 let imagenesSeleccionadas = [null, null, null];
 let condicionesSeleccionadas = [];
-
+let modoMasivoCat = null;
 let casoProducto = "tal_cual"; // "tal_cual" | "mayus" | "minus"
 const aplicarCaso = (s) =>
   casoProducto === "mayus"
@@ -1969,17 +1971,23 @@ function renderCondiciones() {
     condicionesSeleccionadas.length >= PLAN_PRODUCTOS.maxVariantes
       ? "none"
       : "";
+
+  const baseActual = () =>
+    parseFloat(document.getElementById("input-prod-precio").value) || 0;
+  const hayFotos = imagenesSeleccionadas.some(Boolean);
+
   condicionesSeleccionadas.forEach((cond, ci) => {
     if (!cond.tipo) cond.tipo = "unica";
     if (cond.obligatoria === undefined) cond.obligatoria = true;
     const multiple = cond.tipo === "multiple";
 
     const box = document.createElement("div");
-    box.className = "rounded-xl bg-[#05040a] border border-purple-900/30 p-3";
+    box.className =
+      "rounded-xl bg-[#05040a] border border-purple-900/30 p-2.5 sm:p-3 min-w-0";
 
-    /* ---- Cabecera: nombre del grupo + borrar ---- */
+    /* ---- Cabecera: nombre del grupo + mover + borrar ---- */
     const head = document.createElement("div");
-    head.className = "flex items-center gap-2 mb-2";
+    head.className = "flex items-center gap-1.5 sm:gap-2 mb-2";
 
     const nombreInput = document.createElement("input");
     nombreInput.type = "text";
@@ -1987,7 +1995,7 @@ function renderCondiciones() {
     nombreInput.maxLength = 30;
     nombreInput.value = cond.nombre;
     nombreInput.className =
-      "flex-1 rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600";
+      "flex-1 min-w-0 rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600";
     nombreInput.addEventListener("input", () => {
       cond.nombre = nombreInput.value;
     });
@@ -2029,10 +2037,7 @@ function renderCondiciones() {
       ];
       renderCondiciones();
     });
-    head.appendChild(nombreInput);
-    head.appendChild(upBtn);
-    head.appendChild(downBtn);
-    head.appendChild(delCondBtn);
+    head.append(nombreInput, upBtn, downBtn, delCondBtn);
     box.appendChild(head);
 
     /* ---- Configuración del grupo ---- */
@@ -2041,7 +2046,7 @@ function renderCondiciones() {
 
     const selTipo = document.createElement("select");
     selTipo.className =
-      "rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2 py-1.5 text-[11px] text-purple-100 outline-none focus:border-violet-600";
+      "min-w-0 max-w-full rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2 py-1.5 text-[11px] text-purple-100 outline-none focus:border-violet-600";
     selTipo.innerHTML = `
       <option value="unica">Elegir 1 sola (ej. tamaño)</option>
       <option value="multiple">Elegir varias (ej. extras)</option>`;
@@ -2071,6 +2076,10 @@ function renderCondiciones() {
         "Si está activo, el cliente no puede agregar al carrito sin elegir aquí",
       ),
     );
+
+    const regla = document.createElement("p");
+    regla.className = "text-[10px] text-purple-400/50 mb-2.5";
+    regla.textContent = textoReglaAdmin(cond);
 
     if (multiple) {
       cfg.appendChild(
@@ -2103,33 +2112,34 @@ function renderCondiciones() {
       cfg.appendChild(maxInput);
     }
     box.appendChild(cfg);
-
-    const regla = document.createElement("p");
-    regla.className = "text-[10px] text-purple-400/50 mb-2.5";
-    regla.textContent = textoReglaAdmin(cond);
     box.appendChild(regla);
 
-    /* ---- Encabezados de columna ---- */
+    /* ---- Encabezados de columna (solo escritorio) ---- */
+    const hCls =
+      "text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center";
     const colHeaders = document.createElement("div");
-    colHeaders.className = "flex items-center gap-2 mb-1 px-0.5";
+    colHeaders.className = "hidden sm:flex items-center gap-2 mb-1 px-0.5";
     colHeaders.innerHTML = `
+      ${!modoMasivoCat && hayFotos ? `<span class="w-8 shrink-0"></span>` : ""}
       <span class="flex-1 text-[9px] font-mono uppercase tracking-wider text-purple-400/40">Opción</span>
-      <span class="w-16 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Costo extra</span>
-      <span class="w-14 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Stock</span>
-      <span class="w-9 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Hay</span>
+      ${modoMasivoCat ? "" : `<span class="w-16 ${hCls}">Total</span>`}
+      <span class="w-16 ${hCls}">Extra</span>
+      ${modoMasivoCat ? "" : `<span class="w-14 ${hCls}">Stock</span>`}
+      <span class="w-9 ${hCls}">Hay</span>
       <span class="w-6"></span>`;
     box.appendChild(colHeaders);
 
     /* ---- Opciones ---- */
     const opcionesWrap = document.createElement("div");
-    opcionesWrap.className = "flex flex-col gap-2";
+    opcionesWrap.className = "flex flex-col gap-3 sm:gap-2";
 
     cond.opciones.forEach((op, oi) => {
       const wrapOp = document.createElement("div");
-      wrapOp.className = "flex flex-col gap-1";
+      wrapOp.className =
+        "flex flex-col gap-1 pb-3 sm:pb-0 border-b border-purple-900/20 sm:border-0 last:border-0 last:pb-0";
 
       const row = document.createElement("div");
-      row.className = "flex items-center gap-2";
+      row.className = "flex flex-col gap-2 sm:flex-row sm:items-center";
 
       const opInput = document.createElement("input");
       opInput.type = "text";
@@ -2137,21 +2147,58 @@ function renderCondiciones() {
       opInput.maxLength = 30;
       opInput.value = op.nombre;
       opInput.className =
-        "flex-1 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600";
+        "flex-1 min-w-0 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600";
       opInput.addEventListener("input", () => {
         op.nombre = opInput.value;
+      });
+
+      const numCls =
+        "flex-1 min-w-0 sm:flex-none rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
+
+      /* TOTAL (precio final) -> calcula el extra */
+      const totalInput = document.createElement("input");
+      totalInput.type = "number";
+      totalInput.step = "0.01";
+      totalInput.min = "0";
+      totalInput.placeholder = "Total";
+      totalInput.title =
+        "Precio final de esta opción (ej. 25). El extra se calcula solo";
+      totalInput.value = op.costoAdicional
+        ? (baseActual() + op.costoAdicional).toFixed(2)
+        : "";
+      totalInput.className = `${numCls} sm:w-16`;
+
+      const hintTotal = document.createElement("button");
+      hintTotal.type = "button";
+      hintTotal.className =
+        "hidden w-full text-left text-[11px] rounded-lg px-2.5 py-1.5 bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 disabled:text-amber-300 disabled:bg-amber-950/30 disabled:border-amber-500/20";
+      totalInput.addEventListener("input", () => {
+        const t = parseFloat(totalInput.value);
+        const base = baseActual();
+        if (isNaN(t)) return hintTotal.classList.add("hidden");
+        const extra = +(t - base).toFixed(2);
+        hintTotal.dataset.extra = extra;
+        hintTotal.disabled = extra < 0;
+        hintTotal.textContent =
+          extra >= 0
+            ? `Total S/ ${t.toFixed(2)} → extra +S/ ${extra.toFixed(2)} · toca para aplicar`
+            : `S/ ${t.toFixed(2)} es menor que el precio base (S/ ${base.toFixed(2)})`;
+        hintTotal.classList.remove("hidden");
+      });
+      hintTotal.addEventListener("click", () => {
+        op.costoAdicional = parseFloat(hintTotal.dataset.extra) || 0;
+        renderCondiciones();
       });
 
       const costInput = document.createElement("input");
       costInput.type = "number";
       costInput.step = "0.10";
       costInput.min = "0";
-      costInput.placeholder = "+S/ 0";
+      costInput.placeholder = "Extra";
       costInput.title =
         "Costo adicional que se suma al precio base si el cliente elige esta opción";
       costInput.value = op.costoAdicional ? op.costoAdicional : "";
-      costInput.className =
-        "w-16 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
+      costInput.className = `${numCls} sm:w-16`;
       costInput.addEventListener("input", () => {
         op.costoAdicional = parseFloat(costInput.value) || 0;
       });
@@ -2163,8 +2210,7 @@ function renderCondiciones() {
       stockOpInput.placeholder = "Stock";
       stockOpInput.title = "Stock de esta opción (vacío = sin control)";
       stockOpInput.value = typeof op.stock === "number" ? op.stock : "";
-      stockOpInput.className =
-        "w-14 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
+      stockOpInput.className = `${numCls} sm:w-14`;
       stockOpInput.addEventListener("input", () => {
         op.stock =
           stockOpInput.value === ""
@@ -2186,48 +2232,66 @@ function renderCondiciones() {
       const delOpBtn = document.createElement("button");
       delOpBtn.type = "button";
       delOpBtn.className =
-        "w-6 h-6 shrink-0 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 transition-colors text-xs";
+        "w-6 h-6 shrink-0 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 transition-colors text-xs sm:order-last";
       delOpBtn.textContent = "✕";
       delOpBtn.addEventListener("click", () => {
         cond.opciones.splice(oi, 1);
         renderCondiciones();
       });
-      const thumb = document.createElement("div");
-      thumb.className =
-        "relative w-8 h-8 shrink-0 rounded-lg border border-dashed border-purple-900/40 bg-[#0d0a17] overflow-hidden flex items-center justify-center cursor-pointer text-xs";
-      thumb.title = "Elegir una de las fotos del producto (opcional)";
+
+      /* Miniatura: solo si el producto tiene fotos (o la opción ya tenía una) */
       const srcOp = op.archivo
         ? URL.createObjectURL(op.archivo)
         : op.imagen?.url;
-      thumb.innerHTML = srcOp
-        ? `<img src="${srcOp}" class="w-full h-full object-cover">`
-        : "📷";
-      thumb.addEventListener("click", () => abrirSelectorImagenOpcion(op));
-
-      if (srcOp) {
-        const x = document.createElement("button");
-        x.type = "button";
-        x.textContent = "✕";
-        x.className =
-          "absolute top-0 right-0 w-4 h-4 bg-black/80 text-white text-[9px] rounded-bl-md";
-        x.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          op.imagen = null; // solo quita la referencia, NO borra el archivo
-          op.archivo = null;
-          renderCondiciones();
-        });
-        thumb.appendChild(x);
+      let thumb = null;
+      if (!modoMasivoCat && (hayFotos || srcOp)) {
+        thumb = document.createElement("div");
+        thumb.className =
+          "relative w-8 h-8 shrink-0 rounded-lg border border-dashed border-purple-900/40 bg-[#0d0a17] overflow-hidden flex items-center justify-center cursor-pointer text-xs";
+        thumb.title = "Elegir una de las fotos del producto (opcional)";
+        thumb.innerHTML = srcOp
+          ? `<img src="${srcOp}" class="w-full h-full object-cover">`
+          : "📷";
+        thumb.addEventListener("click", () => abrirSelectorImagenOpcion(op));
+        if (srcOp) {
+          const x = document.createElement("button");
+          x.type = "button";
+          x.textContent = "✕";
+          x.className =
+            "absolute top-0 right-0 w-4 h-4 bg-black/80 text-white text-[9px] rounded-bl-md";
+          x.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            op.imagen = null;
+            op.archivo = null;
+            renderCondiciones();
+          });
+          thumb.appendChild(x);
+        }
       }
-      row.append(
-        thumb,
-        opInput,
-        costInput,
-        stockOpInput,
-        toggleLabel,
-        delOpBtn,
-      );
 
-      // Qué incluye esta opción (se le muestra al cliente debajo del nombre)
+      const r1 = document.createElement("div");
+      r1.className = "flex items-center gap-2 sm:contents";
+      const r2 = document.createElement("div");
+      r2.className = "flex items-center gap-2 sm:contents";
+      const hayWrap = document.createElement("div");
+      hayWrap.className =
+        "shrink-0 flex items-center gap-1.5 text-[10px] text-purple-300/70";
+      const hayTxt = document.createElement("span");
+      hayTxt.className = "sm:hidden";
+      hayTxt.textContent = "Hay";
+      hayWrap.append(hayTxt, toggleLabel);
+
+      if (modoMasivoCat) {
+        // masivo: sin foto, sin Total (cada producto tiene otro precio base), sin stock
+        r1.append(opInput, delOpBtn);
+        r2.append(costInput, hayWrap);
+      } else {
+        if (thumb) r1.append(thumb);
+        r1.append(opInput, delOpBtn);
+        r2.append(totalInput, costInput, stockOpInput, hayWrap);
+      }
+      row.append(r1, r2);
+
       const descInput = document.createElement("input");
       descInput.type = "text";
       descInput.maxLength = 120;
@@ -2235,12 +2299,15 @@ function renderCondiciones() {
         "Qué incluye (opcional). Ej. 2 presas + papas + gaseosa";
       descInput.value = op.descripcion || "";
       descInput.className =
-        "w-full rounded-lg bg-[#0d0a17] border border-purple-900/10 px-2.5 py-1 text-[11px] text-purple-300/80 placeholder-purple-400/25 outline-none focus:border-violet-600";
+        "w-full min-w-0 rounded-lg bg-[#0d0a17] border border-purple-900/10 px-2.5 py-1 text-[11px] text-purple-300/80 placeholder-purple-400/25 outline-none focus:border-violet-600";
       descInput.addEventListener("input", () => {
         op.descripcion = descInput.value;
       });
 
-      wrapOp.append(row, descInput);
+      wrapOp.append(row);
+      if (!modoMasivoCat) wrapOp.append(hintTotal);
+      wrapOp.append(descInput);
+
       if (multiple) {
         const chips = document.createElement("div");
         chips.className = "flex flex-col gap-1 mt-1";
@@ -2276,7 +2343,7 @@ function renderCondiciones() {
     const addOpBtn = document.createElement("button");
     addOpBtn.type = "button";
     addOpBtn.className =
-      "mt-2 text-[10px] font-medium text-violet-300 hover:text-violet-200";
+      "mt-3 text-[11px] font-medium text-violet-300 hover:text-violet-200";
     addOpBtn.textContent = "+ Agregar opción";
     addOpBtn.addEventListener("click", () => {
       cond.opciones.push({
@@ -2358,10 +2425,10 @@ document.getElementById("input-prod-imgs").addEventListener("change", (e) => {
   if (file) {
     imagenesSeleccionadas[slot] = file;
     renderImgDropSlots();
+    renderCondiciones();
   }
   e.target.value = "";
 });
-
 function actualizarVisibilidadCantidadPorOpcion() {
   const multiplesChecked = document.getElementById(
     "input-prod-variantes-multiples",
@@ -2427,6 +2494,294 @@ function sincronizarSwitchesDesdeGrupos() {
     condicionesSeleccionadas.some((c) => c.conCantidad);
   actualizarVisibilidadCantidadPorOpcion();
 }
+function abrirModalMasivo(categoriaId, data) {
+  modoMasivoCat = categoriaId;
+  categoriaActivaParaProducto = categoriaId;
+  productoEditandoId = null;
+  imagenesSeleccionadas = [null, null, null];
+  condicionesSeleccionadas = [];
+  casoProducto = "tal_cual";
+  document.getElementById("form-producto").reset();
+  document.getElementById("input-prod-variante-obligatoria").checked = true;
+  document.getElementById("input-prod-variantes-multiples").checked = false;
+  document.getElementById("input-prod-variantes-cantidad").checked = false;
+  document.getElementById("producto-titulo").textContent =
+    "Variantes para toda la categoría";
+  document.getElementById("producto-cat-hint").textContent =
+    `Se aplicarán a todos los productos de "${data.nombre}". Si un producto ya tiene un grupo con el mismo nombre, se reemplaza.`;
+  document.getElementById("btn-guardar-producto-label").textContent =
+    "Aplicar a todos";
+  document.getElementById("overlay-producto").classList.add("modo-masivo");
+  renderCondiciones();
+  actualizarVisibilidadCantidadPorOpcion();
+  activarTabProducto("tab-avanzado");
+  openOverlay("overlay-producto");
+}
+
+async function guardarMasivo() {
+  const nuevas = condicionesSeleccionadas
+    .filter((c) => c.nombre.trim())
+    .map((c) => {
+      const multiple = c.tipo === "multiple";
+      return {
+        nombre: aplicarCaso(c.nombre.trim()),
+        tipo: multiple ? "multiple" : "unica",
+        obligatoria: c.obligatoria !== false,
+        conCantidad: multiple && c.conCantidad === true,
+        max: multiple && Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
+        opciones: c.opciones
+          .filter((o) => o.nombre.trim())
+          .map((o) => ({
+            nombre: aplicarCaso(o.nombre.trim()),
+            descripcion: aplicarCaso(String(o.descripcion || "").trim()).slice(
+              0,
+              120,
+            ),
+            exclusiva: multiple && o.exclusiva === true,
+            todas: multiple && o.todas === true && o.exclusiva !== true,
+            imagen: null,
+            activo: !!o.activo,
+            costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
+            stock: null,
+            receta: null,
+          })),
+      };
+    })
+    .filter((c) => c.opciones.length);
+
+  if (!nuevas.length)
+    return toast("Agrega al menos un grupo con opciones.", "error");
+
+  const btn = document.getElementById("btn-guardar-producto");
+  const label = document.getElementById("btn-guardar-producto-label");
+  const original = label.textContent;
+  btn.disabled = true;
+  label.innerHTML = '<span class="spinner"></span>';
+  try {
+    const catId = modoMasivoCat;
+    const snap = await getDocs(productosRef(catId));
+    const cambios = snap.docs.map((d) => {
+      const previas = d.data().condiciones || [];
+      const merged = [
+        ...previas.filter((p) => !nuevas.some((n) => n.nombre === p.nombre)),
+        ...nuevas,
+      ].slice(0, PLAN_PRODUCTOS.maxVariantes);
+      return { d, merged };
+    });
+    for (let i = 0; i < cambios.length; i += 400) {
+      const batch = writeBatch(db);
+      cambios.slice(i, i + 400).forEach(({ d, merged }) =>
+        batch.update(d.ref, {
+          condiciones: merged,
+          variantesMultiples: merged.some((c) => c.tipo === "multiple"),
+          variantesObligatoria: merged.every((c) => c.obligatoria),
+          variantesConCantidad: merged.some((c) => c.conCantidad),
+        }),
+      );
+      await batch.commit();
+    }
+    await Promise.all(
+      cambios.map(({ d, merged }) =>
+        sincronizarProductoEnCarritoPerfil(d.id, catId, {
+          ...d.data(),
+          condiciones: merged,
+        }),
+      ),
+    );
+    closeOverlay("overlay-producto");
+    toast(`Variantes aplicadas a ${cambios.length} productos.`);
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo aplicar a todos.", "error");
+  } finally {
+    btn.disabled = false;
+    label.textContent = original;
+  }
+}
+/* ============ B) TAMBIÉN PUEDES AGREGAR A TODA LA CATEGORÍA ============ */
+let sugMasivoCatId = null;
+let sugMasivoSel = [];
+
+function abrirModalSugMasivo(categoriaId, data) {
+  sugMasivoCatId = categoriaId;
+  sugMasivoSel = [];
+  document.getElementById("sug-masivo-hint").textContent =
+    `Se aplicará a todos los productos de "${data.nombre}".`;
+  document.getElementById("sug-masivo-modo").value = "sumar";
+  const chips = document.getElementById("sug-masivo-chips");
+  chips.innerHTML = "";
+  let hay = false;
+  categoriasLista.forEach((nombre, id) => {
+    if (id === categoriaId) return;
+    hay = true;
+    chips.appendChild(
+      chipCheck(nombre, false, (v) => {
+        sugMasivoSel = v
+          ? [...new Set([...sugMasivoSel, id])]
+          : sugMasivoSel.filter((x) => x !== id);
+      }),
+    );
+  });
+  if (!hay)
+    chips.innerHTML = `<span class="text-[11px] italic text-purple-300/40">Crea otras secciones para poder sugerirlas.</span>`;
+  openOverlay("overlay-sug-masivo");
+}
+
+document
+  .getElementById("btn-guardar-sug-masivo")
+  .addEventListener("click", async () => {
+    if (!sugMasivoCatId) return;
+    const catId = sugMasivoCatId;
+    const modo = document.getElementById("sug-masivo-modo").value;
+    if (modo === "sumar" && !sugMasivoSel.length)
+      return toast("Marca al menos una sección.", "error");
+
+    const btn = document.getElementById("btn-guardar-sug-masivo");
+    const label = document.getElementById("btn-guardar-sug-masivo-label");
+    const original = label.textContent;
+    btn.disabled = true;
+    label.innerHTML = '<span class="spinner"></span>';
+    try {
+      const snap = await getDocs(productosRef(catId));
+      const cambios = snap.docs.map((d) => {
+        const prev = Array.isArray(d.data().sugerencias)
+          ? d.data().sugerencias
+          : [];
+        const nuevas =
+          modo === "sumar"
+            ? [...new Set([...prev, ...sugMasivoSel])]
+            : [...sugMasivoSel];
+        return { d, nuevas };
+      });
+      for (let i = 0; i < cambios.length; i += 400) {
+        const batch = writeBatch(db);
+        cambios
+          .slice(i, i + 400)
+          .forEach(({ d, nuevas }) =>
+            batch.update(d.ref, { sugerencias: nuevas }),
+          );
+        await batch.commit();
+      }
+      await Promise.all(
+        cambios.map(({ d, nuevas }) =>
+          sincronizarProductoEnCarritoPerfil(d.id, catId, {
+            ...d.data(),
+            sugerencias: nuevas,
+          }),
+        ),
+      );
+      closeOverlay("overlay-sug-masivo");
+      toast(`Sugerencias aplicadas a ${cambios.length} productos.`);
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo aplicar a todos.", "error");
+    } finally {
+      btn.disabled = false;
+      label.textContent = original;
+    }
+  });
+
+/* ============ C) MAYÚSCULAS / minúsculas A TODA LA CATEGORÍA ============ */
+let casoMasivoCatId = null;
+const casoMasivoAplicar = { nombre: true, descripcion: true, variantes: true };
+
+function transformarTexto(s, modo) {
+  s = String(s ?? "");
+  if (modo === "mayus") return s.toLocaleUpperCase("es");
+  if (modo === "minus") return s.toLocaleLowerCase("es");
+  return s
+    .toLocaleLowerCase("es")
+    .replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toLocaleUpperCase("es"));
+}
+
+function abrirModalCasoMasivo(categoriaId, data) {
+  casoMasivoCatId = categoriaId;
+  casoMasivoAplicar.nombre = true;
+  casoMasivoAplicar.descripcion = true;
+  casoMasivoAplicar.variantes = true;
+  document.getElementById("caso-masivo-hint").textContent =
+    `Se aplicará a todos los productos de "${data.nombre}".`;
+  document.querySelector(
+    'input[name="caso-masivo"][value="mayus"]',
+  ).checked = true;
+  const chips = document.getElementById("caso-masivo-chips");
+  chips.innerHTML = "";
+  chips.append(
+    chipCheck("Nombre del producto", true, (v) => (casoMasivoAplicar.nombre = v)),
+    chipCheck("Descripción", true, (v) => (casoMasivoAplicar.descripcion = v)),
+    chipCheck(
+      "Variantes (grupos y opciones)",
+      true,
+      (v) => (casoMasivoAplicar.variantes = v),
+    ),
+  );
+  openOverlay("overlay-caso-masivo");
+}
+
+document
+  .getElementById("btn-guardar-caso-masivo")
+  .addEventListener("click", async () => {
+    if (!casoMasivoCatId) return;
+    const catId = casoMasivoCatId;
+    const A = casoMasivoAplicar;
+    if (!A.nombre && !A.descripcion && !A.variantes)
+      return toast("Marca al menos una opción en «Aplicar a».", "error");
+    const modo = document.querySelector(
+      'input[name="caso-masivo"]:checked',
+    ).value;
+    const t = (s) => transformarTexto(s, modo);
+
+    const btn = document.getElementById("btn-guardar-caso-masivo");
+    const label = document.getElementById("btn-guardar-caso-masivo-label");
+    const original = label.textContent;
+    btn.disabled = true;
+    label.innerHTML = '<span class="spinner"></span>';
+    try {
+      const snap = await getDocs(productosRef(catId));
+      const cambios = snap.docs.map((d) => {
+        const x = d.data();
+        const upd = {};
+        if (A.nombre) upd.nombre = t(x.nombre);
+        if (A.descripcion && x.descripcion) upd.descripcion = t(x.descripcion);
+        if (A.variantes) {
+          upd.condiciones = (x.condiciones || []).map((c) => ({
+            ...c,
+            nombre: t(c.nombre),
+            opciones: (c.opciones || []).map((o) => ({
+              ...o,
+              nombre: t(o.nombre),
+              descripcion: o.descripcion ? t(o.descripcion) : "",
+            })),
+          }));
+          upd.caso = modo === "titulo" ? "tal_cual" : modo;
+        }
+        return { d, upd };
+      });
+      for (let i = 0; i < cambios.length; i += 400) {
+        const batch = writeBatch(db);
+        cambios
+          .slice(i, i + 400)
+          .forEach(({ d, upd }) => batch.update(d.ref, upd));
+        await batch.commit();
+      }
+      await Promise.all(
+        cambios.map(({ d, upd }) =>
+          sincronizarProductoEnCarritoPerfil(d.id, catId, {
+            ...d.data(),
+            ...upd,
+          }),
+        ),
+      );
+      closeOverlay("overlay-caso-masivo");
+      toast(`Formato aplicado a ${cambios.length} productos.`);
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo aplicar el formato.", "error");
+    } finally {
+      btn.disabled = false;
+      label.textContent = original;
+    }
+  });
 function abrirModalNuevoProducto(
   categoriaId,
   categoriaNombre,
@@ -2613,6 +2968,7 @@ document
   .getElementById("form-producto")
   .addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (modoMasivoCat) return guardarMasivo();
     const nombre = document.getElementById("input-prod-nombre").value.trim();
     const descripcion = document
       .getElementById("input-prod-descripcion")
@@ -3450,41 +3806,62 @@ function renderCategoriaShell(categoriaId, data) {
   if (!seccion) {
     seccion = document.createElement("section");
     seccion.className =
-      "categoria animate-fadeIn rounded-2xl bg-[#0d0a17] border border-purple-900/20 p-5 sm:p-6 shadow-xl transition-all duration-300";
+      "categoria animate-fadeIn rounded-2xl bg-[#0d0a17] border border-purple-900/20 p-4 sm:p-6 shadow-xl transition-all duration-300";
     seccion.id = `cat-${categoriaId}`;
     seccion.dataset.catNombre = (data.nombre || "").toLowerCase();
+
+    const B =
+      "inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-center leading-tight border transition-all active:scale-95";
+
     seccion.innerHTML = `
-      <div class="categoria-head flex flex-wrap items-center justify-between gap-3 mb-5 border-b border-purple-900/20 pb-4">
-        <div class="flex items-center gap-3 min-w-0">
-          <h2 class="categoria-titulo text-lg sm:text-xl font-bold text-white tracking-tight truncate"></h2>
+      <div class="categoria-head flex flex-col gap-3 mb-5 border-b border-purple-900/20 pb-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+          <h2 class="categoria-titulo text-lg sm:text-xl font-bold text-white tracking-tight break-words min-w-0"></h2>
           <span class="categoria-count font-mono text-xs px-2.5 py-0.5 rounded-full bg-purple-950/50 text-purple-300 border border-purple-800/30 shrink-0"></span>
-      <span class="categoria-horario-badge hidden shrink-0 font-mono text-[10px] px-2 py-0.5 rounded-full bg-amber-950/40 text-amber-300 border border-amber-500/20">🕐 Con horario</span>
-          </div>
-        <div class="categoria-actions flex items-center gap-2 shrink-0">
-        <button class="btn-horario-categoria inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-amber-200 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/25 transition-all active:scale-95">
-  🕐 Horario
-</button>
-          <button class="btn-add-producto inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-purple-200 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-800/30 transition-all active:scale-95">
+          <span class="categoria-horario-badge hidden shrink-0 font-mono text-[10px] px-2 py-0.5 rounded-full bg-amber-950/40 text-amber-300 border border-amber-500/20">🕐 Con horario</span>
+        </div>
+
+        <div class="categoria-actions grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
+          <button type="button" class="btn-horario-categoria ${B} text-amber-200 bg-amber-950/30 hover:bg-amber-900/40 border-amber-500/25">🕐 Horario</button>
+          <button type="button" class="btn-masivo-categoria ${B} text-violet-200 bg-violet-950/40 hover:bg-violet-900/50 border-violet-800/30">🧩 Variantes a todos</button>
+          <button type="button" class="btn-sug-categoria ${B} text-violet-200 bg-violet-950/40 hover:bg-violet-900/50 border-violet-800/30">➕ También puedes agregar</button>
+          <button type="button" class="btn-caso-categoria ${B} text-violet-200 bg-violet-950/40 hover:bg-violet-900/50 border-violet-800/30">🔠 Mayúsculas / minúsculas</button>
+          <button type="button" class="btn-add-producto ${B} col-span-2 sm:col-span-1 text-purple-100 bg-violet-800/60 hover:bg-violet-700/70 border-violet-600/40">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
             Agregar producto
           </button>
-          <button class="btn-del-categoria inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-rose-300 bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/30 transition-all active:scale-95">
-            Eliminar
-          </button>
+          <button type="button" class="btn-del-categoria ${B} col-span-2 sm:col-span-1 text-rose-300 bg-rose-950/30 hover:bg-rose-900/40 border-rose-900/30">Eliminar</button>
         </div>
       </div>
       <div class="productos-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
     `;
     categoriasContainer.appendChild(seccion);
 
-    seccion.querySelector(".btn-add-producto").addEventListener("click", () => {
-      abrirModalNuevoProducto(categoriaId, data.nombre);
-    });
+    seccion
+      .querySelector(".btn-add-producto")
+      .addEventListener("click", () =>
+        abrirModalNuevoProducto(categoriaId, data.nombre),
+      );
     seccion
       .querySelector(".btn-horario-categoria")
-      .addEventListener("click", () => {
-        abrirModalHorarioCategoria(categoriaId, seccion._catData || data);
-      });
+      .addEventListener("click", () =>
+        abrirModalHorarioCategoria(categoriaId, seccion._catData || data),
+      );
+    seccion
+      .querySelector(".btn-masivo-categoria")
+      .addEventListener("click", () =>
+        abrirModalMasivo(categoriaId, seccion._catData || data),
+      );
+    seccion
+      .querySelector(".btn-sug-categoria")
+      .addEventListener("click", () =>
+        abrirModalSugMasivo(categoriaId, seccion._catData || data),
+      );
+    seccion
+      .querySelector(".btn-caso-categoria")
+      .addEventListener("click", () =>
+        abrirModalCasoMasivo(categoriaId, seccion._catData || data),
+      );
     seccion
       .querySelector(".btn-del-categoria")
       .addEventListener("click", () => {

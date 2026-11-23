@@ -895,6 +895,119 @@ let bizDataGlobal = null;
 let bizAliasGlobal = null;
 let bizDominioGlobal = null;
 const SND_NUEVO_PEDIDO = "../../sounds/nuevo_pedido_en_geinz.mp3";
+
+/* ══════════ Delivery por fijar (el negocio pone el precio) ══════════ */
+const deliveryBrillo = new Set(); // pedidos cuyo cliente aceptó el delivery (brillan hasta abrirlos)
+let dlvDraft = { id: null, v: "" };
+
+function deliveryBloquea(p) {
+  const d = p?.delivery_pendiente;
+  return !!d && d.estado !== "aceptado";
+}
+function bloquearAceptarDelivery(container, estado, p) {
+  if (estado !== "pendiente" || !deliveryBloquea(p)) return;
+  const esperando = p.delivery_pendiente.estado === "propuesto";
+  const b = container.querySelector(
+    '[data-action="en_proceso"],[data-action="pendiente_pago"],[data-action="listo"]',
+  );
+  if (b) {
+    b.disabled = true;
+    b.textContent = esperando ? "⏳ Esperando al cliente" : "🛵 Fija el delivery primero";
+  }
+  container.insertAdjacentHTML(
+    "afterbegin",
+    `<div class="oc-puntos-aceptar" style="width:100%;">🛵 ${
+      esperando
+        ? `Delivery propuesto: <strong>${fmtMoney(p.delivery_pendiente.costo)}</strong>. Esperando que el cliente lo acepte.`
+        : "Este pedido necesita que fijes el precio del delivery (ábrelo)."
+    }</div>`,
+  );
+}
+function deliveryFijarHTML(p) {
+  const d = p.delivery_pendiente;
+  if (!d) return "";
+  const base = Number(p.total) || 0;
+  if (d.estado === "aceptado")
+    return `<div class="dm-meta-item full"><div class="deli-precio gratis">✅ El cliente aceptó el delivery · ${fmtMoney(d.costo)}</div></div>`;
+  const esperando = d.estado === "propuesto";
+  return `
+    <div class="dm-meta-item full">
+      <div class="dm-meta-label">🛵 Precio del delivery</div>
+      ${esperando ? `<div class="deli-precio total"><span>⏳ Propuesto: esperando respuesta del cliente</span><strong>${fmtMoney(d.costo)}</strong></div>` : ""}
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+        <span style="font-size:13px;font-weight:700;">S/</span>
+        <input type="number" id="fdInput" class="deli-inp" min="0" step="0.5" inputmode="decimal"
+          placeholder="${esperando ? "Nuevo precio" : "Ej: 5"}" style="flex:1;height:44px;">
+        <button type="button" class="oc-btn primary v-green" id="fdEnviar" style="min-height:44px;">${esperando ? "Cambiar" : "Enviar al cliente"}</button>
+      </div>
+      <div class="deli-precio total" style="margin-top:8px;"><span>Productos ${fmtMoney(base)} + delivery = Nuevo total</span><strong id="fdTotal">—</strong></div>
+    </div>`;
+}
+function enlazarDeliveryFijar(id, p) {
+  const inp = document.getElementById("fdInput");
+  if (!inp) return;
+  const base = Number(p.total) || 0;
+  if (dlvDraft.id === id && dlvDraft.v !== "") inp.value = dlvDraft.v;
+  const act = () => {
+    dlvDraft = { id, v: inp.value };
+    const c = parseFloat(String(inp.value).replace(",", "."));
+    const t = document.getElementById("fdTotal");
+    if (t) t.textContent = Number.isFinite(c) && c >= 0 ? fmtMoney(base + c) : "—";
+  };
+  inp.addEventListener("input", act);
+  act();
+  document.getElementById("fdEnviar")?.addEventListener("click", () => fijarDeliveryPedido(id, p));
+}
+async function fijarDeliveryPedido(id, p) {
+  const c = parseFloat(String(document.getElementById("fdInput")?.value).replace(",", "."));
+  if (!Number.isFinite(c) || c < 0 || c > 500) return showToast("Precio de delivery inválido", true);
+  const prev = p.delivery_pendiente;
+  if (!prev || prev.estado === "aceptado") return;
+  const costo = +c.toFixed(2);
+  const totalProp = +((Number(p.total) || 0) + costo).toFixed(2);
+  try {
+    await updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id), {
+      delivery_pendiente: {
+        estado: "propuesto",
+        costo,
+        total_propuesto: totalProp,
+        propuesto_en: serverTimestamp(),
+      },
+    });
+    dlvDraft = { id: null, v: "" };
+    showToast(`🛵 Delivery ${fmtMoney(costo)} enviado al cliente`);
+    notificarDeliveryAlCliente(p, costo, totalProp);
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo enviar el precio", true);
+  }
+}
+async function notificarDeliveryAlCliente(p, costo, total) {
+  const idUser = p?.cliente?.id_cliente;
+  if (!URL_NOTIFICAR_CLIENTE || !idUser) return;
+  try {
+    await fetch(URL_NOTIFICAR_CLIENTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id_user: idUser,
+        title: bizNombreGlobal || "Geinz",
+        body: `El delivery cuesta ${fmtMoney(costo)}. Nuevo total ${fmtMoney(total)}. Entra a tu pedido para aceptarlo.`,
+        logo: bizLogoUrl || "",
+        id_tienda: tiendaId || "",
+        tipo_notificacion: "logo",
+        prioridad: "high",
+      }),
+    });
+  } catch (e) {
+    console.warn("No se pudo notificar el delivery:", e);
+  }
+}
+const dlvOkStyle = document.createElement("style");
+dlvOkStyle.textContent = `
+.order-card.oc-delivery-ok{border-color:#22c55e !important;box-shadow:0 0 0 3px rgba(34,197,94,.45), 0 8px 26px rgba(34,197,94,.3) !important;}
+`;
+document.head.appendChild(dlvOkStyle);
 const SND_PEDIDO_CANCELADO = "../../sounds/se_cancelo_un_pedido.mp3";
 const SND_PEDIDO_CANCELADO_PAUSA = "../../sounds/cancelo_pedido_pausa.mp3";
 const SND_CLIENTE_CANCELO_PEDIDO = "../../sounds/cliente_cancelo_pedido.mp3"; // cliente canceló estando en pausa
@@ -1632,7 +1745,7 @@ function quitarPausaSiOff(container) {
 }
 function deliPrecioHtmlPedido(p) {
   const d = p.delivery;
-  if (!d || d.costo == null) return "";
+  if (!d || d.costo == null || d.sinPrecio) return "";
   if (d.gratis)
     return `<div class="deli-precio gratis">🚚 Envío gratis (promo del negocio)</div>`;
   return `
@@ -1642,7 +1755,7 @@ function deliPrecioHtmlPedido(p) {
     <div class="deli-precio total"><span>Total con delivery</span><strong>${fmtMoney(p.total)}</strong></div>`;
 }
 function deliveryBlockSinMapa(p) {
-  if (p.cliente?.tipo_entrega !== "Delivery" || !p.delivery) return "";
+  if (p.cliente?.tipo_entrega !== "Delivery" || !p.delivery || p.delivery.sinPrecio) return "";
   return `<div class="dm-meta-item full"><div class="dm-meta-label">🛵 Delivery</div>${deliPrecioHtmlPedido(p)}</div>`;
 }
 /* Origen de la ruta: primero ubicacion_ruta (config del panel), si no, ubicacion del perfil */
@@ -1721,7 +1834,8 @@ function mapaDeliveryHTML(p) {
       <div class="deli-precio"><span>Costo de delivery</span><strong>${fmtMoney(precioDeli)}</strong></div>
       <div class="deli-precio total"><span>Total + delivery</span><strong>${fmtMoney((Number(p.total) || 0) + precioDeli)}</strong></div>`;
   }
-  if (p.delivery?.costo != null) precioHtml = deliPrecioHtmlPedido(p);
+  if (p.delivery_pendiente && p.delivery_pendiente.estado !== "aceptado") precioHtml = "";
+  else if (p.delivery?.costo != null) precioHtml = deliPrecioHtmlPedido(p);
 
   return `
     <div class="dm-meta-item full">
@@ -3747,7 +3861,8 @@ function buildCard(id, p) {
   card.className =
     "order-card" +
     (voucherPendienteVer ? " oc-pago-recibido" : "") +
-    (enLocalPend ? " oc-en-local" : "");
+    (enLocalPend ? " oc-en-local" : "") +
+    (deliveryBrillo.has(id) ? " oc-delivery-ok" : "");
   card.id = `order-${id}`;
 
   const hitArea = document.createElement("div");
@@ -3779,6 +3894,7 @@ function buildCard(id, p) {
 
   const actionsWrap = document.createElement("div");
   renderCardActions(actionsWrap, id, estado, p);
+  bloquearAceptarDelivery(actionsWrap, estado, p);
   card.appendChild(actionsWrap);
 
   return card;
@@ -3879,6 +3995,8 @@ const detailOverlay = document.getElementById("detailOverlay");
 const detailModal = document.getElementById("detailModal");
 
 function openDetail(id) {
+  deliveryBrillo.delete(id);
+  document.getElementById(`order-${id}`)?.classList.remove("oc-delivery-ok");
   activeModalId = id;
   renderDetail(id);
   detailOverlay.classList.add("show");
@@ -5364,6 +5482,7 @@ function renderDetail(id) {
           <div class="dm-meta-value ${pago.metodo === "Efectivo" && pago.vuelto ? "" : "dim"}">${pago.metodo === "Efectivo" && pago.vuelto ? "Paga con S/ " + escapeHtml(pago.vuelto) : "No aplica"}</div>
         </div>
         ${voucherBlock}
+               ${deliveryFijarHTML(p)}
                ${mapaDeliveryHTML(p) || deliveryBlockSinMapa(p)}
                ${puntoEntregaDetalleHTML(p)}
              ${dlvBtnBlock}
@@ -5391,6 +5510,7 @@ function renderDetail(id) {
   `;
 
   bindMapaDeliveryClicks();
+  enlazarDeliveryFijar(id, p);
     document
     .querySelector("[data-abrir-ruta-negocio]")
     ?.addEventListener("click", () => rnAbrir());
@@ -5475,6 +5595,7 @@ function renderModalActions(container, id, estado, p) {
       <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="pendiente">↺ Reactivar pedido</span></div>`;
   }
   quitarPausaSiOff(container);
+  bloquearAceptarDelivery(container, estado, p);
   container.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation?.();
@@ -5938,6 +6059,7 @@ if (!autoRejectEnabled || !PLAN_PED.autoOff || dateFilter.type !== "hoy") return
     if (estado !== "pendiente") return; // esto ya excluye en_pausa, en_proceso, etc.
     if (getOrigen(p).tipo !== "whatsapp") return; // el auto-rechazo solo aplica a WhatsApp
     if (autoRejectingIds.has(id)) return;
+    if (p.delivery_pendiente?.estado === "propuesto") return; // esperando al cliente
     const fecha = toDate(p.timestamp);
     if (!fecha) return;
     if (Date.now() - fecha.getTime() >= limiteMs) {
@@ -9163,6 +9285,7 @@ function suscribirPedidos() {
       const canceladosPorClientePendiente = []; // canceló estando pendiente (sin pasar por pausa)
       const pagosRecibidosNuevos = [];
       const enLocalNuevos = [];
+      const deliveryAceptados = [];
       snap.docChanges().forEach((change) => {
         const id = change.doc.id;
         const data = change.doc.data();
@@ -9232,6 +9355,13 @@ function suscribirPedidos() {
           }
           if (esAvisoLlegadaNuevo(anterior, data))
             enLocalNuevos.push({ id, data });
+          if (
+            anterior?.delivery_pendiente?.estado === "propuesto" &&
+            data.delivery_pendiente?.estado === "aceptado"
+          ) {
+            deliveryBrillo.add(id);
+            deliveryAceptados.push({ id, data });
+          }
         }
 
         if (change.type === "removed") {
@@ -9291,6 +9421,15 @@ function suscribirPedidos() {
           pagosRecibidosNuevos.length === 1
             ? `💸 ${nombres} envió su comprobante de pago`
             : `💸 ${pagosRecibidosNuevos.length} clientes enviaron su comprobante de pago`,
+        );
+      }
+      if (deliveryAceptados.length) {
+        playPagoRecibidoAlarm();
+        bellRingFeedback();
+        showToast(
+          deliveryAceptados
+            .map(({ data }) => `✅ ${data.cliente?.nombre || "Cliente"} aceptó el delivery (${fmtMoney(data.delivery_pendiente?.costo)})`)
+            .join(" · "),
         );
       }
       if (enLocalNuevos.length) {
@@ -10192,6 +10331,12 @@ function pedirTiempo(p) {
 }
 
 async function accionEstado(id, p, estado, accion, btn) {
+  if (
+    estado === "pendiente" &&
+    deliveryBloquea(p) &&
+    ["en_proceso", "pendiente_pago", "listo"].includes(accion)
+  )
+    return showToast("Primero fija el delivery y espera que el cliente lo acepte", true);
   const pide =
     PLAN_PED.tiempos &&
     accion === "en_proceso" &&

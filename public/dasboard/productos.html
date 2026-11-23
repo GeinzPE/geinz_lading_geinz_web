@@ -1289,416 +1289,1117 @@
       </form>
     </div>
   </div>
+  <!-- ============================================================
+  MODAL: NUEVO PRODUCTO  (archivo aparte)
+  - Mantiene TODOS los id / data-* que usa tu productos.js
+  - No depende de Tailwind (todo el estilo está en este archivo)
+  - Los bloques vacíos (variantes, resumen) se ocultan solos
+============================================================ -->
+  <style id="modal-producto-css">
+    #overlay-producto {
+      --bg: #0d0a17;
+      --in: #05040a;
+      --line: rgba(139, 92, 246, .22);
+      --ink: #f3f0ff;
+      --dim: rgba(196, 181, 253, .68);
+      --acc: #7c3aed;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      background: rgba(0, 0, 0, .8);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      color: var(--ink);
+      box-sizing: border-box
+    }
 
-  <!-- Modal: Nuevo producto -->
-  <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-    id="overlay-producto">
-    <div
-      class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-6 max-h-[90vh] overflow-y-auto thin-scroll">
-      <h3 class="text-lg font-bold text-white mb-1">Nuevo producto</h3>
-      <p class="text-purple-300/60 text-xs mb-5" id="producto-cat-hint">Se agregará a la categoría seleccionada.</p>
+    #overlay-producto * {
+      box-sizing: border-box
+    }
 
-      <div class="flex gap-2 mb-5 p-1 rounded-xl bg-[#05040a] border border-purple-900/20">
-        <button type="button" class="tab-btn-form active-tab" data-tab-target="tab-basico">Básico</button>
-        <button type="button" class="tab-btn-form" data-tab-target="tab-avanzado">Avanzado</button>
-        <button type="button" class="tab-btn-form" data-tab-target="tab-super">Súper avanzado</button>
+    #overlay-producto.show {
+      opacity: 1;
+      pointer-events: auto
+    }
+
+    #overlay-producto .hidden {
+      display: none !important
+    }
+
+    /* Ventana: en móvil sube desde abajo, en PC va centrada */
+    #overlay-producto .modal {
+      width: 100%;
+      max-width: 580px;
+      max-height: 94dvh;
+      max-height: 94vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 22px 22px 0 0;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, .6);
+      transform: translateY(28px);
+      transition: transform .26s cubic-bezier(.16, 1, .3, 1);
+      overflow: hidden
+    }
+
+    #overlay-producto.show .modal {
+      transform: none
+    }
+
+    @supports(height:1dvh) {
+      #overlay-producto .modal {
+        max-height: 94dvh
+      }
+    }
+
+    @media(min-width:640px) {
+      #overlay-producto {
+        align-items: center;
+        padding: 16px
+      }
+
+      #overlay-producto .modal {
+        border-radius: 22px;
+        max-height: 90vh
+      }
+
+      @supports(height:1dvh) {
+        #overlay-producto .modal {
+          max-height: 90dvh
+        }
+      }
+    }
+
+    /* Cabecera + pestañas */
+    #overlay-producto .pm-head {
+      padding: 18px 16px 0;
+      position: relative;
+      flex: none
+    }
+
+    #overlay-producto .pm-head h3 {
+      margin: 0 40px 2px 0;
+      font-size: 19px;
+      font-weight: 700;
+      color: #fff
+    }
+
+    #overlay-producto .pm-head p {
+      margin: 0 0 14px;
+      font-size: 12.5px;
+      color: var(--dim);
+      line-height: 1.45
+    }
+
+    #overlay-producto .pm-x {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 0;
+      background: rgba(255, 255, 255, .06);
+      color: #ddd6fe;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer
+    }
+
+    #overlay-producto .pm-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 4px;
+      border-radius: 14px;
+      background: var(--in);
+      border: 1px solid var(--line);
+      margin-bottom: 12px
+    }
+
+    #overlay-producto .tab-btn-form {
+      min-height: 44px;
+      padding: 6px 4px;
+      border-radius: 10px;
+      font: 600 13px/1.15 inherit;
+      font-family: inherit;
+      text-align: center;
+      cursor: pointer;
+      color: var(--dim);
+      background: transparent;
+      border: 1px solid transparent;
+      transition: .15s
+    }
+
+    #overlay-producto .tab-btn-form.active-tab {
+      color: #fff;
+      background: rgba(139, 92, 246, .22);
+      border-color: rgba(139, 92, 246, .45)
+    }
+
+    #overlay-producto .tab-panel-form {
+      display: none
+    }
+
+    #overlay-producto .tab-panel-form.active-tab-panel {
+      display: block;
+      animation: pmIn .2s ease
+    }
+
+    @keyframes pmIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    /* Formulario: cuerpo con scroll + pie fijo */
+    #overlay-producto #form-producto {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0
+    }
+
+    #overlay-producto .pm-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 4px 16px 20px
+    }
+
+    #overlay-producto .pm-foot {
+      flex: none;
+      display: flex;
+      gap: 10px;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--line);
+      background: var(--bg)
+    }
+
+    #overlay-producto .pm-btn {
+      min-height: 48px;
+      border-radius: 13px;
+      font: 600 14px inherit;
+      font-family: inherit;
+      cursor: pointer;
+      border: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    #overlay-producto .pm-btn.ghost {
+      flex: 1;
+      color: #ddd6fe;
+      background: rgba(255, 255, 255, .06)
+    }
+
+    #overlay-producto .pm-btn.main {
+      flex: 2;
+      color: #fff;
+      background: #6d28d9
+    }
+
+    #overlay-producto .pm-btn.main:hover {
+      background: #7c3aed
+    }
+
+    /* Texto y campos */
+    #overlay-producto .pm-intro {
+      margin: 6px 0 16px;
+      padding: 11px 13px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #ddd6fe;
+      background: rgba(124, 58, 237, .1);
+      border: 1px solid rgba(139, 92, 246, .2)
+    }
+
+    #overlay-producto .pm-field {
+      margin-bottom: 16px
+    }
+
+    #overlay-producto .pm-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #ddd6fe
+    }
+
+    #overlay-producto .pm-label em {
+      font-style: normal;
+      font-weight: 500;
+      color: var(--dim)
+    }
+
+    #overlay-producto .pm-help {
+      margin: 6px 0 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--dim)
+    }
+
+    #overlay-producto .pm-input {
+      display: block;
+      width: 100%;
+      min-height: 46px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      background: var(--in);
+      border: 1px solid rgba(139, 92, 246, .3);
+      color: var(--ink);
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      color-scheme: dark;
+      transition: border-color .15s
+    }
+
+    #overlay-producto textarea.pm-input {
+      resize: none;
+      min-height: 70px;
+      line-height: 1.4
+    }
+
+    #overlay-producto .pm-input:focus {
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, .18)
+    }
+
+    #overlay-producto .pm-input::placeholder {
+      color: rgba(196, 181, 253, .35)
+    }
+
+    #overlay-producto .mono {
+      font-family: 'JetBrains Mono', ui-monospace, monospace
+    }
+
+    #overlay-producto .pm-row {
+      display: flex;
+      gap: 8px
+    }
+
+    #overlay-producto .pm-row .pm-input {
+      flex: 1;
+      min-width: 0
+    }
+
+    #overlay-producto .pm-camera {
+      flex: none;
+      width: 50px;
+      border-radius: 12px;
+      font-size: 20px;
+      cursor: pointer;
+      background: rgba(124, 58, 237, .18);
+      border: 1px solid rgba(139, 92, 246, .35)
+    }
+
+    #overlay-producto .pm-grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px
+    }
+
+    @media(max-width:359px) {
+      #overlay-producto .pm-grid2 {
+        grid-template-columns: 1fr
+      }
+    }
+
+    #overlay-producto .pm-sub {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: var(--dim)
+    }
+
+    #overlay-producto #imgdrop-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px
+    }
+
+    /* Interruptor (fila completa tocable) */
+    #overlay-producto .pm-opt {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 10px;
+      padding: 13px 14px;
+      border-radius: 13px;
+      background: var(--in);
+      border: 1px solid var(--line);
+      cursor: pointer
+    }
+
+    #overlay-producto .pm-opt b {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #f3f0ff
+    }
+
+    #overlay-producto .pm-opt small {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--dim)
+    }
+
+    #overlay-producto .pm-sw {
+      position: relative;
+      flex: none;
+      width: 50px;
+      height: 30px
+    }
+
+    #overlay-producto .pm-sw input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 2
+    }
+
+    #overlay-producto .pm-sw i {
+      position: absolute;
+      inset: 0;
+      border-radius: 99px;
+      background: rgba(88, 28, 135, .45);
+      border: 1px solid rgba(139, 92, 246, .4);
+      transition: .2s
+    }
+
+    #overlay-producto .pm-sw i::before {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s
+    }
+
+    #overlay-producto .pm-sw input:checked+i {
+      background: #059669;
+      border-color: #10b981
+    }
+
+    #overlay-producto .pm-sw input:checked+i::before {
+      transform: translateX(20px)
+    }
+
+    #overlay-producto .pm-sw.orange input:checked+i {
+      background: #ea580c;
+      border-color: #f97316
+    }
+
+    #overlay-producto .pm-sw.rose input:checked+i {
+      background: #e11d48;
+      border-color: #fb7185
+    }
+
+    #overlay-producto .pm-sw input:focus-visible+i {
+      outline: 2px solid #a78bfa;
+      outline-offset: 2px
+    }
+
+    /* Secciones plegables (pestaña Avanzado) */
+    #overlay-producto .pm-sec {
+      margin-bottom: 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .02);
+      border: 1px solid var(--line)
+    }
+
+    #overlay-producto .pm-sec>summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      cursor: pointer;
+      min-height: 56px
+    }
+
+    #overlay-producto .pm-sec>summary::-webkit-details-marker {
+      display: none
+    }
+
+    #overlay-producto .pm-ico {
+      flex: none;
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      background: rgba(124, 58, 237, .16)
+    }
+
+    #overlay-producto .pm-sec>summary b {
+      display: block;
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #fff
+    }
+
+    #overlay-producto .pm-sec>summary small {
+      display: block;
+      margin-top: 2px;
+      font-size: 12px;
+      color: var(--dim);
+      line-height: 1.35
+    }
+
+    #overlay-producto .pm-chev {
+      margin-left: auto;
+      flex: none;
+      color: var(--dim);
+      transition: transform .2s
+    }
+
+    #overlay-producto .pm-sec[open] .pm-chev {
+      transform: rotate(180deg)
+    }
+
+    #overlay-producto .pm-sec-body {
+      padding: 2px 14px 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px
+    }
+
+    #overlay-producto .pm-tip {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #fde68a;
+      background: rgba(180, 83, 9, .14);
+      border-left: 3px solid #d97706
+    }
+
+    #overlay-producto .pm-ejemplo {
+      margin: 0 0 14px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--dim)
+    }
+
+    #overlay-producto .pm-ejemplo strong {
+      color: #ddd6fe
+    }
+
+    /* Descuento */
+    #overlay-producto .pm-box {
+      margin-top: 2px;
+      padding: 14px;
+      border-radius: 13px;
+      background: var(--in);
+      border: 1px solid rgba(225, 29, 72, .25)
+    }
+
+    #overlay-producto .pm-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px
+    }
+
+    #overlay-producto .pm-or {
+      text-align: center;
+      font-size: 12px;
+      color: var(--dim);
+      margin: -4px 0
+    }
+
+    #overlay-producto #descuento-calculo {
+      margin: 6px 0 0;
+      font-size: 12.5px;
+      color: #fda4af
+    }
+
+    #overlay-producto #descuento-modo-toggle {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px
+    }
+
+    #overlay-producto .descuento-modo-btn {
+      min-height: 44px;
+      padding: 6px 4px;
+      border-radius: 11px;
+      font: 600 12.5px/1.15 inherit;
+      font-family: inherit;
+      cursor: pointer;
+      color: var(--dim);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      text-align: center
+    }
+
+    #overlay-producto .descuento-modo-btn.active,
+    #overlay-producto .descuento-dia-chip.active {
+      color: #fff;
+      background: #e11d48;
+      border-color: #e11d48
+    }
+
+    #overlay-producto #descuento-dias-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px
+    }
+
+    #overlay-producto .descuento-dia-chip {
+      min-width: 46px;
+      min-height: 42px;
+      padding: 6px 10px;
+      border-radius: 11px;
+      font: 600 13px inherit;
+      font-family: inherit;
+      cursor: pointer;
+      color: var(--dim);
+      background: var(--bg);
+      border: 1px solid var(--line)
+    }
+
+    /* Opciones / variantes: contenedor que llena tu JS */
+    #overlay-producto #condiciones-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+      overflow-x: auto
+    }
+
+    #overlay-producto .pm-vacio {
+      display: none;
+      margin: 0;
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--dim);
+      border: 1px dashed rgba(139, 92, 246, .3)
+    }
+
+    #overlay-producto #condiciones-container:empty~.pm-vacio,
+    #overlay-producto #rec-items:empty+.pm-vacio {
+      display: block
+    }
+
+    #overlay-producto .pm-addbtn {
+      min-height: 40px;
+      padding: 8px 14px;
+      border-radius: 11px;
+      font: 600 13px inherit;
+      font-family: inherit;
+      cursor: pointer;
+      color: #ddd6fe;
+      background: rgba(124, 58, 237, .16);
+      border: 1px solid rgba(139, 92, 246, .35)
+    }
+
+    #overlay-producto .pm-listhead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 6px 0 10px
+    }
+
+    #overlay-producto .pm-listhead .pm-label {
+      margin: 0
+    }
+
+    /* Súper avanzado */
+    #overlay-producto .pm-step {
+      display: flex;
+      gap: 12px;
+      margin: 22px 0 12px
+    }
+
+    #overlay-producto .pm-step:first-of-type {
+      margin-top: 6px
+    }
+
+    #overlay-producto .pm-n {
+      flex: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      background: #6d28d9
+    }
+
+    #overlay-producto .pm-step b {
+      display: block;
+      font-size: 14.5px;
+      color: #fff
+    }
+
+    #overlay-producto .pm-step small {
+      display: block;
+      margin-top: 2px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--dim)
+    }
+
+    #overlay-producto #rec-sin-insumos {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      color: #fcd34d;
+      background: rgba(180, 83, 9, .15);
+      border: 1px solid rgba(217, 119, 6, .3)
+    }
+
+    #overlay-producto #rec-items,
+    #overlay-producto .pm-fill {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0
+    }
+
+    #overlay-producto #rec-items:empty {
+      display: none
+    }
+
+    #overlay-producto #rec-tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+      gap: 8px;
+      margin-bottom: 14px
+    }
+
+    #overlay-producto #rec-tiles:empty,
+    #overlay-producto #rec-margen-actual:empty {
+      display: none
+    }
+
+    #overlay-producto #rec-margen-actual {
+      margin-top: 12px;
+      font-size: 12.5px;
+      line-height: 1.6
+    }
+
+    /* Si no hay nada que mostrar, el bloque entero desaparece */
+    #overlay-producto .pm-auto:has(.pm-fill:empty) {
+      display: none
+    }
+
+    /* Para pantallas táctiles: evita el zoom al tocar campos que crea tu JS */
+    @media(max-width:640px) {
+
+      #overlay-producto select,
+      #overlay-producto input:not([type=checkbox]):not([type=radio]),
+      #overlay-producto textarea {
+        font-size: 16px
+      }
+    }
+
+    #overlay-producto.modo-masivo .pm-tabs,
+    #overlay-producto.modo-masivo .pm-intro,
+    #overlay-producto.modo-masivo .tab-panel-form:not(#tab-avanzado),
+    #overlay-producto.modo-masivo .pm-sec:not(.pm-sec-opciones) {
+      display: none !important
+    }
+  </style>
+
+  <div class="overlay" id="overlay-producto">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="producto-titulo">
+
+      <div class="pm-head">
+        <h3 id="producto-titulo">Nuevo producto</h3>
+        <p id="producto-cat-hint">Se agregará a la categoría seleccionada.</p>
+        <button type="button" class="pm-x" data-close="overlay-producto" aria-label="Cerrar">×</button>
+
+        <div class="pm-tabs">
+          <button type="button" class="tab-btn-form active-tab" data-tab-target="tab-basico">Básico</button>
+          <button type="button" class="tab-btn-form" data-tab-target="tab-avanzado">Avanzado</button>
+          <button type="button" class="tab-btn-form" data-tab-target="tab-super">Súper avanzado</button>
+        </div>
       </div>
 
       <form id="form-producto" novalidate>
-        <div id="tab-basico" class="tab-panel-form active-tab-panel">
-          <div class="mb-4">
-            <label for="input-prod-codigo"
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Código
-              de barras / ID (opcional)</label>
-            <div class="flex gap-2">
-              <input type="text" id="input-prod-codigo" inputmode="numeric" maxlength="30"
-                placeholder="Escanea o escribe el código"
-                class="flex-1 min-w-0 rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono read-only:opacity-60">
-              <button type="button" id="btn-prod-scan-cam"
-                class="shrink-0 w-11 rounded-xl bg-violet-950/40 hover:bg-violet-900/50 border border-violet-800/30 text-lg disabled:opacity-40"
-                title="Escanear con cámara">📷</button>
-            </div>
-            <p id="prod-codigo-hint" class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed"></p>
-          </div>
-          <div class="mb-4">
-            <label for="input-prod-nombre"
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Nombre
-              del producto</label>
-            <input type="text" id="input-prod-nombre" placeholder="Ej. Jalea Mixta" required maxlength="60"
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all">
-          </div>
+        <div class="pm-body">
 
-          <div class="mb-4">
-            <label for="input-prod-descripcion"
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Descripción
-              breve</label>
-            <textarea id="input-prod-descripcion" rows="2"
-              placeholder="Ej. Acompañado de yuca frita, sarsa criolla y tártara casera." maxlength="140"
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all resize-none thin-scroll"></textarea>
-          </div>
+          <!-- ═════════════ BÁSICO ═════════════ -->
+          <div id="tab-basico" class="tab-panel-form active-tab-panel">
 
-          <div class="mb-4">
-            <label for="input-prod-precio"
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Precio
-              (S/)</label>
-            <input type="number" id="input-prod-precio" placeholder="0.00" step="0.10" min="0" required
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
-          </div>
-
-          <div class="mb-5">
-            <div
-              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-              <span class="text-sm font-medium text-purple-100">Disponible para la venta</span>
-              <label class="relative inline-block w-11 h-6 shrink-0">
-                <input type="checkbox" id="input-prod-disponible" checked class="peer opacity-0 w-0 h-0">
-                <span
-                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="mb-2">
-            <label
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-2 font-mono">Fotos
-              (máx. 3)</label>
-            <div class="grid grid-cols-3 gap-2.5" id="imgdrop-row"></div>
-            <input type="file" id="input-prod-imgs" accept="image/*" style="display:none;">
-          </div>
-
-        </div><!-- /tab-basico -->
-
-        <div id="tab-avanzado" class="tab-panel-form">
-
-          <div class="mb-4">
-            <label for="input-prod-stock"
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Stock
-              disponible (opcional)</label>
-            <input type="number" id="input-prod-stock" placeholder="Déjalo vacío para no controlar stock" step="1"
-              min="0"
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
-            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
-              📦 Es el total de unidades que tienes de <strong>este producto</strong>, sumando todas sus variantes.
-              Si más abajo defines "Stock" por cada variante (ej. sabor o talla), ese número debe sumar igual a este.
-            </p>
-          </div>
-
-          <div class="mb-5">
-            <div
-              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-              <span class="text-sm font-medium text-purple-100">Desactivar automáticamente al llegar a 0</span>
-              <label class="relative inline-block w-11 h-6 shrink-0">
-                <input type="checkbox" id="input-prod-auto-desactivar" class="peer opacity-0 w-0 h-0">
-                <span
-                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="mb-5">
-            <div
-              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-orange-900/20">
-              <span class="text-sm font-medium text-purple-100">Agotado hoy</span>
-              <label class="relative inline-block w-11 h-6 shrink-0">
-                <input type="checkbox" id="input-prod-agotado-hoy" class="peer opacity-0 w-0 h-0">
-                <span
-                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-orange-600 peer-checked:border-orange-500 cursor-pointer transition-colors duration-200
-                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-              </label>
-            </div>
-            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
-              🔸 Se acaba HOY (ej: se terminó el plato del día). Mañana lo puedes reactivar con un clic, sin tocar el
-              resto del producto.
-            </p>
-          </div>
-
-          <div class="mb-4">
-            <label for="input-prod-unidad"
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Unidad
-              de medida (opcional)</label>
-            <select id="input-prod-unidad"
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all">
-              <option value="">Sin especificar</option>
-              <option value="unidad">Unidad</option>
-              <option value="botella">Botella</option>
-              <option value="copa">Copa</option>
-              <option value="litro">Litro</option>
-              <option value="porcion">Porción</option>
-              <option value="kg">Kg</option>
-            </select>
-          </div>
-
-          <div class="mb-5">
-            <div class="flex items-center justify-between mb-2">
-              <label
-                class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Horario
-                de disponibilidad (opcional)</label>
-            </div>
-            <div class="grid grid-cols-2 gap-2.5">
-              <input type="time" id="input-prod-horario-desde"
-                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
-              <input type="time" id="input-prod-horario-hasta"
-                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
-            </div>
-            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
-              🕐 Déjalo vacío para que esté disponible siempre. Útil para happy hour, desayunos, etc.
-            </p>
-          </div>
-          <div class="mb-5">
-            <div
-              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-rose-900/20">
-              <div class="pr-3">
-                <span class="text-sm font-medium text-purple-100">🏷️ Descuento por producto</span>
-                <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
-                  Actívalo para vender este producto con un % de descuento temporal: días fijos de la semana, por tiempo
-                  (horas/días) o un rango de fechas.
-                </p>
+            <div class="pm-field">
+              <label class="pm-label" for="input-prod-codigo">Código de barras <em>(opcional)</em></label>
+              <div class="pm-row">
+                <input type="text" id="input-prod-codigo" class="pm-input mono" inputmode="numeric" maxlength="30"
+                  placeholder="Escanea o escribe el código">
+                <button type="button" id="btn-prod-scan-cam" class="pm-camera" title="Escanear con cámara">📷</button>
               </div>
-              <label class="relative inline-block w-11 h-6 shrink-0">
-                <input type="checkbox" id="input-prod-descuento-activo" class="peer opacity-0 w-0 h-0">
-                <span
-                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-rose-600 peer-checked:border-rose-500 cursor-pointer transition-colors duration-200
-        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-              </label>
+              <p id="prod-codigo-hint" class="pm-help"></p>
             </div>
 
-            <div id="descuento-detalle"
-              class="hidden mt-3 flex flex-col gap-3 rounded-xl bg-[#05040a] border border-rose-900/20 p-3.5">
-              <div>
-                <label
-                  class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Porcentaje
-                  de descuento</label>
-                <input type="number" id="input-prod-descuento-porcentaje" min="1" max="99" step="1" placeholder="Ej. 20"
-                  class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-rose-500 transition-all font-mono">
-              </div>
-              <div>
-                <label
-                  class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">O
-                  escribe el precio con descuento (S/)</label>
-                <input type="number" id="input-prod-descuento-precio" min="0" step="0.01" placeholder="Ej. 5.00"
-                  class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-rose-500 transition-all font-mono">
-                <p id="descuento-calculo" class="text-[10.5px] text-rose-300 mt-1.5 font-mono"></p>
-              </div>
-
-              <div>
-                <label
-                  class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">¿Cuándo
-                  aplica?</label>
-                <div class="flex gap-2 flex-wrap" id="descuento-modo-toggle">
-                  <button type="button" class="descuento-modo-btn" data-modo="dias_semana">Días fijos</button>
-                  <button type="button" class="descuento-modo-btn" data-modo="duracion">Por tiempo</button>
-                  <button type="button" class="descuento-modo-btn" data-modo="fecha">Rango de fechas</button>
-                </div>
-              </div>
-
-              <div id="descuento-modo-dias" class="hidden flex flex-col gap-2">
-                <p class="text-[10.5px] text-purple-300/50">Se aplicará automáticamente esos días, todo el día.</p>
-                <div class="flex flex-wrap gap-1.5" id="descuento-dias-chips"></div>
-              </div>
-
-              <div id="descuento-modo-duracion" class="hidden grid grid-cols-2 gap-2.5">
-                <input type="number" id="input-descuento-duracion-cantidad" min="1" step="1" placeholder="Cantidad"
-                  class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-rose-500 transition-all font-mono">
-                <select id="input-descuento-duracion-unidad"
-                  class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-rose-500 transition-all">
-                  <option value="horas">Horas</option>
-                  <option value="dias">Días</option>
-                </select>
-                <p class="col-span-2 text-[10.5px] text-purple-300/50 leading-relaxed">⏱️ Empieza a correr desde que
-                  guardes el producto.</p>
-              </div>
-
-              <div id="descuento-modo-fecha" class="hidden flex flex-col gap-2.5">
-                <div class="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label class="block text-[10px] text-purple-300/50 mb-1">Desde</label>
-                    <input type="date" id="input-descuento-fecha-inicio"
-                      class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 outline-none focus:border-rose-500 transition-all font-mono">
-                  </div>
-                  <div>
-                    <label class="block text-[10px] text-purple-300/50 mb-1">Hasta</label>
-                    <input type="date" id="input-descuento-fecha-fin"
-                      class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 outline-none focus:border-rose-500 transition-all font-mono">
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-[10px] text-purple-300/50 mb-1">Hora de cierre del último día</label>
-                  <input type="time" id="input-descuento-fecha-hora"
-                    class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 outline-none focus:border-rose-500 transition-all font-mono">
-                </div>
-              </div>
+            <div class="pm-field">
+              <label class="pm-label" for="input-prod-nombre">Nombre del producto</label>
+              <input type="text" id="input-prod-nombre" class="pm-input" placeholder="Ej. Jalea Mixta" required
+                maxlength="60">
             </div>
-          </div>
-          <div class="mb-5">
-            <div
-              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-              <div class="pr-3">
-                <span class="text-sm font-medium text-purple-100">Selección de variante obligatoria</span>
-                <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
-                  Actívalo si el cliente SÍ o SÍ debe elegir algo (ej. sabor de gaseosa, helada o al tiempo).
-                  Desactívalo si son extras opcionales (ej. "más papas", "más carne") — así el producto se agrega
-                  directo al carrito y las opciones quedan disponibles para editar después.
-                </p>
-              </div>
-              <label class="relative inline-block w-11 h-6 shrink-0">
-                <input type="checkbox" id="input-prod-variante-obligatoria" checked class="peer opacity-0 w-0 h-0">
-                <span
-                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-              </label>
+
+            <div class="pm-field">
+              <label class="pm-label" for="input-prod-descripcion">Descripción breve <em>(opcional)</em></label>
+              <textarea id="input-prod-descripcion" class="pm-input" rows="2" maxlength="140"
+                placeholder="Ej. Acompañado de yuca frita, sarsa criolla y tártara casera."></textarea>
             </div>
-          </div>
-          <div class="mb-5">
-            <div
-              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-              <div class="pr-3">
-                <span class="text-sm font-medium text-purple-100">Permitir elegir varias opciones</span>
-                <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
-                  Actívalo si el cliente puede marcar varias opciones a la vez (ej. hamburguesa con "Papas extras" +
-                  "Doble carne" + "Doble huevo").
-                  Desactívalo si solo puede elegir una (ej. sabor de gaseosa). Cada opción suma su "Costo extra" al
-                  precio.
-                </p>
-              </div>
-              <label class="relative inline-block w-11 h-6 shrink-0">
-                <input type="checkbox" id="input-prod-variantes-multiples" class="peer opacity-0 w-0 h-0">
-                <span
-                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-              </label>
+
+            <div class="pm-field">
+              <label class="pm-label" for="input-prod-precio">Precio (S/)</label>
+              <input type="number" id="input-prod-precio" class="pm-input mono" inputmode="decimal" placeholder="0.00"
+                step="0.10" min="0" required>
+            </div>
+
+            <label class="pm-opt">
+              <span><b>Disponible para la venta</b><small>Si lo apagas, el cliente lo ve pero no puede
+                  comprarlo.</small></span>
+              <span class="pm-sw"><input type="checkbox" id="input-prod-disponible" checked><i></i></span>
+            </label>
+
+            <div class="pm-field" style="margin-top:16px">
+              <span class="pm-label">Fotos <em>(máx. 3)</em></span>
+              <div id="imgdrop-row"></div>
+              <input type="file" id="input-prod-imgs" accept="image/*" style="display:none">
             </div>
           </div>
 
-          <div class="mb-5 hidden" id="variantes-cantidad-wrap">
-            <div
-              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-              <div class="pr-3">
-                <span class="text-sm font-medium text-purple-100">Permitir sumar cantidad por opción</span>
-                <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
-                  Actívalo si una misma opción se puede repetir (ej. "Papas extras x2", "Doble carne x2").
-                  Desactívalo si cada opción marcada solo cuenta una vez, sin importar cuántas veces la toque el
-                  cliente.
-                </p>
-              </div>
-              <label class="relative inline-block w-11 h-6 shrink-0">
-                <input type="checkbox" id="input-prod-variantes-cantidad" class="peer opacity-0 w-0 h-0">
-                <span
-                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-              </label>
-            </div>
-          </div>
-          <div class="mb-2">
-            <div class="flex items-center justify-between mb-2">
-              <label id="label-condiciones"
-                class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Condiciones
-                (máx. 5)</label>
-              <button type="button" id="btn-add-condicion"
-                class="text-[11px] font-medium text-violet-300 hover:text-violet-200 flex items-center gap-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
-                  stroke-linecap="round">
-                  <path d="M12 5v14M5 12h14" />
+          <!-- ═════════════ AVANZADO ═════════════ -->
+          <div id="tab-avanzado" class="tab-panel-form">
+
+            <p class="pm-intro">Todo lo de esta pestaña es <strong>opcional</strong>. Si tu producto es simple, no
+              toques
+              nada y pulsa «Crear producto». Toca cada título para abrir o cerrar su sección.</p>
+
+            <!-- 1. Inventario -->
+            <details class="pm-sec pm-sec-opciones" open>
+              <summary>
+                <span class="pm-ico">📦</span>
+                <span><b>Inventario</b><small>Cuántas unidades tienes</small></span>
+                <svg class="pm-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 9l6 6 6-6" />
                 </svg>
-                Agregar
-              </button>
+              </summary>
+              <div class="pm-sec-body">
+                <div class="pm-field">
+                  <label class="pm-label" for="input-prod-stock">Stock disponible <em>(opcional)</em></label>
+                  <input type="number" id="input-prod-stock" class="pm-input mono" inputmode="numeric" step="1" min="0"
+                    placeholder="Vacío = sin control de stock">
+                  <p class="pm-help">Es el total de unidades de este producto. Si más abajo pones stock por cada opción
+                    (sabor, talla…), esos números deben sumar este total.</p>
+                </div>
+
+                <label class="pm-opt">
+                  <span><b>Desactivar al llegar a 0</b><small>Cuando se agote, el producto se apaga solo.</small></span>
+                  <span class="pm-sw"><input type="checkbox" id="input-prod-auto-desactivar"><i></i></span>
+                </label>
+
+                <div class="pm-field" style="margin:14px 0 0">
+                  <label class="pm-label" for="input-prod-unidad">Se vende por <em>(opcional)</em></label>
+                  <select id="input-prod-unidad" class="pm-input">
+                    <option value="">Sin especificar</option>
+                    <option value="unidad">Unidad</option>
+                    <option value="botella">Botella</option>
+                    <option value="copa">Copa</option>
+                    <option value="litro">Litro</option>
+                    <option value="porcion">Porción</option>
+                    <option value="kg">Kg</option>
+                  </select>
+                </div>
+              </div>
+            </details>
+
+            <!-- 2. Disponibilidad -->
+            <details class="pm-sec" open>
+              <summary>
+                <span class="pm-ico">🕐</span>
+                <span><b>Disponibilidad</b><small>Agotado hoy y horario</small></span>
+                <svg class="pm-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </summary>
+              <div class="pm-sec-body">
+                <label class="pm-opt">
+                  <span><b>Agotado hoy</b><small>Se acabó solo por hoy (ej. el plato del día). Mañana lo reactivas con
+                      un clic.</small></span>
+                  <span class="pm-sw orange"><input type="checkbox" id="input-prod-agotado-hoy"><i></i></span>
+                </label>
+
+                <span class="pm-label" style="margin-top:16px">Solo vender en este horario <em>(opcional)</em></span>
+                <div class="pm-grid2">
+                  <div>
+                    <span class="pm-sub">Desde</span>
+                    <input type="time" id="input-prod-horario-desde" class="pm-input mono">
+                  </div>
+                  <div>
+                    <span class="pm-sub">Hasta</span>
+                    <input type="time" id="input-prod-horario-hasta" class="pm-input mono">
+                  </div>
+                </div>
+                <p class="pm-help">Déjalo vacío para vender todo el día. Sirve para desayunos, happy hour, etc.</p>
+              </div>
+            </details>
+
+            <!-- 3. Descuento -->
+            <details class="pm-sec">
+              <summary>
+                <span class="pm-ico">🏷️</span>
+                <span><b>Descuento</b><small>Oferta temporal para este producto</small></span>
+                <svg class="pm-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </summary>
+              <div class="pm-sec-body">
+                <label class="pm-opt">
+                  <span><b>Activar descuento</b><small>Rebaja el precio por días, por tiempo o entre
+                      fechas.</small></span>
+                  <span class="pm-sw rose"><input type="checkbox" id="input-prod-descuento-activo"><i></i></span>
+                </label>
+
+                <div id="descuento-detalle" class="hidden">
+                  <div class="pm-box pm-stack">
+                    <div>
+                      <label class="pm-label" for="input-prod-descuento-porcentaje">Descuento en porcentaje (%)</label>
+                      <input type="number" id="input-prod-descuento-porcentaje" class="pm-input mono"
+                        inputmode="numeric" min="1" max="99" step="1" placeholder="Ej. 20">
+                    </div>
+                    <div class="pm-or">— o —</div>
+                    <div>
+                      <label class="pm-label" for="input-prod-descuento-precio">Precio ya rebajado (S/)</label>
+                      <input type="number" id="input-prod-descuento-precio" class="pm-input mono" inputmode="decimal"
+                        min="0" step="0.01" placeholder="Ej. 5.00">
+                      <p id="descuento-calculo"></p>
+                    </div>
+
+                    <div>
+                      <span class="pm-label">¿Cuándo se aplica?</span>
+                      <div id="descuento-modo-toggle">
+                        <button type="button" class="descuento-modo-btn" data-modo="dias_semana">Días fijos</button>
+                        <button type="button" class="descuento-modo-btn" data-modo="duracion">Por tiempo</button>
+                        <button type="button" class="descuento-modo-btn" data-modo="fecha">Entre fechas</button>
+                      </div>
+                    </div>
+
+                    <div id="descuento-modo-dias" class="hidden">
+                      <p class="pm-help" style="margin:0 0 8px">Se aplica esos días de la semana, todo el día.</p>
+                      <div id="descuento-dias-chips"></div>
+                    </div>
+
+                    <div id="descuento-modo-duracion" class="hidden">
+                      <div class="pm-grid2">
+                        <input type="number" id="input-descuento-duracion-cantidad" class="pm-input mono"
+                          inputmode="numeric" min="1" step="1" placeholder="Cantidad">
+                        <select id="input-descuento-duracion-unidad" class="pm-input">
+                          <option value="horas">Horas</option>
+                          <option value="dias">Días</option>
+                        </select>
+                      </div>
+                      <p class="pm-help">⏱️ Empieza a contar desde que guardes el producto.</p>
+                    </div>
+
+                    <div id="descuento-modo-fecha" class="hidden">
+                      <div class="pm-grid2">
+                        <div>
+                          <span class="pm-sub">Desde</span>
+                          <input type="date" id="input-descuento-fecha-inicio" class="pm-input mono">
+                        </div>
+                        <div>
+                          <span class="pm-sub">Hasta</span>
+                          <input type="date" id="input-descuento-fecha-fin" class="pm-input mono">
+                        </div>
+                      </div>
+                      <span class="pm-sub" style="margin-top:12px">Hora en que termina el último día</span>
+                      <input type="time" id="input-descuento-fecha-hora" class="pm-input mono">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <!-- 4. Opciones -->
+            <details class="pm-sec" open>
+              <summary>
+                <span class="pm-ico">🧩</span>
+                <span><b>Opciones del producto</b><small>Tamaños, sabores, cremas, extras</small></span>
+                <svg class="pm-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </summary>
+              <div class="pm-sec-body">
+                <p class="pm-ejemplo">Úsalo cuando el cliente debe o puede <strong>elegir algo</strong> antes de
+                  comprar.
+                  Ejemplo: una hamburguesa con el grupo <strong>«Tamaño»</strong> (Junior, XL) y el grupo
+                  <strong>«Cremas»</strong> (Mayonesa, Ketchup). Cada opción puede costar un extra.
+                </p>
+
+                <label class="pm-opt">
+                  <span><b>El cliente debe elegir sí o sí</b><small>Encendido: no puede agregar al carrito sin elegir
+                      (ej. sabor de la gaseosa). Apagado: son extras opcionales y se agrega directo.</small></span>
+                  <span class="pm-sw"><input type="checkbox" id="input-prod-variante-obligatoria" checked><i></i></span>
+                </label>
+
+                <label class="pm-opt">
+                  <span><b>Puede elegir varias a la vez</b><small>Ej. «Papas extras» + «Doble carne». Apagado: solo
+                      puede marcar una.</small></span>
+                  <span class="pm-sw"><input type="checkbox" id="input-prod-variantes-multiples"><i></i></span>
+                </label>
+
+                <div id="variantes-cantidad-wrap" class="hidden">
+                  <label class="pm-opt">
+                    <span><b>Puede repetir una misma opción</b><small>Ej. «Papas extras x2». Apagado: cada opción cuenta
+                        una sola vez.</small></span>
+                    <span class="pm-sw"><input type="checkbox" id="input-prod-variantes-cantidad"><i></i></span>
+                  </label>
+                </div>
+
+                <div class="pm-listhead">
+                  <span class="pm-label" id="label-condiciones">Grupos de opciones (máx. 5)</span>
+                  <button type="button" id="btn-add-condicion" class="pm-addbtn">+ Agregar grupo</button>
+                </div>
+                <div id="condiciones-container"></div>
+                <p class="pm-vacio">Aún no agregaste opciones. Toca «+ Agregar grupo»
+                  y crea, por ejemplo, el grupo «Tamaño». Cada grupo es una pregunta para el cliente.</p>
+              </div>
+            </details>
+          </div>
+
+          <!-- ═════════════ SÚPER AVANZADO ═════════════ -->
+          <div id="tab-super" class="tab-panel-form">
+
+            <p class="pm-intro">🧮 Calcula <strong>cuánto te cuesta</strong> hacer este producto y <strong>a cuánto
+                venderlo</strong>, según los insumos que gastas (fruta, vaso, tapa, bolsa…). El precio final siempre lo
+              decides tú.</p>
+            <p id="rec-sin-insumos" class="hidden">Aún no tienes insumos. Regístralos primero en «Insumos y gastos».</p>
+
+            <div class="pm-step">
+              <span class="pm-n">1</span>
+              <div><b>¿Cuánto rinde y cuánto quieres ganar?</b><small>Si con estos insumos haces 2 vasos, pon 2.</small>
+              </div>
             </div>
-            <div id="condiciones-container" class="flex flex-col gap-3"></div>
-          </div>
-
-        </div><!-- /tab-avanzado -->
-
-        <div id="tab-super" class="tab-panel-form">
-          <p class="text-[11px] text-purple-300/60 leading-relaxed mb-4">
-            🧮 Detalla qué insumos lleva este producto (fruta, vaso, tapa, bolsa…). El costo sale del precio vigente de
-            tus insumos y te sugiero a cuánto venderlo. El precio final lo decides tú.
-          </p>
-          <p id="rec-sin-insumos"
-            class="hidden text-[11px] text-amber-300 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2 mb-4">
-            Aún no tienes insumos. Regístralos primero en "Insumos y gastos".</p>
-
-          <div class="grid grid-cols-2 gap-2.5 mb-3">
-            <div>
-              <label
-                class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Esta
-                receta rinde</label>
-              <input type="number" id="input-rec-rinde" min="1" step="any" value="1"
-                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
+            <div class="pm-grid2">
+              <div>
+                <label class="pm-sub" for="input-rec-rinde">Esta receta rinde</label>
+                <input type="number" id="input-rec-rinde" class="pm-input mono" inputmode="decimal" min="1" step="any"
+                  value="1">
+              </div>
+              <div>
+                <label class="pm-sub" for="input-rec-margen">Quiero ganar (%)</label>
+                <input type="number" id="input-rec-margen" class="pm-input mono" inputmode="decimal" min="0" step="any"
+                  value="50">
+              </div>
             </div>
-            <div>
-              <label
-                class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Quiero
-                ganar (%)</label>
-              <input type="number" id="input-rec-margen" min="0" step="any" value="50"
-                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
+            <div class="pm-field" style="margin:12px 0">
+              <select id="input-rec-modo" class="pm-input" aria-label="Cómo calcular la ganancia">
+                <option value="markup">Ganancia sobre el costo (50% → costo × 1.5)</option>
+                <option value="margin">Ganancia sobre la venta (50% → costo ÷ 0.5)</option>
+              </select>
+            </div>
+            <label class="pm-opt">
+              <span><b>Redondear el precio sugerido</b><small>Hacia arriba, de 10 en 10 céntimos (S/
+                  0.10).</small></span>
+              <span class="pm-sw"><input type="checkbox" id="input-rec-redondear" checked><i></i></span>
+            </label>
+
+            <div class="pm-step">
+              <span class="pm-n">2</span>
+              <div><b>¿Qué lleva?</b><small>Agrega cada insumo y la cantidad que usas.</small></div>
+            </div>
+            <div class="pm-listhead" style="margin-top:0">
+              <span class="pm-sub" style="margin:0">Insumos de la receta</span>
+              <button type="button" id="btn-rec-add" class="pm-addbtn">+ Agregar insumo</button>
+            </div>
+            <div id="rec-items"></div>
+            <p class="pm-vacio">Todavía no agregaste insumos.</p>
+
+            <div class="pm-step">
+              <span class="pm-n">3</span>
+              <div><b>Costo y precio de venta</b><small>Mira el costo, y usa el precio sugerido o escribe el
+                  tuyo.</small></div>
+            </div>
+            <div id="rec-tiles"></div>
+            <label class="pm-sub" for="input-rec-precio">Precio de venta (S/)</label>
+            <div class="pm-row">
+              <input type="number" id="input-rec-precio" class="pm-input mono" inputmode="decimal" step="0.10" min="0"
+                placeholder="0.00">
+              <button type="button" id="btn-rec-usar-precio" class="pm-addbtn" style="flex:none">Usar sugerido</button>
+            </div>
+            <div id="rec-margen-actual"></div>
+
+            <!-- Solo aparece si tu JS pone contenido -->
+            <div class="pm-auto">
+              <div class="pm-step">
+                <span class="pm-n">4</span>
+                <div><b>Lo que cambia según la opción</b><small>Si una opción gasta algo extra (tamaño grande → vaso
+                    grande), agrégalo con «+ insumo». Se suma al costo.</small></div>
+              </div>
+              <div id="rec-variantes" class="pm-fill"></div>
+            </div>
+
+            <div class="pm-auto">
+              <div class="pm-step">
+                <span class="pm-n">5</span>
+                <div><b>Resumen: cuánto ganas en cada caso</b><small>Cada combinación de opciones, con su costo y
+                    ganancia.</small></div>
+              </div>
+              <div id="rec-combos" class="pm-fill"></div>
             </div>
           </div>
 
-          <div class="mb-3">
-            <select id="input-rec-modo"
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-xs text-purple-100 outline-none focus:border-violet-600 transition-all">
-              <option value="markup">Ganancia sobre el costo (50% → costo × 1.5)</option>
-              <option value="margin">Ganancia sobre la venta (50% → costo ÷ 0.5)</option>
-            </select>
-          </div>
-          <label class="flex items-center gap-2 text-xs text-purple-200 mb-4">
-            <input type="checkbox" id="input-rec-redondear" checked> Redondear a S/ 0.10 hacia arriba
-          </label>
+        </div><!-- /pm-body -->
 
-          <div class="flex items-center justify-between mb-2">
-            <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Qué
-              lleva</label>
-            <button type="button" id="btn-rec-add"
-              class="text-[11px] font-medium text-violet-300 hover:text-violet-200">+ Agregar insumo</button>
-          </div>
-          <div id="rec-items" class="flex flex-col gap-2.5 mb-4"></div>
-
-          <div id="rec-tiles" class="grid grid-cols-3 gap-2 mb-4"></div>
-
-          <div class="mb-3">
-            <label
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Precio
-              de venta (S/)</label>
-            <div class="flex gap-2">
-              <input type="number" id="input-rec-precio" step="0.10" min="0" placeholder="0.00"
-                class="flex-1 min-w-0 rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
-              <button type="button" id="btn-rec-usar-precio"
-                class="shrink-0 rounded-xl px-3 text-xs font-medium text-violet-200 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-800/30">Usar
-                sugerido</button>
-            </div>
-          </div>
-          <div id="rec-margen-actual" class="text-xs font-mono leading-relaxed"></div>
-
-          <div class="mt-5">
-            <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1 font-mono">Lo
-              que cambia según la opción</label>
-            <p class="text-[10.5px] text-purple-300/50 mb-3 leading-relaxed">
-              Si una opción usa algo extra (ej. tamaño grande → vaso grande), agrégalo con "+ insumo". Se suma al costo
-              de la base. Si nada cambia, déjalo vacío.
-            </p>
-            <div id="rec-variantes" class="flex flex-col gap-3"></div>
-          </div>
-
-          <div class="mt-5">
-            <label
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-2 font-mono">Resumen:
-              cuánto ganas en cada caso</label>
-            <div id="rec-combos"></div>
-          </div>
-        </div><!-- /tab-super -->
-
-        <div class="flex justify-end gap-2.5 mt-6">
-          <button type="button" data-close="overlay-producto"
-            class="rounded-xl px-4 py-2.5 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
-          <button type="submit" id="btn-guardar-producto"
-            class="rounded-xl px-5 py-2.5 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[120px] flex items-center justify-center">
+        <div class="pm-foot">
+          <button type="button" class="pm-btn ghost" data-close="overlay-producto">Cancelar</button>
+          <button type="submit" id="btn-guardar-producto" class="pm-btn main">
             <span id="btn-guardar-producto-label">Crear producto</span>
           </button>
         </div>
       </form>
     </div>
   </div>
-
 
   <!-- Modal: Nueva colección de carta digital -->
   <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
@@ -1849,6 +2550,68 @@
       </form>
     </div>
   </div>
+  <!-- Modal: También puedes agregar (a toda la categoría) -->
+<div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+  id="overlay-sug-masivo">
+  <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
+    <h3 class="text-lg font-bold text-white mb-1">También puedes agregar</h3>
+    <p class="text-purple-300/60 text-xs mb-4" id="sug-masivo-hint"></p>
+
+    <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-1">Secciones sugeridas</p>
+    <p class="text-[11px] text-purple-300/50 mb-3">Al agregar un producto de esta categoría, el cliente verá productos de las secciones que marques.</p>
+    <div id="sug-masivo-chips" class="flex flex-wrap gap-2 mb-5"></div>
+
+    <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Si el producto ya tenía sugerencias</label>
+    <select id="sug-masivo-modo"
+      class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 mb-5">
+      <option value="sumar">Sumar las nuevas a las que ya tiene</option>
+      <option value="reemplazar">Reemplazar todas por estas</option>
+    </select>
+
+    <div class="flex justify-end gap-2.5">
+      <button type="button" data-close="overlay-sug-masivo"
+        class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+      <button type="button" id="btn-guardar-sug-masivo"
+        class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[140px] flex items-center justify-center">
+        <span id="btn-guardar-sug-masivo-label">Aplicar a todos</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Formato de texto (a toda la categoría) -->
+<div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+  id="overlay-caso-masivo">
+  <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
+    <h3 class="text-lg font-bold text-white mb-1">Formato de texto</h3>
+    <p class="text-purple-300/60 text-xs mb-4" id="caso-masivo-hint"></p>
+
+    <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-2">Convertir a</p>
+    <div class="flex flex-col gap-2 mb-5">
+      <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+        <input type="radio" name="caso-masivo" value="mayus" checked class="accent-violet-500"> MAYÚSCULAS
+      </label>
+      <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+        <input type="radio" name="caso-masivo" value="minus" class="accent-violet-500"> minúsculas
+      </label>
+      <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+        <input type="radio" name="caso-masivo" value="titulo" class="accent-violet-500"> Primera Letra De Cada Palabra
+      </label>
+    </div>
+
+    <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-2">Aplicar a</p>
+    <div id="caso-masivo-chips" class="flex flex-wrap gap-2 mb-5"></div>
+
+    <div class="flex justify-end gap-2.5">
+      <button type="button" data-close="overlay-caso-masivo"
+        class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+      <button type="button" id="btn-guardar-caso-masivo"
+        class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[140px] flex items-center justify-center">
+        <span id="btn-guardar-caso-masivo-label">Aplicar a todos</span>
+      </button>
+    </div>
+  </div>
+</div>
   <div class="fixed bottom-5 right-5 left-5 sm:left-auto z-[200] flex flex-col gap-2 items-end" id="toast-wrap"></div>
   <!-- Modal: Horario de categoría -->
   <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"

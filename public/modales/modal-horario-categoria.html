@@ -1,0 +1,22 @@
+<!-- Requiere modales-base.css en la página (una sola vez). Mantiene los mismos id que usa productos.js -->
+<div class="overlay dlg" id="overlay-horario-cat">
+  <div class="modal dlg-box lg" role="dialog" aria-modal="true">
+    <div class="dlg-head"><h3>🕐 Horario de la categoría</h3>
+      <p>Categoría: <strong id="horario-cat-nombre" style="color:#ddd6fe"></strong>. Los productos se verán siempre, pero solo se podrán comprar en el horario que definas.</p></div>
+    <div class="dlg-body">
+      <label class="dlg-opt"><span><b>Activar horario para esta categoría</b></span>
+        <span class="dlg-sw"><input type="checkbox" id="horario-activo"><i></i></span></label>
+      <div id="horario-detalle" class="hidden">
+        <div class="dlg-field"><label class="dlg-label" for="horario-mensaje">Mensaje para el cliente <em>(opcional)</em></label>
+          <input type="text" id="horario-mensaje" class="dlg-input" maxlength="80" placeholder="Ej. Menú del día: solo en el almuerzo">
+          <p class="dlg-help">Se mostrará en cada producto bloqueado, junto con cuándo vuelve a estar disponible.</p></div>
+        <div class="dlg-row"><span class="dlg-label" style="margin:0">Días y horas</span>
+          <button type="button" id="horario-copiar-lunes" class="dlg-link">Copiar lunes a todos</button></div>
+        <div id="horario-dias-list"></div>
+        <p class="dlg-help">Apaga un día para que la categoría no esté disponible ese día completo. Deja las horas vacías para que esté disponible todo el día.</p>
+      </div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="dlg-btn ghost" data-close="overlay-horario-cat">Cancelar</button>
+      <button type="button" id="btn-guardar-horario" class="dlg-btn main"><span id="btn-guardar-horario-label">Guardar horario</span></button></div>
+  </div>
+</div>
