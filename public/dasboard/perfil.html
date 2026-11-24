@@ -11,8 +11,9 @@
         rel="stylesheet">
 
     <link rel="stylesheet" href="../style/dasboardcss/panel_perfil.css">
-    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <script type="module" src="../js/dasboardjs/panel_perfil_org.js"></script>
 
 
@@ -23,6 +24,13 @@
             min-height: 100%;
             overflow-y: auto !important;
             overflow-x: hidden;
+        }
+
+        /* Skeleton de esta pantalla: el banner va a la derecha en PC, como el perfil real */
+        @media (min-width: 768px) {
+            #skeletonOverlay .sk-banner {
+                order: 2;
+            }
         }
 
         /* ===== Días especiales ===== */
@@ -957,7 +965,30 @@
 <body>
 
     <div class="page-grid">
-
+        <!-- Skeleton: visible desde el primer pintado, se quita cuando carga lo esencial -->
+        <div class="skeleton-overlay" id="skeletonOverlay" aria-hidden="true">
+            <div class="sk-main">
+                <div class="sk-top-row">
+                    <div class="sk-block sk-banner"></div>
+                    <div class="sk-lines">
+                        <div class="sk-block" style="height:11px;width:40%"></div>
+                        <div class="sk-block sk-line" style="width:75%"></div>
+                        <div class="sk-block" style="height:11px;width:35%;margin-top:10px"></div>
+                        <div class="sk-block sk-line" style="width:90%"></div>
+                        <div class="sk-block sk-line" style="width:60%"></div>
+                        <div class="sk-block" style="height:11px;width:30%;margin-top:10px"></div>
+                        <div class="sk-block sk-line" style="width:45%"></div>
+                    </div>
+                </div>
+                <div class="sk-form-area">
+                    <div class="sk-block sk-expand"></div>
+                    <div class="sk-block sk-expand" style="opacity:.85"></div>
+                    <div class="sk-block sk-expand" style="opacity:.7"></div>
+                    <div class="sk-block sk-expand" style="opacity:.55"></div>
+                    <div class="sk-block sk-expand" style="opacity:.4"></div>
+                </div>
+            </div>
+        </div>
         <!-- ===== PERFIL ===== -->
         <div class="profile-top-row">
 

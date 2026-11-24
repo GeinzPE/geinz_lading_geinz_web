@@ -245,6 +245,14 @@
   margin-top: 4px;
   padding-top: 12px !important;
 }
+.prod-img-wrap img{opacity:0;transition:opacity .45s ease;}
+.prod-img-wrap img.loaded{opacity:1;}
+.prod-img-wrap.img-loading{
+  background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.05) 75%);
+  background-size:200% 100%;animation:imgShimmer 1.2s linear infinite;}
+@keyframes imgShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* el navegador no calcula el layout de las tarjetas fuera de pantalla */
+.prod-card{content-visibility:auto;contain-intrinsic-size:auto 120px;}
   </style>
 </head>
 

@@ -11,10 +11,24 @@
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <style>
+        #view-panel .actions-grid .action-btn.sk-load {
+            color: transparent;
+            pointer-events: none;
+            border-color: transparent;
+            min-height: 82px;
+            background: linear-gradient(90deg, var(--surface-2) 25%, rgba(255, 255, 255, .06) 37%, var(--surface-2) 63%);
+            background-size: 800px 100%;
+            animation: sk-shimmer 1.6s ease-in-out infinite;
+        }
+
+        .action-btn.sk-load .icon {
+            opacity: 0;
+        }
+
         :root {
-            --bg: #060608;
-            --surface: #120e1c;
-            --surface-2: #1a1530;
+            --bg: #000000;
+            --surface: #0a0a0a;
+            --surface-2: #141414;
             --border: rgba(124, 77, 255, 0.16);
             --text: #f2f0ec;
             --muted: #948fa8;
@@ -28,6 +42,28 @@
 
         * {
             box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 15% -10%, rgba(124, 77, 255, 0.16), transparent 45%),
+                radial-gradient(circle at 100% 0%, rgba(124, 77, 255, 0.08), transparent 40%),
+                var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            padding: 28px 16px 60px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            margin-bottom: 16px;
+            box-shadow: none;
+            /* sin brillo morado */
         }
 
         /* ── Skeleton screen ── */
@@ -113,6 +149,12 @@
 
             .sk-action {
                 height: 56px;
+            }
+
+            .perm-chip {
+                padding: 9px 10px;
+                font-size: 12px;
+                gap: 6px;
             }
         }
 
@@ -342,7 +384,7 @@
             border-radius: var(--radius);
             padding: 20px 22px;
             margin-bottom: 16px;
-            box-shadow: 0 0 0 1px rgba(124, 77, 255, 0.04), 0 12px 30px -18px rgba(124, 77, 255, 0.4);
+            box-shadow: none;
         }
 
         h1.auth-title {
@@ -821,15 +863,19 @@
 
         .perm-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            /* clave: permite que se encojan */
             gap: 8px;
             margin-bottom: 18px;
+            width: 100%;
         }
 
         .perm-chip {
             display: flex;
             align-items: center;
             gap: 8px;
+            min-width: 0;
+            /* clave: evita que el texto ensanche la columna */
             background: var(--surface-2);
             border: 1px solid var(--border);
             border-radius: 12px;
@@ -837,6 +883,9 @@
             font-size: 13px;
             cursor: pointer;
             transition: border-color .15s ease;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            line-height: 1.25;
         }
 
         .perm-chip:has(input:checked) {
@@ -845,7 +894,11 @@
         }
 
         .perm-chip input {
-            width: auto;
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            /* el checkbox no se aplasta */
+            padding: 0;
             accent-color: var(--purple);
         }
 
@@ -938,6 +991,18 @@
         #view-reset-worker:not(.hidden) .card,
         #view-edit-permisos:not(.hidden) .card {
             animation: modalCardIn .28s cubic-bezier(.34, 1.56, .64, 1) both;
+        }
+
+        .perm-chip span,
+        .perm-chip label {
+            min-width: 0;
+            margin: 0;
+            text-transform: none;
+            /* quita el MAYÚSCULAS heredado de "label" */
+            letter-spacing: 0;
+            font-size: inherit;
+            font-weight: 500;
+            color: var(--text);
         }
 
         /* Scrollbar oscura */
@@ -1096,14 +1161,6 @@
             </div>
         </div>
 
-        <div class="card balance-card skeleton-card">
-            <div style="flex:1;">
-                <div class="sk sk-text" style="width:70px;height:12px;margin-bottom:10px;"></div>
-                <div class="sk sk-text" style="width:140px;height:26px;margin-bottom:8px;"></div>
-                <div class="sk sk-text" style="width:90px;height:12px;"></div>
-            </div>
-            <div class="sk sk-btn"></div>
-        </div>
 
         <div class="stats-grid">
             <div class="stat-card skeleton-card">
@@ -1237,14 +1294,7 @@
             </div>
         </div>
 
-        <div class="card balance-card">
-            <div>
-                <p class="balance-label">Saldo</p>
-                <p class="balance-value display" id="balanceValue">S/ 0.00</p>
-                <p class="balance-sub" id="balanceSub">0 créditos</p>
-            </div>
-            <button class="recharge-btn" id="rechargeBtn">+ Recargar</button>
-        </div>
+
 
         <div class="stats-grid">
             <div class="stat-card">
@@ -1263,18 +1313,24 @@
 
         <p class="section-title">Acciones rápidas</p>
         <div class="actions-grid" id="actionsGrid">
-            <button class="action-btn" id="btnPerfil" data-perm="perfil"><span class="icon">🧾</span> Perfil</button>
-            <button class="action-btn" id="btnPublicidad" data-perm="publicidad"><span class="icon">📣</span>
-                Publicidad</button>
-            <button class="action-btn" id="btnQR" data-perm="qr"><span class="icon">📱</span> Ver mi QR</button>
-            <button class="action-btn" id="btnPedidosVivo" data-perm="pedidos"><span class="icon">📋</span> Pedidos en
-                Vivo</button>
-            <button class="action-btn" id="btnProductos" data-perm="productos"><span class="icon">🛍️</span>
-                Productos</button>
-            <button class="action-btn" id="btnHistorial" data-perm="historial"><span class="icon">🧾</span> Historial de
-                ventas</button>
-      <button class="action-btn" id="btnResenas" data-perm="mispublicaciones"><span class="icon">⭐</span>
-                Reseñas</button>
+            <button class="action-btn" data-perm="perfil"><span class="icon">🏪</span> Perfil</button>
+            <button class="action-btn" data-perm="comprobantes"><span class="icon">🧾</span> Comprobante</button>
+            <button class="action-btn" data-perm="trabajadores"><span class="icon">👥</span> Mis trabajadores</button>
+            <button class="action-btn" data-perm="legal"><span class="icon">⚖️</span> Legal</button>
+
+            <button class="action-btn" data-perm="pedidos"><span class="icon">🟢</span> Pedidos en vivo</button>
+            <button class="action-btn" data-perm="productos"><span class="icon">🛍️</span> Productos</button>
+            <button class="action-btn" data-perm="historial"><span class="icon">📊</span> Historial de ventas</button>
+            <button class="action-btn" data-perm="historialgasto"><span class="icon">📊</span> Historial de
+                gastos</button>
+            <button class="action-btn" data-perm="avisoinsumo"><span class="icon">🧺</span> Aviso insumo</button>
+
+            <button class="action-btn" data-perm="usuarios"><span class="icon">🪪</span> Mis usuarios</button>
+            <button class="action-btn" data-perm="fidelizacion"><span class="icon">💳</span> Cupones y Puntos</button>
+            <button class="action-btn" data-perm="publicidad"><span class="icon">📢</span> Publicidad/Ofertas</button>
+            <button class="action-btn" data-perm="mispublicaciones"><span class="icon">⭐</span> Reseñas</button>
+            <button class="action-btn" data-perm="qr"><span class="icon">🔲</span> Mi QR</button>
+            <button class="action-btn" data-perm="formularios"><span class="icon">📁</span> Formularios</button>
 
             <button class="action-btn" id="btnRoles" data-perm="__admin__"><span class="icon">🛡️</span> Gestionar
                 roles</button>
@@ -1352,23 +1408,17 @@
                 <p class="section-title">Apartados disponibles</p>
                 <div id="ajApartadosList"></div>
             </div>
-
-            <div class="card">
-                <p class="section-title">Sonidos de alertas</p>
-                <div id="ajSonidosGrid"></div>
-            </div>
-
             <div class="card">
                 <p class="section-title">Otros servicios</p>
                 <div class="actions-grid">
-                    <button class="action-btn" onclick="window.dispatchEvent(new CustomEvent('navToRecargas'))"><span
-                            class="icon">💳</span> Recargas</button>
-                    <button class="action-btn" onclick="window.navigateTo('historialgasto')"><span
-                            class="icon">💸</span> Historial de gasto</button>
-                    <button class="action-btn" disabled style="opacity:.5;"><span class="icon">🤖</span> Asistente
-                        Daniel<br><small>Pronto</small></button>
-                    <button class="action-btn" disabled style="opacity:.5;"><span class="icon">🔨</span> Crea tu
-                        asistente<br><small>Pronto</small></button>
+                    <button class="action-btn" disabled style="opacity:.5;cursor:not-allowed;"><span
+                            class="icon">💳</span> Recargas<br><small>Bloqueado</small></button>
+                    <button class="action-btn" disabled style="opacity:.5;cursor:not-allowed;"><span
+                            class="icon">💸</span> Historial de gasto<br><small>Bloqueado</small></button>
+                    <button class="action-btn" disabled style="opacity:.5;cursor:not-allowed;"><span
+                            class="icon">🤖</span> Asistente Daniel<br><small>Bloqueado</small></button>
+                    <button class="action-btn" disabled style="opacity:.5;cursor:not-allowed;"><span
+                            class="icon">🔨</span> Crea tu asistente<br><small>Bloqueado</small></button>
                 </div>
             </div>
         </div>

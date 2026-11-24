@@ -1217,11 +1217,7 @@ window.PanelPerfil = {
         this.loadCategorias();
 
         document.querySelector(".app")?.classList.remove("loading-data");
-        const sk = document.getElementById("skeletonOverlay");
-        if (sk) {
-          sk.classList.add("hidden");
-          setTimeout(() => sk.remove(), 450);
-        }
+      
 
         enviarDatosAFrames();
       },

@@ -5,11 +5,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Panel de Negocio</title>
+
+    <!-- Preconexiones (acelera fuentes y Firebase) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+
     <link
         href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="../style/dasboardcss/panel_perfil.css">
+
     <style>
+        /* ── Iframes ── */
+        .pf {
+            width: 100%;
+            height: 100vh;
+            border: none;
+            display: block;
+            overflow: hidden;
+        }
+
+        .content>.section {
+            position: relative;
+        }
+
+        /* ── Cobertor del padre: fondo liso + línea fina de progreso ── */
+        .pf-cover {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            background: #0a0a0a;
+            overflow: hidden;
+        }
+
+        .pf-cover::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 2px;
+            width: 40%;
+            background: #7c4dff;
+            border-radius: 0 2px 2px 0;
+            opacity: 0;
+            animation:
+                pfBar 1.1s cubic-bezier(.4, 0, .2, 1) infinite,
+                pfShow .01s linear .2s forwards;
+        }
+
+        @keyframes pfBar {
+            from {
+                transform: translateX(-100%);
+            }
+
+            to {
+                transform: translateX(250%);
+            }
+        }
+
+        @keyframes pfShow {
+            to {
+                opacity: 1;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .pf-cover::before {
+                animation: pfShow .01s linear .2s forwards;
+                width: 100%;
+            }
+        }
+
+        /* ── Puntos de notificación ── */
         .sidebar-btn,
         .mobile-menu-item {
             position: relative;
@@ -44,13 +112,259 @@
                 box-shadow: 0 0 0 0 rgba(255, 59, 59, 0);
             }
         }
+
+ /* ── Menú móvil: alto real y scroll completo ── */
+.mobile-menu {
+    left: 0;
+    height: 100vh;
+    height: 100dvh;
+    transform: translateX(-105%);
+    transition: transform .28s cubic-bezier(.22, 1, .36, 1);
+    will-change: transform;
+}
+.mobile-menu.open { transform: translateX(0); left: 0; }
+.mobile-menu > * { flex-shrink: 0; }
+.mobile-menu-items {
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+}
+.mobile-menu-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* ── Grupos: animación suave sin límite de alto ── */
+.mobile-menu-group-body,
+.sidebar-group-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    max-height: none;
+    transition: grid-template-rows .3s cubic-bezier(.22, 1, .36, 1);
+}
+.mobile-menu-group-body.open,
+.sidebar-group-body.open {
+    grid-template-rows: 1fr;
+    max-height: none;
+}
+.mobile-menu-group-body > .sgb-inner,
+.sidebar-group-body > .sgb-inner {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.mobile-menu-group-body > .sgb-inner { gap: 6px; }
+.sidebar.collapsed .sidebar-group-body { display: none; }
+
+/* ── Sin sesión: no mostrar ningún grupo del menú ── */
+body:not(.rol-activo) .sidebar-group,
+body:not(.rol-activo) .mobile-menu-group,
+body:not(.rol-activo) .sidebar-vincular-wrap {
+    display: none !important;
+}
+
+/* ── El skeleton NO se va hasta que inicio.html esté listo ── */
+body:not(.inicio-listo) .skeleton-overlay {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+body:not(.inicio-listo) .app { visibility: hidden; }
     </style>
+
+    <!-- ── Carga perezosa de iframes: intención + calentamiento + revelado sin blanco ── -->
+    <script>
+        (function () {
+            "use strict";
+
+            var MAX_ESPERA = 6000; // tope de seguridad por pantalla
+            var PRECARGA_IDLE = ["pedidos", "legal", "mispublicaciones", "fidelizacion"];
+
+            var datosTienda = null;
+            window.addEventListener("message", function (e) {
+                if (e.origin !== location.origin) return;
+                if (e.data && e.data.tipo === "DATOS_TIENDA") {
+                    datosTienda = { tiendaId: e.data.tiendaId, localidad: e.data.localidad };
+                }
+            });
+
+            function enviarDatos(iframe) {
+                var d = datosTienda || {
+                    tiendaId: sessionStorage.getItem("tiendaId"),
+                    localidad: sessionStorage.getItem("localidad")
+                };
+                if (!d.tiendaId || !d.localidad) return;
+                try {
+                    iframe.contentWindow.postMessage(
+                        { tipo: "DATOS_TIENDA", tiendaId: d.tiendaId, localidad: d.localidad },
+                        location.origin
+                    );
+                } catch (err) { }
+            }
+
+            // ¿La pantalla hija ya tiene estilos y algo visible de verdad?
+            function hijoPintado(iframe) {
+                var w, d;
+                try {
+                    w = iframe.contentWindow;
+                    d = w.document;
+                    if (w.location.href === "about:blank" || !d.body) return false;
+                } catch (err) { return false; } // sin acceso: se resuelve con el evento load
+
+                var links = d.querySelectorAll('link[rel="stylesheet"]');
+                for (var i = 0; i < links.length; i++) {
+                    if (!links[i].sheet) return false;
+                }
+
+                var kids = d.body.children;
+                for (var j = 0; j < kids.length; j++) {
+                    var el = kids[j], t = el.tagName;
+                    if (t === "SCRIPT" || t === "STYLE" || t === "LINK" || t === "TEMPLATE" || t === "NOSCRIPT") continue;
+                    if (!el.offsetHeight || !el.offsetWidth) continue;
+                    var cs = w.getComputedStyle(el);
+                    if (cs.visibility === "hidden" || cs.opacity === "0") continue;
+                    return true;
+                }
+                return false;
+            }
+
+            function ponerCover(sec, iframe) {
+                if (sec.querySelector(":scope > .pf-cover")) return;
+                var c = document.createElement("div");
+                c.className = "pf-cover";
+                if (iframe.style.backgroundColor) c.style.background = iframe.style.backgroundColor;
+                sec.appendChild(c);
+            }
+
+            function quitarCover(sec) {
+                var c = sec.querySelector(":scope > .pf-cover");
+                if (c) c.remove();
+            }
+
+            function cargar(sec) {
+                var iframe = sec.querySelector("iframe[data-src]");
+                if (!iframe) return;
+                var url = iframe.getAttribute("data-src");
+                iframe.removeAttribute("data-src");
+                iframe.dataset.pf = "loading";
+
+                var t0 = Date.now(), fin = false, timer;
+
+                function listo() {
+                    if (fin) return;
+                    fin = true;
+                    clearInterval(timer);
+                    iframe.dataset.pf = "ready";
+                    // 2 frames de margen para que el hijo termine de pintar; se quita sin fade
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () { quitarCover(sec); });
+                    });
+                }
+
+                iframe.addEventListener("load", function () { enviarDatos(iframe); listo(); }, { once: true });
+                iframe.addEventListener("error", listo, { once: true });
+
+                timer = setInterval(function () {
+                    if (hijoPintado(iframe) || Date.now() - t0 > MAX_ESPERA) listo();
+                }, 30);
+
+                if (sec.classList.contains("active")) ponerCover(sec, iframe);
+                iframe.src = url;
+            }
+
+            // Se llama cuando una sección pasa a "active"
+            function activar(sec) {
+                var iframe = sec.querySelector("iframe");
+                if (!iframe) return;
+                if (iframe.hasAttribute("data-src")) cargar(sec);
+                else if (iframe.dataset.pf === "loading") ponerCover(sec, iframe); // venía cargando en segundo plano
+            }
+
+            window.cargarSeccion = function (nombre) {
+                var sec = document.getElementById("sec-" + nombre);
+                if (sec) cargar(sec);
+            };
+
+            // ── Precarga por intención (hover / toque / foco en el menú) ──
+            function seccionDe(target) {
+                var b = target && target.closest && target.closest('[id^="sbb-"],[id^="mmb-"]');
+                if (!b) return null;
+                return document.getElementById("sec-" + b.id.replace(/^(sbb|mmb)-/, ""));
+            }
+
+            var hoverT = null;
+            document.addEventListener("pointerover", function (e) {
+                if (e.pointerType === "touch") return;
+                var sec = seccionDe(e.target);
+                if (!sec) return;
+                clearTimeout(hoverT);
+                hoverT = setTimeout(function () { cargar(sec); }, 120);
+            }, true);
+            document.addEventListener("pointerout", function () { clearTimeout(hoverT); }, true);
+
+            ["pointerdown", "touchstart", "focusin"].forEach(function (ev) {
+                document.addEventListener(ev, function (e) {
+                    var sec = seccionDe(e.target);
+                    if (sec) cargar(sec);
+                }, { capture: true, passive: true });
+            });
+
+            // ── Calentamiento secuencial en segundo plano ──
+            function idle(fn) {
+                if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout: 3000 });
+                else setTimeout(fn, 1500);
+            }
+
+            function cuandoListo(iframe, fn) {
+                var t = setInterval(function () {
+                    if (iframe.dataset.pf === "ready") { clearInterval(t); fn(); }
+                }, 250);
+            }
+
+            function precargaSecuencial(lista) {
+                var i = 0;
+                (function siguiente() {
+                    if (i >= lista.length) return;
+                    var sec = document.getElementById("sec-" + lista[i++]);
+                    var iframe = sec && sec.querySelector("iframe[data-src]");
+                    if (!iframe) return siguiente();
+                    cargar(sec);
+                    cuandoListo(iframe, function () { idle(siguiente); });
+                })();
+            }
+
+            function conexionLenta() {
+                var c = navigator.connection;
+                return !!c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ""));
+            }
+
+            document.addEventListener("DOMContentLoaded", function () {
+                var secciones = document.querySelectorAll(".content > .section");
+
+                var obs = new MutationObserver(function (muts) {
+                    muts.forEach(function (m) {
+                        if (m.target.classList.contains("active")) activar(m.target);
+                    });
+                });
+                secciones.forEach(function (s) {
+                    obs.observe(s, { attributes: true, attributeFilter: ["class"] });
+                    if (s.classList.contains("active")) activar(s);
+                });
+
+                // "load" del padre = inicio ya terminó; recién ahí se calienta lo demás
+                window.addEventListener("load", function () {
+                    if (conexionLenta()) return;
+                    setTimeout(function () {
+                        idle(function () { precargaSecuencial(PRECARGA_IDLE); });
+                    }, 1500);
+                });
+            });
+        })();
+    </script>
 
     <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
     <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
     <link rel="manifest" href="../img/icons/site.webmanifest">
+
     <script src="../js/storage/storage.js"></script>
     <script type="module" src="../js/dasboardjs/panel_pervil_v2_data.js"></script>
     <script type="module" src="../js/dasboardjs/panel_perfil.js"></script>
@@ -60,7 +374,6 @@
 <body>
 
     <div class="app">
-        <title>GEINZ Panel</title>
 
         <!-- ===== SIDEBAR (solo PC) ===== -->
         <aside class="sidebar">
@@ -124,7 +437,6 @@
                         <span class="sidebar-group-arrow">▼</span>
                     </button>
 
-
                     <div class="sidebar-group-body">
                         <div class="sgb-inner">
 
@@ -149,7 +461,6 @@
                                 <span class="sbb-icon">📊</span>
                                 <span class="sbb-label">Historial de gastos</span>
                             </button>
-
 
                             <button class="sidebar-btn" id="sbb-avisoinsumo"
                                 onclick="PanelPerfil.showSection('avisoinsumo')">
@@ -182,8 +493,6 @@
                                 <span class="notif-dot" id="dot-fidelizacion"></span>
                             </button>
 
-
-
                             <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
                                 <span class="sbb-icon">📢</span>
                                 <span class="sbb-label">Publicidad/Ofertas</span>
@@ -200,7 +509,6 @@
                                 <span class="sbb-icon">🔲</span>
                                 <span class="sbb-label">MI QR</span>
                             </button>
-
 
                             <button class="sidebar-btn" id="sbb-formularios" onclick="PanelPerfil.loadFormularios()">
                                 <span class="sbb-icon">📁</span>
@@ -251,233 +559,97 @@
             <div class="content">
 
                 <div class="section active" id="sec-inicio">
-                    <iframe id="iframeInicio" src="inicio.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#000;
-    "></iframe>
+                    <iframe class="pf" id="iframeInicio" src="inicio.html" style="background:#000;"></iframe>
                 </div>
 
                 <div class="section" id="sec-comprobante">
-                    <iframe id="iframeComprobante" src="boletas_factura.html" style="
-        width:100%; height:100vh; border:none; display:block;
-        overflow:hidden; background:#0a0a0a;"></iframe>
-                </div>
-                <!-- ===== PERFIL (ahora es un frame aparte) ===== -->
-                <div class="section" id="sec-perfil">
-                    <iframe id="iframePerfil" src="perfil.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#0a0a0a;
-    "></iframe>
+                    <iframe class="pf" id="iframeComprobante" data-src="boletas_factura.html"
+                        style="background:#0a0a0a;"></iframe>
                 </div>
 
-                <!-- ===== RECARGAS ===== -->
+                <div class="section" id="sec-perfil">
+                    <iframe class="pf" id="iframePerfil" data-src="perfil.html" style="background:#0a0a0a;"></iframe>
+                </div>
+
                 <div class="section" id="sec-recargas">
-                    <iframe src="recargas" style="
-                        width:100%;
-                        height:100vh;
-                        border:none;
-                        display:block;
-                        overflow:hidden;
-                        background:#fff;
-                    ">
-                    </iframe>
+                    <iframe class="pf" data-src="recargas" style="background:#fff;"></iframe>
                 </div>
 
                 <div class="section" id="sec-legal">
-                    <iframe id="iframeLegal" src="legal.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#0a0a0a;
-    "></iframe>
-                </div>
-                <div class="section" id="sec-daniel">
-                    <iframe src="lading_daniel" style="
-                        width:100%;
-                        height:100vh;
-                        border:none;
-                        display:block;
-                        overflow:hidden;
-                        background:#fff;
-                    ">
-                    </iframe>
+                    <iframe class="pf" id="iframeLegal" data-src="legal.html" style="background:#0a0a0a;"></iframe>
                 </div>
 
-                <!-- ===== PUBLICIDAD ===== -->
+                <div class="section" id="sec-daniel">
+                    <iframe class="pf" data-src="lading_daniel" style="background:#fff;"></iframe>
+                </div>
+
                 <div class="section" id="sec-publicidad">
-                    <iframe id="iframePublicidad" src="publicaicones" style="
-                        width:100%;
-                        height:100vh;
-                        border:none;
-                        display:block;
-                        overflow:hidden;
-                        background:#fff;
-                    ">
-                    </iframe>
+                    <iframe class="pf" id="iframePublicidad" data-src="publicaicones"
+                        style="background:#fff;"></iframe>
                 </div>
 
                 <div class="section" id="sec-cotiza">
-                    <iframe src="baner_geinz_bot" style="
-                        width:100%;
-                        height:100vh;
-                        border:none;
-                        display:block;
-                        overflow:hidden;
-                        background:#fff;
-                    ">
-                    </iframe>
+                    <iframe class="pf" data-src="baner_geinz_bot" style="background:#fff;"></iframe>
                 </div>
 
-                <!-- ===== MI QR ===== -->
                 <div class="section" id="sec-qr">
-                    <iframe id="iframeMiQr" src="miqr.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#0a0a0a;
-    ">
-                    </iframe>
+                    <iframe class="pf" id="iframeMiQr" data-src="miqr.html" style="background:#0a0a0a;"></iframe>
                 </div>
 
                 <div class="section" id="sec-formularios">
-                    <iframe id="iframeFormularios" src="formulario.html" style="
-        width:100%; height:100vh; border:none; display:block;
-        overflow:hidden; background:#000;"></iframe>
+                    <iframe class="pf" id="iframeFormularios" data-src="formulario.html"
+                        style="background:#000;"></iframe>
                 </div>
 
-                <!-- ===== reseña ===== -->
                 <div class="section" id="sec-mispublicaciones">
-                    <iframe id="iframeMisPublicaciones" src="resena.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#0a0a0a;
-    ">
-                    </iframe>
+                    <iframe class="pf" id="iframeMisPublicaciones" data-src="resena.html"
+                        style="background:#0a0a0a;"></iframe>
                 </div>
 
-                <!-- ===== HISTORIAL DE GASTO ===== -->
                 <div class="section" id="sec-historialgasto">
-                    <iframe id="iframeHistorialGasto" src="historial_gasto_geinz.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#0a0a0a;
-    ">
-                    </iframe>
+                    <iframe class="pf" id="iframeHistorialGasto" data-src="historial_gasto_geinz.html"
+                        style="background:#0a0a0a;"></iframe>
                 </div>
 
-
-                <!-- ===== HISTORIAL DE GASTO ===== -->
                 <div class="section" id="sec-historialgasto_tienda">
-                    <iframe id="iframeHistorialGasto_tienda" src="historial_gastos_tienda.html" style="
-            width:100%;
-            height:100vh;
-            border:none;
-            display:block;
-            overflow:hidden;
-            background:#0a0a0a;
-        ">
-                    </iframe>
+                    <iframe class="pf" id="iframeHistorialGasto_tienda" data-src="historial_gastos_tienda.html"
+                        style="background:#0a0a0a;"></iframe>
                 </div>
 
-
-                <!-- ===== AVISO INSUMO ===== -->
                 <div class="section" id="sec-avisoinsumo">
-                    <iframe id="iframeAvisoInsumo" src="avisoinsumo.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#0a0a0a;
-    "></iframe>
-                </div>
-                <!-- ===== PRODUCTOS ===== -->
-                <div class="section" id="sec-productos">
-                    <iframe id="iframeProductos" src="productos.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#0a0a0a;
-    ">
-                    </iframe>
+                    <iframe class="pf" id="iframeAvisoInsumo" data-src="avisoinsumo.html"
+                        style="background:#0a0a0a;"></iframe>
                 </div>
 
-                <!-- ===== HISTORIAL DE VENTAS ===== -->
+                <div class="section" id="sec-productos">
+                    <iframe class="pf" id="iframeProductos" data-src="productos.html"
+                        style="background:#0a0a0a;"></iframe>
+                </div>
+
                 <div class="section" id="sec-historial">
-                    <iframe id="iframeHistorial" src="historial_venta.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#fff;
-    ">
-                    </iframe>
+                    <iframe class="pf" id="iframeHistorial" data-src="historial_venta.html"
+                        style="background:#fff;"></iframe>
                 </div>
 
                 <div class="section" id="sec-pedidos">
-                    <iframe id="iframePedidos" src="pedidos.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#fff;
-    ">
-                    </iframe>
+                    <iframe class="pf" id="iframePedidos" data-src="pedidos.html" style="background:#fff;"></iframe>
                 </div>
 
                 <div class="section" id="sec-fidelizacion">
-                    <iframe id="iffidelizacion" src="fidelizacion.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#fff;
-    ">
-                    </iframe>
+                    <iframe class="pf" id="iffidelizacion" data-src="fidelizacion.html"
+                        style="background:#fff;"></iframe>
                 </div>
 
-
-                <!-- ===== MIS TRABAJADORES ===== -->
                 <div class="section" id="sec-trabajadores">
-                    <iframe id="iframeTrabajadores" src="trabajadores.html" style="
-        width:100%;
-        height:100vh;
-        border:none;
-        display:block;
-        overflow:hidden;
-        background:#0a0a0a;
-    ">
-                    </iframe>
+                    <iframe class="pf" id="iframeTrabajadores" data-src="trabajadores.html"
+                        style="background:#0a0a0a;"></iframe>
                 </div>
 
                 <div class="section" id="sec-usuarios">
-                    <iframe id="iframeUsuarios" src="usuarios.html" style="
-        width:100%; height:100vh; border:none; display:block;
-        overflow:hidden; background:#0a0a0a;"></iframe>
+                    <iframe class="pf" id="iframeUsuarios" data-src="usuarios.html"
+                        style="background:#0a0a0a;"></iframe>
                 </div>
+
             </div><!-- /content -->
 
             <!-- BOTON MENU MOBILE -->
@@ -574,6 +746,7 @@
                                     <span>📊</span>
                                     <span>Historial de ventas</span>
                                 </button>
+
                                 <button class="mobile-menu-item" id="mmb-historialgasto_tienda"
                                     onclick="PanelPerfil.loadHistorial_gastos(); PanelPerfil.toggleMobileMenu()">
                                     <span>📊</span>
@@ -612,7 +785,6 @@
                                     <span>Cupones y Puntos</span>
                                     <span class="notif-dot" id="dot-fidelizacion-mobile"></span>
                                 </button>
-
 
                                 <button class="mobile-menu-item" id="mmb-publicidad"
                                     onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
@@ -760,7 +932,58 @@
 
         </div>
     </div>
+<script>
+(function () {
+    "use strict";
+    var overlay = document.getElementById("skeletonOverlay");
 
+     function inicioListo() {
+        if (document.body.classList.contains("inicio-listo")) return;
+        document.body.classList.add("inicio-listo");
+        if (overlay) {
+            overlay.classList.add("hidden");
+            setTimeout(function () { overlay.remove(); }, 450);
+        }
+    }
+    // Seguro: si algo falla, a los 8 s se revela igual
+    setTimeout(inicioListo, 8000);
+
+    // Mapa sección → función del panel
+    var NAV = {
+        perfil: function () { PanelPerfil.showSection("perfil"); },
+        comprobantes: function () { PanelPerfil.showSection("comprobante"); },
+        trabajadores: function () { PanelPerfil.showSection("trabajadores"); },
+        legal: function () { PanelPerfil.loadLegal(); },
+        pedidos: function () { PanelPerfil.load_pedidos_vivos(); },
+        productos: function () { PanelPerfil.loadProductos(); },
+        historial: function () { PanelPerfil.loadHistorial(); },
+        historialgasto: function () { PanelPerfil.loadHistorial_gastos(); },
+        avisoinsumo: function () { PanelPerfil.showSection("avisoinsumo"); },
+        usuarios: function () { PanelPerfil.showSection("usuarios"); },
+        fidelizacion: function () { PanelPerfil.loadFidelizacion(); },
+        publicidad: function () { PanelPerfil.loadPublicidad(); },
+        mispublicaciones: function () { PanelPerfil.loadMisPublicaciones(); },
+        qr: function () { PanelPerfil.loadQr(); },
+        formularios: function () { PanelPerfil.loadFormularios(); },
+        recargas: function () { PanelPerfil.showSection("recargas"); }
+    };
+
+    window.addEventListener("message", function (e) {
+        if (e.origin !== location.origin || !e.data) return;
+        var d = e.data;
+
+        if (d.tipo === "INICIO_LISTO") inicioListo();
+
+        if (d.type === "ROL_ACTIVO_UPDATE")
+            document.body.classList.toggle("rol-activo", !!d.rol);
+
+        if (d.tipo === "NAVEGAR" && NAV[d.seccion]) NAV[d.seccion]();
+    });
+
+    // Si ya había sesión guardada al recargar
+    try { if (sessionStorage.getItem("rolActivo")) document.body.classList.add("rol-activo"); } catch (e) {}
+})();
+</script>
 </body>
 
 </html>

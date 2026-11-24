@@ -80,39 +80,69 @@ const GRUPOS_ROL = [
 ];
 
 const SECCIONES = [
-  // Mi negocio
   { key: "perfil", label: "Perfil", grupo: "mi_negocio" },
   { key: "comprobantes", label: "Comprobante", grupo: "mi_negocio" },
   { key: "trabajadores", label: "Mis trabajadores", grupo: "mi_negocio" },
   { key: "legal", label: "Legal", grupo: "mi_negocio" },
-  // Operación y ventas
+
   { key: "pedidos", label: "Pedidos en vivo", grupo: "operacion" },
   { key: "productos", label: "Productos", grupo: "operacion" },
   { key: "historial", label: "Historial de ventas", grupo: "operacion" },
+  { key: "historialgasto", label: "Historial de gastos", grupo: "operacion" },
   { key: "avisoinsumo", label: "Aviso de insumos", grupo: "operacion" },
-  // Clientes y fidelización
+
   { key: "usuarios", label: "Mis usuarios", grupo: "clientes" },
   { key: "fidelizacion", label: "Cupones y Puntos", grupo: "clientes" },
   { key: "publicidad", label: "Publicidad/Ofertas", grupo: "clientes" },
   { key: "mispublicaciones", label: "Reseñas", grupo: "clientes" },
   { key: "qr", label: "Mi QR", grupo: "clientes" },
-  // Internas (no se asignan a roles)
-  { key: "historialgasto", label: "Historial de gasto" },
+  { key: "formularios", label: "Formularios", grupo: "clientes" },
+
   { key: "recargas", label: "Recargas" },
 ];
 const TODOS_LOS_PERMISOS = SECCIONES.map((s) => s.key);
-// ── Reglas ──
-// 1) PLAN: solo existe lo que está en true en la DB
-// Legal solo existe si al menos un ítem de mi_negocio.legal está en true
-function legalActivo() {
-  const nodo = SERVICIOS?.mi_negocio?.legal;
-  return (
-    !!nodo &&
-    typeof nodo === "object" &&
-    Object.values(nodo).some((v) => v === true)
-  );
+// Mapa directo a tu JSON de plan (nota: "produtos" es como está en la DB)
+const MAPA_PLAN = {
+  perfil: "mi_negocio.perfil",
+  comprobantes: "mi_negocio.comprobantes",
+  trabajadores: "mi_negocio.mis_trabajadores",
+  legal: "mi_negocio.legal",
+  pedidos: "operacion_ventas.pedidos_vivos",
+  productos: "operacion_ventas.produtos",
+  historial: "operacion_ventas.historial_ventas",
+  historialgasto: "operacion_ventas.historial_gastos",
+  avisoinsumo: "operacion_ventas.insumos",
+  usuarios: "cliente_y_fidelizacion.mis_usuarios",
+  fidelizacion: "cliente_y_fidelizacion.cupones_puntos",
+  publicidad: "cliente_y_fidelizacion.publicidad_ofertas",
+  qr: "cliente_y_fidelizacion.miqr",
+  formularios: "cliente_y_fidelizacion.formulario",
+};
+
+const nodoActivo = (v) =>
+  v === true ||
+  (!!v &&
+    typeof v === "object" &&
+    (v.activo === true || Object.values(v).some(nodoActivo)));
+
+const leerRuta = (ruta) =>
+  ruta.split(".").reduce((o, k) => (o == null ? undefined : o[k]), SERVICIOS);
+
+function planPermite(key) {
+  if (!SERVICIOS) return false;
+  if (key === "recargas") return true;
+  if (key === "mispublicaciones") {
+    const c = SERVICIOS.cliente_y_fidelizacion || {};
+    return (
+      c.publicidad_ofertas?.mis_publicaciones === true ||
+      c.review?.activo === true ||
+      resenasActivo(SERVICIOS)
+    );
+  }
+  if (MAPA_PLAN[key]) return nodoActivo(leerRuta(MAPA_PLAN[key]));
+  return seccionDelPlan(SERVICIOS, key);
 }
-// Reseñas puede estar anidada (ej: publicidad.resenas). La busca en todo el doc.
+// Reseñas anidadas (respaldo)
 function resenasActivo(obj, depth = 0) {
   if (!obj || typeof obj !== "object" || depth > 6) return false;
   return Object.entries(obj).some(([k, v]) => {
@@ -120,13 +150,6 @@ function resenasActivo(obj, depth = 0) {
       return true;
     return resenasActivo(v, depth + 1);
   });
-}
-function planPermite(key) {
-  if (key === "avisoinsumo") return true;
-  if (key === "legal") return legalActivo();
-  if (key === "mispublicaciones")
-    return seccionDelPlan(SERVICIOS, key) || resenasActivo(SERVICIOS);
-  return seccionDelPlan(SERVICIOS, key);
 }
 // 2) ROL: admin ve todo lo del plan; los demás solo lo que el admin les marcó
 function rolPermite(key, sesion = getSession()) {
@@ -154,60 +177,64 @@ const esc = (s) =>
 const oculto = (id) =>
   document.getElementById(id)?.classList.contains("hidden") ?? true;
 
-// Muestra/oculta los botones de "Acciones rápidas"
 function aplicarVisibilidad() {
   const sesion = getSession();
   const esAdmin = !!sesion?.esAdmin;
+  const cargando = SERVICIOS === null;
 
   document.querySelectorAll(".action-btn[data-perm]").forEach((btn) => {
     const p = btn.dataset.perm;
-    const ok =
-      p === "__admin__" || p === "__ajustes__"
-        ? esAdmin
-        : seccionVisible(resolverClave(p), sesion);
-    btn.style.display = ok ? "" : "none";
-  });
+    let ok;
+    if (p === "__admin__" || p === "__ajustes__") ok = esAdmin;
+    else if (cargando) ok = rolPermite(resolverClave(p), sesion);
+    else ok = seccionVisible(resolverClave(p), sesion);
 
-  // Solo admin
-  ["rechargeBtn", "btnRoles", "btnAjustes"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = esAdmin ? "" : "none";
+    btn.style.display = ok ? "" : "none";
+    btn.classList.toggle("sk-load", cargando && ok);
   });
 }
 
-// ── Comunicación con el panel (padre) ──
 function serviciosParaPadre() {
   if (!SERVICIOS) return null;
   const secciones = {};
   SECCIONES.forEach((s) => (secciones[s.key] = planPermite(s.key)));
+  secciones.historialgasto_tienda = secciones.historialgasto;
+  secciones.comprobante = secciones.comprobantes;
+
+  // Copia limpia (evita DataCloneError con Timestamps de Firestore)
+  const arbol = JSON.parse(JSON.stringify(SERVICIOS));
+
   return {
+    ...arbol, // cliente_y_fidelizacion, panel_admin, mi_negocio, etc.
     plan: resumenPlan(SERVICIOS).plan,
-    secciones, // nuevo: lo que el padre debería leer
-    apartados_dasboard: { ...(SERVICIOS.apartados_dasboard || {}) }, // se deja para no romper al padre
+    secciones,
+    apartados_dasboard: { ...(SERVICIOS.apartados_dasboard || {}) },
   };
 }
-function broadcastServicios() {
-  const data = serviciosParaPadre();
+
+// Avisa al padre qué rol está activo (con alias para el sidebar)
+function broadcastRolActivo(sesion) {
   try {
-    sessionStorage.setItem("serviciosActivos", JSON.stringify(data));
-  } catch (e) {}
-  try {
+    let rol = sesion;
+    if (rol?.permisos?.includes("historialgasto")) {
+      rol = {
+        ...rol,
+        permisos: [...new Set([...rol.permisos, "historialgasto_tienda"])],
+      };
+    }
     window.parent.postMessage(
-      {
-        type: "SERVICIOS_UPDATE",
-        servicios: data, // igual que antes (no rompe nada)
-        servicios_completo: JSON.parse(JSON.stringify(SERVICIOS || {})), // ← NUEVO: doc completo
-      },
+      { type: "ROL_ACTIVO_UPDATE", rol },
       window.location.origin,
     );
   } catch (e) {}
 }
-function broadcastRolActivo(sesion) {
+
+let avisadoListo = false;
+function avisarListo() {
+  if (avisadoListo) return;
+  avisadoListo = true;
   try {
-    window.parent.postMessage(
-      { type: "ROL_ACTIVO_UPDATE", rol: sesion },
-      window.location.origin,
-    );
+    window.parent.postMessage({ tipo: "INICIO_LISTO" }, window.location.origin);
   } catch (e) {}
 }
 
@@ -222,6 +249,7 @@ function listenServicios() {
       MAX_ROLES = resumenPlan(SERVICIOS).rolesMax;
       broadcastServicios();
       aplicarVisibilidad();
+      requestAnimationFrame(() => requestAnimationFrame(avisarListo));
 
       if (!oculto("view-roles")) {
         initPermGrid();
@@ -232,6 +260,18 @@ function listenServicios() {
     },
     (err) => console.error("Error escuchando servicios:", err),
   );
+}
+
+// Envía al padre el resumen de servicios del plan
+function broadcastServicios() {
+  try {
+    const servicios = serviciosParaPadre();
+    if (!servicios) return;
+    window.parent.postMessage(
+      { type: "SERVICIOS_UPDATE", servicios },
+      window.location.origin,
+    );
+  } catch (e) {}
 }
 
 function rolesRef() {
@@ -273,6 +313,9 @@ function showView(id) {
   VIEWS.forEach((v) =>
     document.getElementById(v).classList.toggle("hidden", v !== id),
   );
+  if (id !== "view-loading" && id !== "view-panel") {
+    requestAnimationFrame(() => requestAnimationFrame(avisarListo));
+  }
 }
 function showToast(msg) {
   const t = document.getElementById("toast");
@@ -370,6 +413,7 @@ function cerrarRol() {
   );
   unsubNegocio = unsubPedidos = unsubServicios = unsubMiRol = unsubRoles = null;
   ultimosRoles = null;
+  SERVICIOS = null;
   clearInterval(statusTimer);
   boot();
 }
@@ -693,13 +737,13 @@ function listenNegocio() {
       setLogo(biz.img_tienda?.logo_tienda || null);
       bizHorario = biz.horario_atencion;
       setStatus(calcOpenNow(bizHorario));
-      const puntos = Number(biz.puntos_tienda) || 0;
-      const soles = puntos * CREDITO_A_SOLES;
-      setTextPulse(
-        document.getElementById("balanceValue"),
-        `S/ ${soles.toFixed(2)}`,
-      );
-      document.getElementById("balanceSub").textContent = `${puntos} créditos`;
+      const balEl = document.getElementById("balanceValue");
+      const balSub = document.getElementById("balanceSub");
+      if (balEl) {
+        const puntos = Number(biz.puntos_tienda) || 0;
+        setTextPulse(balEl, `S/ ${(puntos * CREDITO_A_SOLES).toFixed(2)}`);
+        if (balSub) balSub.textContent = `${puntos} créditos`;
+      }
     },
     (err) => console.error("Error escuchando negocio:", err),
   );
@@ -780,25 +824,20 @@ function navigateTo(seccionRaw) {
     console.error("No se pudo navegar:", e);
   }
 }
-window.navigateTo = navigateTo; // 👈 AGREGA ESTA LÍNEA AQUÍ
+window.navigateTo = navigateTo;
 
 const on = (id, fn) =>
   document.getElementById(id)?.addEventListener("click", fn);
 
-on("rechargeBtn", () => navigateTo("recargas"));
-on("btnPerfil", () => navigateTo("perfil"));
-on("btnPublicidad", () => navigateTo("publicidad"));
-on("btnFidelizacion", () => navigateTo("fidelizacion"));
-on("btnResenas", () => navigateTo("mispublicaciones"));
-on("btnQR", () => navigateTo("qr"));
-on("btnMiWeb", () => navigateTo("qr"));
-on("btnGasto", () => navigateTo("historialgasto"));
-on("btnProductos", () => navigateTo("productos"));
-on("btnHistorial", () => navigateTo("historial"));
-on("btnPedidosVivo", () => navigateTo("pedidos"));
-on("btnLegal", () => navigateTo("legal"));
-on("btnRoles", () => navigateTo("roles"));
-on("btnAjustes", () => navigateTo("ajustes"));
+document.getElementById("actionsGrid").addEventListener("click", (e) => {
+  const btn = e.target.closest(".action-btn[data-perm]");
+  if (!btn || btn.classList.contains("sk-load")) return;
+  const p = btn.dataset.perm;
+  if (p === "__admin__") return navigateTo("roles");
+  if (p === "__ajustes__") return navigateTo("ajustes");
+  navigateTo(p);
+});
+
 on("backToPanel", () => showView("view-panel"));
 on("backToPanelAjustes", () => showView("view-panel"));
 
@@ -1136,33 +1175,9 @@ function renderAjustes() {
     dominioRow.classList.add("hidden");
   }
 
-  // ── Apartados disponibles (detalle, solo lectura) ──
   // ── Apartados disponibles (detalle tal cual de la DB) ──
   document.getElementById("ajApartadosList").innerHTML =
     htmlDetallePlan(SERVICIOS);
-
-  // ── Sonidos de alertas ──
-  const sonidosEl = document.getElementById("ajSonidosGrid");
-  sonidosEl.innerHTML = SONIDO_KEYS.map(
-    (key) => `
-    <div class="field">
-      <label>Sonido — ${key}</label>
-      <select data-sonido-key="${key}">
-        ${Object.entries(SONIDOS_LOCALES)
-          .map(
-            ([val, label]) =>
-              `<option value="${val}" ${cargarSonidoGuardado(key) === val ? "selected" : ""}>${label}</option>`,
-          )
-          .join("")}
-      </select>
-    </div>`,
-  ).join("");
-  sonidosEl.querySelectorAll("select[data-sonido-key]").forEach((sel) => {
-    sel.addEventListener("change", (e) => {
-      guardarSonido(sel.dataset.sonidoKey, e.target.value);
-      showToast("Sonido de alerta actualizado.");
-    });
-  });
 }
 
 function openAjustes() {

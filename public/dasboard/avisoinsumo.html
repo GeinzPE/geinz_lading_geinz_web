@@ -1,10 +1,14 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" style="background:#07070b">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
 <title>Aviso de insumos</title>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#07070b;--s:#100f18;--s2:#171626;--line:#24223b;--ink:#eceaf5;--mut:#8b88a3;--p1:#7c4dff;--p2:#6236ee;--red:#ff5d5d;--grn:#35d49a}
 *{box-sizing:border-box}
@@ -63,15 +67,69 @@ dialog input{width:100%;margin-bottom:14px}
 @keyframes sh{0%{background-position:-400px 0}100%{background-position:400px 0}}
 @media(prefers-reduced-motion:reduce){.sk{animation:none}}
 .btn,.b,.send{transition:transform .12s ease}.btn:active,.b:active,.send:active{transform:scale(.96)}
+
+/* ===== Skeleton de PANTALLA COMPLETA ===== */
+#skel{position:fixed;inset:0;z-index:100;background:var(--bg);overflow:hidden;transition:opacity .35s ease}
+#skel.out{opacity:0;pointer-events:none}
+#skel .sk{border:1px solid #1a1830}
+#skel .head{align-items:center}
+#skel .pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+#skel .pills .sk{height:32px;border-radius:999px}
+#skel .li{height:104px}
+#skel .lv{height:56px;border-radius:12px}
 </style>
 </head>
 <body>
+
+<!-- Skeleton dark: cubre TODA la pantalla hasta que llegan los datos -->
+<div id="skel" aria-busy="true" aria-label="Cargando avisos de insumos">
+  <div class="wrap">
+    <header class="head">
+      <div>
+        <div class="sk" style="height:38px;width:min(340px,70vw)"></div>
+        <div class="sk" style="height:14px;width:min(300px,60vw);margin-top:12px"></div>
+      </div>
+      <div class="sk" style="height:46px;width:140px;border-radius:12px"></div>
+    </header>
+
+    <div class="stats">
+      <div class="sk" style="height:76px"></div>
+      <div class="sk" style="height:76px"></div>
+      <div class="sk" style="height:76px"></div>
+    </div>
+
+    <div class="pills">
+      <div class="sk" style="width:120px"></div>
+      <div class="sk" style="width:110px"></div>
+      <div class="sk" style="width:104px"></div>
+      <div class="sk" style="width:104px"></div>
+      <div class="sk" style="width:96px"></div>
+    </div>
+
+    <div class="layout">
+      <div class="list">
+        <ul>
+          <li class="sk li"></li><li class="sk li"></li><li class="sk li"></li>
+          <li class="sk li"></li><li class="sk li"></li><li class="sk li"></li>
+        </ul>
+      </div>
+      <aside class="live">
+        <div class="sk" style="height:22px;width:170px;margin-bottom:14px"></div>
+        <ul>
+          <li class="sk lv"></li><li class="sk lv"></li><li class="sk lv"></li>
+          <li class="sk lv"></li><li class="sk lv"></li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+</div>
+
 <div class="wrap">
   <header class="head"><div><h1>Faltantes de cocina</h1><p class="sub">Lo que tu equipo avisa que falta, en tiempo real.</p></div><button class="send" id="sendLink">Enviar link</button></header>
-  <div class="stats" id="stats"><div class="sk" style="height:76px"></div><div class="sk" style="height:76px"></div><div class="sk" style="height:76px"></div></div>
+  <div class="stats" id="stats"></div>
   <div class="chips" id="chips" role="group" aria-label="Filtro"></div>
   <div class="layout">
-    <div class="list" id="list"><ul><li class="sk" style="height:96px"></li><li class="sk" style="height:96px"></li><li class="sk" style="height:96px"></li></ul></div>
+    <div class="list" id="list"></div>
     <aside class="live"><h2><span class="dot"></span>Actividad en vivo</h2><ul id="feed"></ul></aside>
   </div>
 </div>
@@ -87,6 +145,18 @@ const $ = id => document.getElementById(id);
 const auth = getAuth(app);
 let admin = "Admin", C = null, items = [], filter = "pend", q = "";
 onAuthStateChanged(auth, u => { if (u) admin = u.displayName || u.email || "Admin"; });
+
+/* Quita el skeleton (una sola vez). Se llama al llegar datos, al fallar, o por tiempo. */
+let skelCerrado = false;
+function ocultarSkel() {
+  if (skelCerrado) return;
+  skelCerrado = true;
+  const s = $("skel"); if (!s) return;
+  s.classList.add("out");
+  s.setAttribute("aria-busy", "false");
+  setTimeout(() => { s.style.display = "none"; }, 400);
+}
+setTimeout(ocultarSkel, 12000); // respaldo: nunca queda pegado
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ms = t => t?.toMillis ? t.toMillis() : t?.seconds ? t.seconds * 1000 : Date.now();
@@ -129,6 +199,7 @@ function render() {
   $("list").innerHTML = filter === "ins" ? groups(l) : l.length ? "<ul>" + sorted(l).map(card).join("") + "</ul>" : '<div class="empty">No hay avisos en esta vista.</div>';
   const feed = [...items].sort((a, b) => ms(b.creado) - ms(a.creado)).slice(0, 40);
   $("feed").innerHTML = feed.length ? feed.map(i => `<li class="fi${i.repuesto ? " done" : ""}${i.quitado ? " gone" : ""}">${av(i.por)}<div><div><b>${esc(i.nombre)}</b> ${esc(qty(i))} ${tags(i)}</div><div class="meta">${esc(i.por)}, ${fmt(i.creado)}</div></div></li>`).join("") : '<li class="empty">Aún no hay avisos.</li>';
+  ocultarSkel();
 }
 
 const ref = id => tiendaSubDoc(C.loc, "tiendas", C.id, "insumos", id);
@@ -166,14 +237,14 @@ function start(c) {
   const col = tiendaSubCol(c.loc, "tiendas", c.id, "insumos");
   onSnapshot(query(col, orderBy("creado", "desc")),
     s => { items = s.docs.map(d => ({id: d.id, ...d.data()})); render(); },
-    err => { $("list").innerHTML = `<div class="empty">No se pudieron leer los insumos (${esc(err.code)}). Revisa las reglas de Firestore.</div>`; });
+    err => { $("list").innerHTML = `<div class="empty">No se pudieron leer los insumos (${esc(err.code)}). Revisa las reglas de Firestore.</div>`; ocultarSkel(); });
 }
 
 let tries = 0;
 (function wait() {
   const c = ctx();
   if (c.loc && c.id) return start(c);
-  if (++tries > 40) { $("list").innerHTML = '<div class="empty">No se pudo identificar el negocio. Recarga el panel.</div>'; return; }
+  if (++tries > 40) { $("list").innerHTML = '<div class="empty">No se pudo identificar el negocio. Recarga el panel.</div>'; ocultarSkel(); return; }
   setTimeout(wait, 300);
 })();
 </script>

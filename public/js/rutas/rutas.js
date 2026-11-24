@@ -254,6 +254,20 @@ export function terminosCondicionesDoc(localidad, negocioId) {
     "terminos_condiciones",
   );
 }
+
+// Cookies web
+// .../politicas/legal/cookies_web/cookies_web
+export function cookiesWebDoc(localidad, negocioId) {
+  return tiendaSubDoc(
+    localidad,
+    "tiendas",
+    negocioId,
+    "politicas",
+    "legal",
+    "cookies_web",
+    "cookies_web",
+  );
+}
 export function aliasTiendaDoc(alias) {
   return doc(db, "alias_tiendas", alias);
 }

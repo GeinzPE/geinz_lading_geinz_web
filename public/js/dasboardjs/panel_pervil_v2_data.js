@@ -145,8 +145,6 @@ function reenviarDatosAlIframe(iframe) {
 //  Las claves son las mismas de los ids: sbb-<clave> / mmb-<clave>
 // ============================================================
 (function () {
-  // Claves = ids del sidebar (sbb-<clave> / mmb-<clave>).
-  // Si la sección está en el plan lo decide inicio.js (mapa "secciones").
   const SECCIONES = [
     "perfil",
     "comprobantes",
@@ -155,15 +153,16 @@ function reenviarDatosAlIframe(iframe) {
     "pedidos",
     "productos",
     "historial",
+    "historialgasto_tienda",
+    "avisoinsumo",
     "usuarios",
     "fidelizacion",
     "publicidad",
     "mispublicaciones",
     "qr",
-    "historialgasto",
+    "formularios",
     "recargas",
   ];
-
   function leer(k) {
     try {
       return JSON.parse(sessionStorage.getItem(k) || "null");
@@ -236,37 +235,39 @@ function reenviarDatosAlIframe(iframe) {
     }
     if (e.data?.type === "SERVICIOS_UPDATE") {
       _servicios = e.data.servicios;
-      window.setServiciosParaPublicidad?.(e.data.servicios_completo); // ← NUEVA
+      window.setServiciosParaPublicidad?.(
+        e.data.servicios_completo || e.data.servicios,
+      );
       aplicar();
     }
   });
 })();
 
-// ===== NAVEGACIÓN ENTRE IFRAMES (postMessage) =====
-// Usa las mismas funciones que los botones del sidebar
 const LOADERS = {
   publicidad: "loadPublicidad",
   fidelizacion: "loadFidelizacion",
   mispublicaciones: "loadMisPublicaciones",
   qr: "loadQr",
-  historialgasto: "loadHistorialGasto",
+  historialgasto: "loadHistorial_gastos",
   productos: "loadProductos",
   historial: "loadHistorial",
   pedidos: "load_pedidos_vivos",
   legal: "loadLegal",
+  formularios: "loadFormularios",
 };
 
 window.addEventListener("message", function (e) {
+  if (e.origin !== window.location.origin) return;
   const { tipo, seccion } = e.data || {};
   if (tipo !== "NAVEGAR") return;
 
   const destino = seccion || "perfil";
-  const destinoKey = destino === "comprobante" ? "comprobantes" : destino;
+  let destinoKey = destino === "comprobante" ? "comprobantes" : destino;
+  if (destinoKey === "historialgasto") destinoKey = "historialgasto_tienda";
 
   // Bloqueo final: si plan o rol no lo permiten, no se abre
   if (window.PanelVisibilidad && !window.PanelVisibilidad.puedeVer(destinoKey))
     return;
-  return;
 
   const P = window.PanelPerfil;
   if (P) {
@@ -275,7 +276,6 @@ window.addEventListener("message", function (e) {
     else if (typeof P.showSection === "function") P.showSection(destino);
   }
 
-  // Solo tocar el iframe de Recargas si realmente vamos ahí
   if (destino === "recargas") {
     const iframe = document.querySelector("#sec-recargas iframe");
     if (iframe) {
@@ -314,16 +314,10 @@ window.addEventListener("message", function (e) {
     } catch (err) {}
   });
 });
-// ===== SERVICIOS → iframes que lo necesitan =====
 
-// ===== SERVICIOS → iframes que lo necesitan =====
+// ===== SERVICIOS → todos los iframes =====
 window._serviciosCompleto = window._serviciosCompleto || null;
-const IFRAMES_SERVICIOS = [
-  "iframeLegal",
-  "iframeProductos",
-  "iframeMiQr",
-  "iframePedidos",
-];
+
 function enviarServicios(iframe) {
   if (!iframe || !window._serviciosCompleto) return;
   try {
@@ -334,19 +328,23 @@ function enviarServicios(iframe) {
   } catch (e) {}
 }
 
+// Cada iframe que termine de cargar recibe el último plan guardado
+document.querySelectorAll("iframe").forEach((f) =>
+  f.addEventListener("load", () => enviarServicios(f)),
+);
+
 window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
 
   if (e.data?.type === "SERVICIOS_UPDATE") {
-    window._serviciosCompleto = e.data.servicios_completo || null;
-    IFRAMES_SERVICIOS.forEach((id) =>
-      enviarServicios(document.getElementById(id)),
-    );
+    window._serviciosCompleto =
+      e.data.servicios_completo || e.data.servicios || null;
+    document.querySelectorAll("iframe").forEach(enviarServicios);
   }
   if (e.data?.type === "PEDIR_DATOS_TIENDA") {
-    const origen = IFRAMES_SERVICIOS.map((id) =>
-      document.getElementById(id),
-    ).find((f) => f?.contentWindow === e.source);
+    const origen = [...document.querySelectorAll("iframe")].find(
+      (f) => f.contentWindow === e.source,
+    );
     enviarServicios(origen);
   }
 });

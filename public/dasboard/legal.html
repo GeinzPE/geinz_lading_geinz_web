@@ -5,8 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Legal · Geinz</title>
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-  <link rel="stylesheet" href="../../style/tailwind.css">
+    <link rel="stylesheet" href="../../style/tailwind.css">
     <link
         href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap"
         rel="stylesheet">
@@ -15,8 +14,8 @@
             --dr: 139;
             --dg: 92;
             --db: 246;
-            --bg: #07070a;
-            --bg-elevated: #0d0d12;
+            --bg: #000;
+            --bg-elevated: #000;
             --surface: rgba(255, 255, 255, .035);
             --surface-2: rgba(255, 255, 255, .055);
             --border: rgba(255, 255, 255, .08);
@@ -34,15 +33,33 @@
         body {
             margin: 0;
             padding: 0;
-            background:
-                radial-gradient(1100px 520px at 12% -10%, rgba(var(--dr), var(--dg), var(--db), .10), transparent 60%),
-                radial-gradient(900px 480px at 100% 0%, rgba(var(--dr), var(--dg), var(--db), .05), transparent 55%),
-                var(--bg);
-            background-attachment: fixed;
+            min-height: 100%;
+            background: #000;
             color: #f2f2f5;
             font-family: 'DM Sans', system-ui, sans-serif;
             -webkit-tap-highlight-color: transparent;
             letter-spacing: -0.005em;
+        }
+
+        /* Contenedor: móvil igual que antes, escritorio a todo el ancho */
+        .legal-wrap {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            min-height: 100vh;
+            padding: 24px 16px;
+        }
+
+        @media (min-width: 768px) {
+            .legal-wrap {
+                padding: 22px 14px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .legal-wrap {
+                padding: 22px 18px;
+            }
         }
 
         h1,
@@ -67,15 +84,11 @@
             border-radius: 8px;
         }
 
-        .accent-grad {
-            background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .65));
-        }
-
         .accent-text {
             color: rgb(var(--dr), var(--dg), var(--db));
         }
 
-        /* ── Icon badges (replaces emoji) ── */
+        /* ── Icon badges ── */
         .icon-badge {
             display: inline-flex;
             align-items: center;
@@ -103,10 +116,6 @@
         .icon-badge.sm svg {
             width: 14px;
             height: 14px;
-        }
-
-        .icon-muted {
-            stroke: var(--muted);
         }
 
         /* ── Cards ── */
@@ -216,18 +225,9 @@
             cursor: not-allowed;
         }
 
-        /* ── Master visibility card ── */
         .master-card {
             position: relative;
             overflow: hidden;
-        }
-
-        .master-card::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(120deg, rgba(var(--dr), var(--dg), var(--db), .07), transparent 55%);
-            pointer-events: none;
         }
 
         .sub-toggle-row {
@@ -457,7 +457,7 @@
         .drawer-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(2, 2, 4, .72);
+            background: rgba(0, 0, 0, .75);
             backdrop-filter: blur(5px);
             z-index: 40;
             opacity: 0;
@@ -477,7 +477,7 @@
             bottom: 0;
             width: 100%;
             max-width: 460px;
-            background: var(--bg-elevated);
+            background: #050505;
             border-left: 1px solid var(--border);
             z-index: 41;
             transform: translateX(100%);
@@ -532,6 +532,7 @@
 
         .paragraph-item .field-textarea {
             padding-right: 44px;
+            padding-left: 40px;
         }
 
         .paragraph-index {
@@ -549,10 +550,6 @@
             align-items: center;
             justify-content: center;
             pointer-events: none;
-        }
-
-        .paragraph-item .field-textarea {
-            padding-left: 40px;
         }
 
         .paragraph-remove {
@@ -665,14 +662,88 @@
             background: #131318;
             color: #f2f2f5;
         }
-        .hidden { display: none !important; }
-        .plan-oculto { display: none !important; }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .plan-oculto {
+            display: none !important;
+        }
+
+        /* ══════════════ SKELETON SCREEN ══════════════
+           Mientras <body> tiene la clase "cargando", todo lo que lleve
+           la clase "sk" esconde su contenido (título, RUC, textos, etc.)
+           y muestra una barra con efecto brillo en su lugar. */
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .sk {
+            position: relative;
+        }
+
+        body.cargando .sk>* {
+            visibility: hidden;
+        }
+
+        body.cargando .sk::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 11px;
+            background: linear-gradient(90deg, rgba(255, 255, 255, .04) 25%, rgba(255, 255, 255, .10) 50%, rgba(255, 255, 255, .04) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite linear;
+        }
+
+        body.cargando .sub-toggle-row.sk::after {
+            border-radius: 13px;
+        }
+
+        body.cargando .sk-h-input {
+            min-height: 70px;
+        }
+
+        body.cargando .sk-h-area {
+            min-height: 130px;
+        }
+
+        body.cargando .sk-h-grid {
+            min-height: 190px;
+        }
+
+        body.cargando .sk-h-parrafos {
+            min-height: 170px;
+        }
+
+        /* mientras carga no se puede pulsar nada de los formularios */
+        body.cargando .legal-wrap .btn-primary,
+        body.cargando .legal-wrap .btn-ghost {
+            pointer-events: none;
+            opacity: .45;
+        }
+
+        /* filas falsas de reclamos */
+        .sk-row {
+            height: 104px;
+            border-radius: 13px;
+            background: linear-gradient(90deg, rgba(255, 255, 255, .04) 25%, rgba(255, 255, 255, .10) 50%, rgba(255, 255, 255, .04) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite linear;
+        }
     </style>
 </head>
 
-<body>
+<body class="cargando">
 
-    <div class="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 md:py-9 max-w-5xl mx-auto">
+    <div class="legal-wrap">
 
         <!-- ═══ ENCABEZADO ═══ -->
         <header class="mb-7">
@@ -687,18 +758,14 @@
                     <div>
                         <h1 class="text-2xl sm:text-[26px] font-bold tracking-tight">Legal</h1>
                         <p class="text-[13px] text-[color:var(--muted)] mt-0.5 max-w-md">
-                            Libro de reclamaciones, políticas de privacidad y términos y condiciones.
+                            Libro de reclamaciones, políticas de privacidad, términos y condiciones y cookies.
                         </p>
                     </div>
-                </div>
-                <div id="legalLoadingBadge" class="flex items-center gap-2 text-xs text-[color:var(--muted)]">
-                    <div class="spinner"></div> Cargando…
                 </div>
             </div>
         </header>
 
-        <!-- ═══ CONFIGURACIÓN MAESTRA ═══ -->
-          <!-- ═══ VISIBILIDAD EN EL PERFIL ═══ -->
+        <!-- ═══ VISIBILIDAD EN EL PERFIL ═══ -->
         <section class="card master-card p-5 sm:p-6 mb-7">
             <div class="relative">
                 <h2 class="text-[15px] font-bold">Visibilidad en tu perfil público</h2>
@@ -708,7 +775,7 @@
             </div>
 
             <div id="subTogglesWrap" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 relative">
-                <div class="sub-toggle-row">
+                <div class="sub-toggle-row sk">
                     <div class="flex items-center gap-2.5">
                         <div class="icon-badge sm">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -722,7 +789,7 @@
                         <span class="switch-track"></span>
                     </label>
                 </div>
-                <div class="sub-toggle-row">
+                <div class="sub-toggle-row sk">
                     <div class="flex items-center gap-2.5">
                         <div class="icon-badge sm">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -737,7 +804,7 @@
                         <span class="switch-track"></span>
                     </label>
                 </div>
-                <div class="sub-toggle-row">
+                <div class="sub-toggle-row sk">
                     <div class="flex items-center gap-2.5">
                         <div class="icon-badge sm">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -785,48 +852,55 @@
                 </svg>
                 Términos y condiciones
             </button>
+            <button class="legal-tab" data-tab="cookies" id="tabBtnCookies">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 11-9-9 3 3 0 003 3 3 3 0 003 3 3 3 0 003 3z" />
+                    <path d="M8.5 9.5h.01M15.5 15.5h.01M10 15h.01M13 12h.01" />
+                </svg>
+                Cookies web
+            </button>
         </div>
 
         <!-- ═══ TAB: LIBRO DE RECLAMACIONES ═══ -->
         <div class="tab-panel active" id="panelLibro">
             <section class="card p-5 sm:p-6 space-y-5">
-              <div class="flex items-center justify-between gap-3 flex-wrap">
-    <div>
-        <h3 class="text-[15px] font-bold mb-1">Datos del libro</h3>
-        <p class="text-xs text-[color:var(--muted)]">Esta información aparece en la cabecera de tu libro
-            de reclamaciones virtual.</p>
-    </div>
-    <button class="btn-ghost" id="btnGenerarIALibro">✨ Generar con IA</button>
-</div>
-<div id="iaLibroPendientes" class="hidden space-y-3"></div>
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <h3 class="text-[15px] font-bold mb-1">Datos del libro</h3>
+                        <p class="text-xs text-[color:var(--muted)]">Esta información aparece en la cabecera de tu libro
+                            de reclamaciones virtual.</p>
+                    </div>
+                    <button class="btn-ghost" id="btnGenerarIALibro">✨ Generar con IA</button>
+                </div>
+                <div id="iaLibroPendientes" class="hidden space-y-3"></div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
+                    <div class="sk sk-h-input">
                         <label class="field-label">Título</label>
                         <input type="text" class="field-input" id="libroTitulo" placeholder="Ej. Reclama tus costos">
                     </div>
-                    <div>
+                    <div class="sk sk-h-input">
                         <label class="field-label">RUC</label>
                         <input type="text" class="field-input" id="libroRuc" placeholder="20XXXXXXXXX">
                     </div>
                 </div>
 
-                <div>
+                <div class="sk sk-h-input">
                     <label class="field-label">Razón social</label>
                     <input type="text" class="field-input" id="libroRazonSocial"
                         placeholder="Nombre legal de tu empresa">
                 </div>
 
-                <div>
+                <div class="sk sk-h-area">
                     <label class="field-label">Descripción</label>
                     <textarea class="field-textarea" id="libroDescripcion" rows="3"
                         placeholder="Ej. Libro de reclamaciones virtual directo para SUNAT e INDECOPI"></textarea>
                 </div>
 
-                <div>
+                <div class="sk sk-h-grid">
                     <label class="field-label mb-3">Campos que pedirás en el formulario de reclamo</label>
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5" id="libroCamposGrid">
-                        <!-- generado dinámicamente por legal.js a partir del mapa "campos" -->
+                        <!-- generado dinámicamente por legal.js -->
                     </div>
                 </div>
 
@@ -841,25 +915,28 @@
         <!-- ═══ TAB: RECLAMOS ═══ -->
         <div class="tab-panel" id="panelReclamos">
             <section class="card p-4 sm:p-6">
-              <div class="flex items-center gap-3 mb-5 flex-wrap">
-    <h3 class="text-[15px] font-bold">Reclamos recibidos</h3>
-    <div class="flex items-center gap-2 flex-wrap ml-auto">
-        <select class="field-select !w-auto text-xs" id="filtroEstadoReclamos">
-            <option value="todos">Todos los estados</option>
-            <option value="pendiente">Pendientes</option>
-            <option value="respondido">Respondidos</option>
-            <option value="resuelto">Resueltos</option>
-            <option value="rechazado">Rechazados</option>
-        </select>
-        <select class="field-select !w-auto text-xs" id="ordenReclamos">
-            <option value="recientes">Más recientes primero</option>
-            <option value="antiguos">Más antiguos primero</option>
-        </select>
-    </div>
-</div>
+                <div class="flex items-center gap-3 mb-5 flex-wrap">
+                    <h3 class="text-[15px] font-bold">Reclamos recibidos</h3>
+                    <div class="flex items-center gap-2 flex-wrap ml-auto">
+                        <select class="field-select !w-auto text-xs" id="filtroEstadoReclamos">
+                            <option value="todos">Todos los estados</option>
+                            <option value="pendiente">Pendientes</option>
+                            <option value="respondido">Respondidos</option>
+                            <option value="resuelto">Resueltos</option>
+                            <option value="rechazado">Rechazados</option>
+                        </select>
+                        <select class="field-select !w-auto text-xs" id="ordenReclamos">
+                            <option value="recientes">Más recientes primero</option>
+                            <option value="antiguos">Más antiguos primero</option>
+                        </select>
+                    </div>
+                </div>
 
-                <div id="reclamosLoading" class="empty-state" style="display:none">
-                    <div class="spinner mx-auto mb-2"></div> Cargando reclamos…
+                <!-- skeleton de la lista de reclamos -->
+                <div id="reclamosLoading" class="space-y-2.5" style="display:none">
+                    <div class="sk-row"></div>
+                    <div class="sk-row"></div>
+                    <div class="sk-row"></div>
                 </div>
                 <div id="reclamosEmpty" class="empty-state" style="display:none">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round"
@@ -878,23 +955,23 @@
         <!-- ═══ TAB: POLÍTICAS DE PRIVACIDAD ═══ -->
         <div class="tab-panel" id="panelPoliticas">
             <section class="card p-5 sm:p-6 space-y-5">
-               <div class="flex items-center justify-between gap-3 flex-wrap">
-    <div>
-        <h3 class="text-[15px] font-bold mb-1">Políticas de privacidad</h3>
-        <p class="text-xs text-[color:var(--muted)]">Se guarda como un título y una lista de párrafos,
-            para que se vea ordenado en tu perfil público.</p>
-    </div>
-    <button class="btn-ghost" id="btnGenerarIAPoliticas">✨ Generar con IA</button>
-</div>
-<div id="iaPoliticasPendientes" class="hidden space-y-3"></div>
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <h3 class="text-[15px] font-bold mb-1">Políticas de privacidad</h3>
+                        <p class="text-xs text-[color:var(--muted)]">Se guarda como un título y una lista de párrafos,
+                            para que se vea ordenado en tu perfil público.</p>
+                    </div>
+                    <button class="btn-ghost" id="btnGenerarIAPoliticas">✨ Generar con IA</button>
+                </div>
+                <div id="iaPoliticasPendientes" class="hidden space-y-3"></div>
 
-                <div>
+                <div class="sk sk-h-input">
                     <label class="field-label">Título</label>
                     <input type="text" class="field-input" id="politicasTitulo"
                         placeholder="Ej. Política de privacidad">
                 </div>
 
-                <div>
+                <div class="sk sk-h-parrafos">
                     <label class="field-label mb-3">Contenido (párrafos)</label>
                     <div id="politicasParrafos" class="space-y-3"></div>
                     <button class="btn-ghost mt-3 w-full sm:w-auto" id="btnAgregarParrafoPoliticas">+ Agregar
@@ -912,21 +989,22 @@
         <!-- ═══ TAB: TÉRMINOS Y CONDICIONES ═══ -->
         <div class="tab-panel" id="panelTerminos">
             <section class="card p-5 sm:p-6 space-y-5">
-           <div class="flex items-center justify-between gap-3 flex-wrap">
-    <div>
-        <h3 class="text-[15px] font-bold mb-1">Términos y condiciones</h3>
-        <p class="text-xs text-[color:var(--muted)]">Mismo formato que políticas: título + párrafos.</p>
-    </div>
-    <button class="btn-ghost" id="btnGenerarIATerminos">✨ Generar con IA</button>
-</div>
-<div id="iaTerminosPendientes" class="hidden space-y-3"></div>
-                <div>
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <h3 class="text-[15px] font-bold mb-1">Términos y condiciones</h3>
+                        <p class="text-xs text-[color:var(--muted)]">Mismo formato que políticas: título + párrafos.</p>
+                    </div>
+                    <button class="btn-ghost" id="btnGenerarIATerminos">✨ Generar con IA</button>
+                </div>
+                <div id="iaTerminosPendientes" class="hidden space-y-3"></div>
+
+                <div class="sk sk-h-input">
                     <label class="field-label">Título</label>
                     <input type="text" class="field-input" id="terminosTitulo"
                         placeholder="Ej. Términos y condiciones de uso">
                 </div>
 
-                <div>
+                <div class="sk sk-h-parrafos">
                     <label class="field-label mb-3">Contenido (párrafos)</label>
                     <div id="terminosParrafos" class="space-y-3"></div>
                     <button class="btn-ghost mt-3 w-full sm:w-auto" id="btnAgregarParrafoTerminos">+ Agregar
@@ -937,6 +1015,35 @@
                     class="flex items-center gap-3 pt-2 flex-wrap border-t border-[color:var(--border-soft)] mt-1 pt-4">
                     <button class="btn-primary" id="btnGuardarTerminos">Guardar cambios</button>
                     <span class="text-xs text-[color:var(--muted)]" id="terminosSavedHint"></span>
+                </div>
+            </section>
+        </div>
+
+        <!-- ═══ TAB: COOKIES WEB (sin IA, siempre activa) ═══ -->
+        <div class="tab-panel" id="panelCookies">
+            <section class="card p-5 sm:p-6 space-y-5">
+                <div>
+                    <h3 class="text-[15px] font-bold mb-1">Cookies web</h3>
+                    <p class="text-xs text-[color:var(--muted)]">Título y texto que verán tus clientes en el aviso de
+                        cookies de tu perfil.</p>
+                </div>
+
+                <div class="sk sk-h-input">
+                    <label class="field-label">Título</label>
+                    <input type="text" class="field-input" id="cookiesTitulo" placeholder="Ej. Usamos cookies">
+                </div>
+
+                <div class="sk sk-h-parrafos">
+                    <label class="field-label mb-3">Contenido (párrafos)</label>
+                    <div id="cookiesParrafos" class="space-y-3"></div>
+                    <button class="btn-ghost mt-3 w-full sm:w-auto" id="btnAgregarParrafoCookies">+ Agregar
+                        párrafo</button>
+                </div>
+
+                <div
+                    class="flex items-center gap-3 pt-2 flex-wrap border-t border-[color:var(--border-soft)] mt-1 pt-4">
+                    <button class="btn-primary" id="btnGuardarCookies">Guardar cambios</button>
+                    <span class="text-xs text-[color:var(--muted)]" id="cookiesSavedHint"></span>
                 </div>
             </section>
         </div>
@@ -1037,8 +1144,6 @@
 
     <audio id="reclamoSound" src="../sounds/libro_de_reclamaciones.mp3" preload="auto"></audio>
 
-    <!-- La lógica de Firebase (leer/guardar en Firestore, reproducir sonido en tiempo real, etc.)
-         va en legal.js — se conecta en el siguiente paso. -->
     <script type="module" src="../js/dasboardjs/legal.js"></script>
 </body>
 

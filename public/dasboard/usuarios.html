@@ -1,10 +1,41 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" style="background:#08080a">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark">
   <title>Mis usuarios</title>
+
+  <!-- Skeleton + fondo negro EN LÍNEA: se pinta al instante, sin esperar fuentes ni scripts -->
+  <style>
+    html,body{margin:0;background:#08080a}
+    #skel{position:fixed;inset:0;z-index:200;overflow:hidden;color:#f4f4f6;transition:opacity .35s ease;
+      background:radial-gradient(900px 380px at 85% -10%,rgba(139,92,246,.13),transparent 60%),#08080a}
+    #skel.out{opacity:0;pointer-events:none}
+    #skel *{box-sizing:border-box}
+    #skel .w{max-width:1380px;margin:0 auto;padding:32px 28px 48px}
+    #skel .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+    #skel .hr{display:flex;gap:10px;flex-wrap:wrap}
+    #skel .g{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:22px;align-items:start}
+    #skel .pn{background:#101013;border:1px solid rgba(255,255,255,.07);border-radius:20px;overflow:hidden}
+    #skel .pn-h{padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;align-items:center;gap:12px}
+    #skel .rw{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.05)}
+    #skel .fl{padding:16px 20px 8px;display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+    #skel .ch{display:flex;gap:8px;flex-wrap:wrap;padding:8px 20px 16px;border-bottom:1px solid rgba(255,255,255,.07)}
+    #skel .tr{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.05)}
+    #skel .sk{position:relative;overflow:hidden;background:#16161a;border:1px solid rgba(255,255,255,.05);border-radius:12px}
+    #skel .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+      background:linear-gradient(90deg,transparent,rgba(139,92,246,.2),transparent);animation:skm 1.6s infinite}
+    @keyframes skm{100%{transform:translateX(100%)}}
+    @media(max-width:1000px){#skel .g{grid-template-columns:1fr}#skel .pn.l{display:none}}
+    @media(max-width:620px){#skel .w{padding:20px 14px 40px}#skel .hide-s{display:none}}
+    @media(prefers-reduced-motion:reduce){#skel .sk::after{animation:none}}
+  </style>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap"
     rel="stylesheet">
@@ -1881,6 +1912,67 @@
 </head>
 
 <body>
+
+  <!-- ============ SKELETON DARK (pantalla completa) ============ -->
+  <div id="skel" aria-busy="true" aria-label="Cargando usuarios">
+    <div class="w">
+      <div class="hd">
+        <div>
+          <div class="sk" style="height:32px;width:220px"></div>
+          <div class="sk" style="height:14px;width:min(430px,70vw);margin-top:12px"></div>
+        </div>
+        <div class="hr">
+          <div class="sk hide-s" style="height:42px;width:150px;border-radius:14px"></div>
+          <div class="sk hide-s" style="height:42px;width:130px;border-radius:14px"></div>
+          <div class="sk" style="height:42px;width:100px;border-radius:14px"></div>
+          <div class="sk" style="height:42px;width:130px;border-radius:14px"></div>
+          <div class="sk" style="height:46px;width:120px;border-radius:14px"></div>
+        </div>
+      </div>
+
+      <div class="sk" style="height:44px;width:340px;max-width:100%;border-radius:14px;margin-bottom:20px"></div>
+
+      <div class="g">
+        <div class="pn l">
+          <div class="pn-h">
+            <div class="sk" style="height:18px;width:150px"></div>
+            <div class="sk" style="height:30px;width:100px;border-radius:10px"></div>
+          </div>
+          <div class="rw"><div class="sk" style="height:16px;width:120px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
+          <div class="rw"><div class="sk" style="height:16px;width:150px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
+          <div class="rw"><div class="sk" style="height:16px;width:100px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
+          <div class="rw"><div class="sk" style="height:16px;width:130px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
+          <div class="rw"><div class="sk" style="height:16px;width:140px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
+          <div class="rw"><div class="sk" style="height:16px;width:110px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
+        </div>
+
+        <div class="pn">
+          <div class="pn-h"><div class="sk" style="height:18px;width:180px"></div><div class="sk" style="height:12px;width:90px"></div></div>
+          <div class="fl">
+            <div class="sk" style="height:42px;grid-column:span 6"></div>
+            <div class="sk" style="height:42px;grid-column:span 3"></div>
+            <div class="sk" style="height:42px;grid-column:span 3"></div>
+            <div class="sk" style="height:42px;grid-column:span 6"></div>
+            <div class="sk" style="height:42px;grid-column:span 6"></div>
+          </div>
+          <div class="ch">
+            <div class="sk" style="height:28px;width:110px;border-radius:999px"></div>
+            <div class="sk" style="height:28px;width:70px;border-radius:999px"></div>
+            <div class="sk" style="height:28px;width:70px;border-radius:999px"></div>
+            <div class="sk" style="height:28px;width:90px;border-radius:999px"></div>
+            <div class="sk" style="height:28px;width:150px;border-radius:999px"></div>
+          </div>
+          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
+          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
+          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
+          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
+          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
+          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="wrap">
     <header class="page-head">
       <div>
@@ -2206,6 +2298,40 @@
     </div>
   </div>
   <div id="toast"></div>
+
+  <!-- Cierra el skeleton SOLO, sin tocar usuarios.js:
+       en cuanto la tabla deja de decir "Cargando…" (llegaron los usuarios o el aviso de vacío) se desvanece.
+       Respaldo: a los 12 s se cierra igual para que nunca quede pegado. -->
+  <script>
+    (function () {
+      var skel = document.getElementById("skel");
+      var tb = document.getElementById("registrados");
+      if (!skel || !tb) return;
+      var cerrado = false, mo = null;
+      function cerrar() {
+        if (cerrado) return;
+        cerrado = true;
+        if (mo) mo.disconnect();
+        skel.classList.add("out");
+        skel.setAttribute("aria-busy", "false");
+        setTimeout(function () { skel.style.display = "none"; }, 400);
+      }
+      function listo() {
+        var rows = tb.children;
+        for (var i = 0; i < rows.length; i++) {
+          var t = (rows[i].textContent || "").trim();
+          if (t && t.indexOf("Cargando") !== 0) return true;
+        }
+        return false;
+      }
+      if ("MutationObserver" in window) {
+        mo = new MutationObserver(function () { if (listo()) cerrar(); });
+        mo.observe(tb, { childList: true, subtree: true, characterData: true });
+      }
+      if (listo()) cerrar();
+      setTimeout(cerrar, 12000);
+    })();
+  </script>
 
   <script>
     /* La tabla funciona sola; Firebase se carga aparte para que un fallo de red no rompa nada. */
@@ -2756,7 +2882,9 @@
         listarPlantillasWA = N.httpsCallable(fns, 'listarPlantillasWhatsapp');
         resumenWA = N.httpsCallable(fns, 'resumenWhatsapp');
         fbListo = true; iniciarEscucha();
-        cargarPlantillas();
+        /* Las plantillas llaman a una Cloud Function (lenta). Se piden con calma,
+           sin competir con la carga de usuarios; igual se piden al abrir un chat. */
+        setTimeout(() => cargarPlantillas(), 3000);
       } catch (e) { console.error('Firebase no cargó:', e); toast('Chat sin conexión: ' + e.message); }
     })();
   </script>

@@ -1,11 +1,32 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" style="background:#000">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <title>Admin de formularios y campañas</title>
+
+<!-- Fondo negro + skeleton EN LÍNEA: se pinta al instante, sin esperar fuentes ni scripts -->
+<style>
+html,body{margin:0;background:#000}
+#skel{position:fixed;inset:0;z-index:200;overflow:hidden;background:#000;color:#efeaf9;transition:opacity .35s ease}
+#skel.out{opacity:0;pointer-events:none}
+#skel *{box-sizing:border-box}
+#skel .w{max-width:1180px;margin:0 auto;padding:26px 24px 60px}
+#skel .tp{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+#skel .gd{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+#skel .cd{background:#0c0a12;border:1px solid #241d36;border-radius:16px;padding:18px}
+#skel .dl{display:flex;gap:22px;margin-top:18px}
+#skel .sk{position:relative;overflow:hidden;background:#13101c;border:1px solid #1d1830;border-radius:10px}
+#skel .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(139,92,246,.2),transparent);animation:skm 1.6s infinite}
+@keyframes skm{100%{transform:translateX(100%)}}
+@media(max-width:600px){#skel .w{padding:18px 14px 50px}}
+@media(prefers-reduced-motion:reduce){#skel .sk::after{animation:none}}
+</style>
+
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#000;--panel:#0c0a12;--panel2:#13101c;--line:#241d36;--line2:#352b4b;--text:#efeaf9;--muted:#8d84a6;--p:#8b5cf6;--p2:#a78bfa;--pdim:rgba(139,92,246,.14);--glow:rgba(139,92,246,.28);--ok:#34d399;--brand:#8b5cf6;--brand2:#22d3ee;--ease:cubic-bezier(.2,.7,.2,1);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -172,9 +193,64 @@ button:active{transform:none}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 details.r{content-visibility:auto;contain-intrinsic-size:auto 56px}
 </style>
+<script type="module" src="../js/dasboardjs/formulario.js"></script>
 </head>
 <body>
+
+<!-- ============ SKELETON DARK (pantalla completa) ============ -->
+<div id="skel" aria-busy="true" aria-label="Cargando formularios y campañas">
+  <div class="w">
+    <div class="tp">
+      <div>
+        <div class="sk" style="height:28px;width:min(330px,70vw)"></div>
+        <div class="sk" style="height:13px;width:min(240px,55vw);margin-top:10px"></div>
+      </div>
+      <div class="sk" style="height:40px;width:150px;border-radius:12px"></div>
+    </div>
+
+    <div class="gd">
+      <div class="cd"><div class="sk" style="height:22px;width:70px;border-radius:99px"></div><div class="sk" style="height:18px;width:75%;margin-top:14px"></div><div class="dl"><div class="sk" style="height:34px;width:64px"></div><div class="sk" style="height:34px;width:64px"></div></div></div>
+      <div class="cd"><div class="sk" style="height:22px;width:70px;border-radius:99px"></div><div class="sk" style="height:18px;width:60%;margin-top:14px"></div><div class="dl"><div class="sk" style="height:34px;width:64px"></div><div class="sk" style="height:34px;width:64px"></div></div></div>
+      <div class="cd"><div class="sk" style="height:22px;width:70px;border-radius:99px"></div><div class="sk" style="height:18px;width:80%;margin-top:14px"></div><div class="dl"><div class="sk" style="height:34px;width:64px"></div><div class="sk" style="height:34px;width:64px"></div></div></div>
+      <div class="cd"><div class="sk" style="height:22px;width:70px;border-radius:99px"></div><div class="sk" style="height:18px;width:65%;margin-top:14px"></div><div class="dl"><div class="sk" style="height:34px;width:64px"></div><div class="sk" style="height:34px;width:64px"></div></div></div>
+      <div class="cd"><div class="sk" style="height:22px;width:70px;border-radius:99px"></div><div class="sk" style="height:18px;width:72%;margin-top:14px"></div><div class="dl"><div class="sk" style="height:34px;width:64px"></div><div class="sk" style="height:34px;width:64px"></div></div></div>
+      <div class="cd"><div class="sk" style="height:22px;width:70px;border-radius:99px"></div><div class="sk" style="height:18px;width:55%;margin-top:14px"></div><div class="dl"><div class="sk" style="height:34px;width:64px"></div><div class="sk" style="height:34px;width:64px"></div></div></div>
+    </div>
+  </div>
+</div>
+
 <div class="wrap" id="app"></div>
-<script type="module" src="../js/dasboardjs/formulario.js"></script>
+
+<!-- Cierra el skeleton SOLO, sin tocar formulario.js:
+     en cuanto #app recibe contenido real (y no solo un "Cargando…") se desvanece.
+     Respaldo: a los 12 s se cierra igual para que nunca quede pegado. -->
+<script>
+(function () {
+  var skel = document.getElementById("skel"), app = document.getElementById("app");
+  if (!skel || !app) return;
+  var cerrado = false, mo = null;
+  function cerrar() {
+    if (cerrado) return;
+    cerrado = true;
+    if (mo) mo.disconnect();
+    skel.classList.add("out");
+    skel.setAttribute("aria-busy", "false");
+    setTimeout(function () { skel.style.display = "none"; }, 400);
+  }
+  function listo() {
+    if (!app.children.length) return false;
+    var t = (app.textContent || "").trim();
+    // Si lo único que hay es un aviso corto de "Cargando…", todavía no está listo
+    if (t.length < 40 && /cargando|loading/i.test(t)) return false;
+    return t.length > 0 || app.querySelector("button,input,select,.grid,.card,details");
+  }
+  if ("MutationObserver" in window) {
+    mo = new MutationObserver(function () { if (listo()) cerrar(); });
+    mo.observe(app, { childList: true, subtree: true, characterData: true });
+  }
+  if (listo()) cerrar();
+  setTimeout(cerrar, 12000);
+})();
+</script>
 </body>
 </html>

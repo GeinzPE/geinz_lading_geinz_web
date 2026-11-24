@@ -543,9 +543,10 @@ form {
 }
 
 .field-group {
+    margin-top: 11px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 
 .field-label {
@@ -1179,6 +1180,7 @@ svg.input-icon {
 }
 
 .btn-enter-panel {
+  margin-top: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2057,6 +2059,7 @@ svg.input-icon {
 }
 
 .login-inline .field-group {
+  margin-top: 5px;
   margin-bottom: 10px;
 }
 

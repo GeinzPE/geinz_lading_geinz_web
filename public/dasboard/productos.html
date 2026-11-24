@@ -660,43 +660,6 @@
       display: none;
     }
 
-    .skeleton-card {
-      border-radius: 16px;
-      background: #0d0a17;
-      border: 1px solid rgba(139, 92, 246, 0.15);
-      overflow: hidden;
-      min-height: 260px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .skeleton-img {
-      width: 100%;
-      aspect-ratio: 1;
-      background: linear-gradient(90deg, rgba(139, 92, 246, .06) 25%, rgba(139, 92, 246, .15) 37%, rgba(139, 92, 246, .06) 63%);
-      background-size: 400% 100%;
-      animation: skeletonShine 1.4s ease infinite;
-    }
-
-    .skeleton-line {
-      height: 10px;
-      border-radius: 6px;
-      margin: 10px 14px;
-      background: linear-gradient(90deg, rgba(139, 92, 246, .06) 25%, rgba(139, 92, 246, .15) 37%, rgba(139, 92, 246, .06) 63%);
-      background-size: 400% 100%;
-      animation: skeletonShine 1.4s ease infinite;
-    }
-
-    @keyframes skeletonShine {
-      0% {
-        background-position: 100% 50%;
-      }
-
-      100% {
-        background-position: 0 50%;
-      }
-    }
-
     .producto-card {
       transition: opacity .22s ease, transform .22s ease;
     }
@@ -974,56 +937,32 @@
       width: 10px;
       height: 10px;
     }
+
+    /* ===== NEGRO PURO ===== */
+:root { --bg-dark:#000; --surface-dark:#050505; }
+html, body { background:#000 !important; }
+[class*="bg-[#0d0a17]"] { background-color:#050505 !important; }
+[class*="bg-[#05040a]"] { background-color:#000 !important; }
+[class*="border-purple-900"] { border-color:rgba(255,255,255,.08) !important; }
+.panel-actions-menu { background:#050505; border-color:rgba(255,255,255,.12); }
+.carta-coleccion-card { background:#000; border-color:rgba(255,255,255,.08); }
+
+/* ===== SKELETON OSCURO ===== */
+.sk { background:linear-gradient(90deg,#0b0b0b 25%,#171717 50%,#0b0b0b 75%);
+  background-size:200% 100%; animation:skShine 1.5s linear infinite; border-radius:10px; }
+@keyframes skShine { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.sk-card { border-radius:16px; background:#050505; border:1px solid rgba(255,255,255,.07); overflow:hidden; }
+
+/* ===== RENDIMIENTO ===== */
+.producto-card { content-visibility:auto; contain-intrinsic-size:auto 430px; }
+.img-real-foto { transition:opacity .35s ease; }
+
   </style>
 </head>
 
 <body class="font-sans antialiased min-h-screen relative overflow-x-hidden">
 
-  <!-- SPLASH SCREEN PURE DARK (SOLO IMÁGENES + TOTALES) -->
-  <div id="splash-screen"
-    class="fixed inset-0 z-[500] bg-black flex flex-col items-center justify-center p-6 select-none overflow-hidden">
-    <div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(124,58,237,0.08)_0%,transparent_70%)]">
-    </div>
 
-    <div class="w-full max-w-xl flex flex-col items-center gap-8">
-
-      <!-- Contenedor dinámico solo de imágenes cargadas -->
-      <div id="splash-gallery" class="w-full flex items-center justify-center gap-3 overflow-hidden py-4 min-h-[120px]">
-        <div class="flex items-center gap-3 animate-pulse">
-          <div class="w-20 h-20 rounded-2xl bg-purple-950/30 border border-purple-900/30"></div>
-          <div class="w-24 h-24 rounded-2xl bg-violet-900/20 border border-purple-800/40"></div>
-          <div class="w-20 h-20 rounded-2xl bg-purple-950/30 border border-purple-900/30"></div>
-        </div>
-      </div>
-
-      <!-- Indicador de Carga y Totales -->
-      <div class="flex flex-col items-center text-center gap-3">
-        <div class="flex items-center gap-2 text-xs font-mono text-violet-300/80 uppercase tracking-widest">
-          <span class="spinner"></span>
-          <span>Cargando catálogo...</span>
-        </div>
-
-        <!-- Métricas del Splash -->
-        <div
-          class="flex items-center gap-4 bg-[#0d0a17] px-5 py-2.5 rounded-2xl border border-purple-900/30 text-xs font-mono shadow-2xl">
-          <div class="text-purple-300">
-            Imágenes: <strong id="splash-total-imgs" class="text-white">0</strong>
-          </div>
-          <div class="w-px h-3 bg-purple-900/50"></div>
-          <div class="text-purple-300">
-            Productos: <strong id="splash-total-prods" class="text-white">0</strong>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Ambient Glow Background Sutil Dark -->
-  <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-    <div class="absolute -top-40 -left-20 w-[500px] h-[500px] rounded-full bg-violet-950/15 blur-[160px]"></div>
-    <div class="absolute bottom-0 right-0 w-[450px] h-[450px] rounded-full bg-indigo-950/10 blur-[160px]"></div>
-  </div>
 
   <!-- Header Principal -->
   <header class="sticky top-0 z-30 backdrop-blur-xl bg-black/85 border-b border-purple-900/20">
@@ -1191,7 +1130,6 @@
       </div>
     </div>
     <!-- Adicionales (solo Comida y Restaurantes) -->
-    <!-- Adicionales (solo Comida y Restaurantes) -->
     <div class="hidden mb-8" id="adicionales-section">
       <div class="rounded-2xl bg-[#0d0a17] border border-amber-500/15 overflow-hidden">
         <div class="flex items-center gap-3 p-5 sm:p-6">
@@ -1230,7 +1168,22 @@
       </div>
     </div>
     <!-- Contenedor de Colecciones/Categorías -->
-    <div id="categorias-container" class="flex flex-col gap-10"></div>
+    <div id="categorias-container" class="flex flex-col gap-10">
+      <div id="skeleton-inicial" class="flex flex-col gap-10">
+        <div class="sk-card p-4 sm:p-6">
+          <div class="flex items-center justify-between mb-5 pb-4" style="border-bottom:1px solid rgba(255,255,255,.07)">
+            <div class="sk" style="height:22px;width:180px"></div>
+            <div class="sk" style="height:34px;width:220px"></div>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div class="sk-card"><div class="sk" style="aspect-ratio:1;border-radius:0"></div><div style="padding:14px"><div class="sk" style="height:12px;width:70%"></div><div class="sk" style="height:10px;width:90%;margin-top:10px"></div><div class="sk" style="height:18px;width:40%;margin-top:16px"></div></div></div>
+            <div class="sk-card"><div class="sk" style="aspect-ratio:1;border-radius:0"></div><div style="padding:14px"><div class="sk" style="height:12px;width:60%"></div><div class="sk" style="height:10px;width:85%;margin-top:10px"></div><div class="sk" style="height:18px;width:35%;margin-top:16px"></div></div></div>
+            <div class="sk-card hidden md:block"><div class="sk" style="aspect-ratio:1;border-radius:0"></div><div style="padding:14px"><div class="sk" style="height:12px;width:65%"></div><div class="sk" style="height:10px;width:80%;margin-top:10px"></div><div class="sk" style="height:18px;width:45%;margin-top:16px"></div></div></div>
+            <div class="sk-card hidden lg:block"><div class="sk" style="aspect-ratio:1;border-radius:0"></div><div style="padding:14px"><div class="sk" style="height:12px;width:75%"></div><div class="sk" style="height:10px;width:88%;margin-top:10px"></div><div class="sk" style="height:18px;width:38%;margin-top:16px"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Empty states -->
     <div id="empty-global" class="text-center py-24 px-6" style="display:none;">
@@ -1297,8 +1250,8 @@
 ============================================================ -->
   <style id="modal-producto-css">
     #overlay-producto {
-      --bg: #0d0a17;
-      --in: #05040a;
+      --bg: #0a0a0a;
+      --in: #000;
       --line: rgba(139, 92, 246, .22);
       --ink: #f3f0ff;
       --dim: rgba(196, 181, 253, .68);
@@ -2551,67 +2504,67 @@
     </div>
   </div>
   <!-- Modal: También puedes agregar (a toda la categoría) -->
-<div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-  id="overlay-sug-masivo">
-  <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
-    <h3 class="text-lg font-bold text-white mb-1">También puedes agregar</h3>
-    <p class="text-purple-300/60 text-xs mb-4" id="sug-masivo-hint"></p>
+  <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+    id="overlay-sug-masivo">
+    <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
+      <h3 class="text-lg font-bold text-white mb-1">También puedes agregar</h3>
+      <p class="text-purple-300/60 text-xs mb-4" id="sug-masivo-hint"></p>
 
-    <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-1">Secciones sugeridas</p>
-    <p class="text-[11px] text-purple-300/50 mb-3">Al agregar un producto de esta categoría, el cliente verá productos de las secciones que marques.</p>
-    <div id="sug-masivo-chips" class="flex flex-wrap gap-2 mb-5"></div>
+      <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-1">Secciones sugeridas</p>
+      <p class="text-[11px] text-purple-300/50 mb-3">Al agregar un producto de esta categoría, el cliente verá productos de las secciones que marques.</p>
+      <div id="sug-masivo-chips" class="flex flex-wrap gap-2 mb-5"></div>
 
-    <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Si el producto ya tenía sugerencias</label>
-    <select id="sug-masivo-modo"
-      class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 mb-5">
-      <option value="sumar">Sumar las nuevas a las que ya tiene</option>
-      <option value="reemplazar">Reemplazar todas por estas</option>
-    </select>
+      <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Si el producto ya tenía sugerencias</label>
+      <select id="sug-masivo-modo"
+        class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 mb-5">
+        <option value="sumar">Sumar las nuevas a las que ya tiene</option>
+        <option value="reemplazar">Reemplazar todas por estas</option>
+      </select>
 
-    <div class="flex justify-end gap-2.5">
-      <button type="button" data-close="overlay-sug-masivo"
-        class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
-      <button type="button" id="btn-guardar-sug-masivo"
-        class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[140px] flex items-center justify-center">
-        <span id="btn-guardar-sug-masivo-label">Aplicar a todos</span>
-      </button>
+      <div class="flex justify-end gap-2.5">
+        <button type="button" data-close="overlay-sug-masivo"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+        <button type="button" id="btn-guardar-sug-masivo"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[140px] flex items-center justify-center">
+          <span id="btn-guardar-sug-masivo-label">Aplicar a todos</span>
+        </button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Modal: Formato de texto (a toda la categoría) -->
-<div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-  id="overlay-caso-masivo">
-  <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
-    <h3 class="text-lg font-bold text-white mb-1">Formato de texto</h3>
-    <p class="text-purple-300/60 text-xs mb-4" id="caso-masivo-hint"></p>
+  <!-- Modal: Formato de texto (a toda la categoría) -->
+  <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+    id="overlay-caso-masivo">
+    <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
+      <h3 class="text-lg font-bold text-white mb-1">Formato de texto</h3>
+      <p class="text-purple-300/60 text-xs mb-4" id="caso-masivo-hint"></p>
 
-    <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-2">Convertir a</p>
-    <div class="flex flex-col gap-2 mb-5">
-      <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
-        <input type="radio" name="caso-masivo" value="mayus" checked class="accent-violet-500"> MAYÚSCULAS
-      </label>
-      <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
-        <input type="radio" name="caso-masivo" value="minus" class="accent-violet-500"> minúsculas
-      </label>
-      <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
-        <input type="radio" name="caso-masivo" value="titulo" class="accent-violet-500"> Primera Letra De Cada Palabra
-      </label>
-    </div>
+      <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-2">Convertir a</p>
+      <div class="flex flex-col gap-2 mb-5">
+        <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+          <input type="radio" name="caso-masivo" value="mayus" checked class="accent-violet-500"> MAYÚSCULAS
+        </label>
+        <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+          <input type="radio" name="caso-masivo" value="minus" class="accent-violet-500"> minúsculas
+        </label>
+        <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+          <input type="radio" name="caso-masivo" value="titulo" class="accent-violet-500"> Primera Letra De Cada Palabra
+        </label>
+      </div>
 
-    <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-2">Aplicar a</p>
-    <div id="caso-masivo-chips" class="flex flex-wrap gap-2 mb-5"></div>
+      <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-2">Aplicar a</p>
+      <div id="caso-masivo-chips" class="flex flex-wrap gap-2 mb-5"></div>
 
-    <div class="flex justify-end gap-2.5">
-      <button type="button" data-close="overlay-caso-masivo"
-        class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
-      <button type="button" id="btn-guardar-caso-masivo"
-        class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[140px] flex items-center justify-center">
-        <span id="btn-guardar-caso-masivo-label">Aplicar a todos</span>
-      </button>
+      <div class="flex justify-end gap-2.5">
+        <button type="button" data-close="overlay-caso-masivo"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+        <button type="button" id="btn-guardar-caso-masivo"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[140px] flex items-center justify-center">
+          <span id="btn-guardar-caso-masivo-label">Aplicar a todos</span>
+        </button>
+      </div>
     </div>
   </div>
-</div>
   <div class="fixed bottom-5 right-5 left-5 sm:left-auto z-[200] flex flex-col gap-2 items-end" id="toast-wrap"></div>
   <!-- Modal: Horario de categoría -->
   <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"

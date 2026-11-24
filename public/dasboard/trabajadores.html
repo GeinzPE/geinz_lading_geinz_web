@@ -3,99 +3,54 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Trabajadores y Planilla</title>
 
-  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
   <link rel="stylesheet" href="../../style/tailwind.css">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
     rel="stylesheet">
-  <!--
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            base: '#000000',
-            panel: '#050505',
-            panel2: '#0D0D0D',
-            line: '#221B35',
-            ink: '#FFFFFF',
-            inkdim: '#CCCCCC',
-            inkfaint: '#888888',
-            primary: '#8855FF',
-          },
-          fontFamily: {
-            display: ['"Bricolage Grotesque"', 'sans-serif'],
-            body: ['"Inter"', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
-          }
-        }
-      }
-    }
-  </script>
- -->
+
   <style>
+    html { -webkit-text-size-adjust: 100%; }
+
     body {
       font-family: 'Inter', sans-serif;
       background: #000;
       color: #fff;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
 
-    .font-display {
-      font-family: 'Bricolage Grotesque', sans-serif;
-    }
+    body.lock { overflow: hidden; }
 
-    .font-mono {
-      font-family: 'JetBrains Mono', monospace;
-    }
+    .font-display { font-family: 'Bricolage Grotesque', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-    * {
-      scrollbar-width: thin;
-      scrollbar-color: #2a2a2a #000;
-    }
+    * { scrollbar-width: thin; scrollbar-color: #2a2a2a #000; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #000; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 5px; border: 2px solid #000; }
 
-    ::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #000;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #2a2a2a;
-      border-radius: 5px;
-      border: 2px solid #000;
-    }
-
-    select,
-    input {
-      color-scheme: dark;
-    }
+    select, input { color-scheme: dark; }
 
     .chip {
-      transition: all .15s ease;
+      transition: border-color .15s ease, color .15s ease, background .15s ease;
       background: #0D0D0D;
       border: 1px solid #221B35;
       color: #CCC;
     }
-
-    .chip:hover {
-      border-color: #8855FF;
-      color: #fff;
-    }
-
     .chip.active {
       background: #8855FF;
       color: #fff;
       border-color: #8855FF;
       box-shadow: 0 0 12px rgba(136, 85, 255, .4);
+    }
+    @media (hover: hover) {
+      .chip:hover { border-color: #8855FF; color: #fff; }
     }
 
     .field {
@@ -109,14 +64,13 @@
       outline: none;
       transition: border-color .15s ease, box-shadow .15s ease;
     }
+    .field:focus { border-color: #8855FF; box-shadow: 0 0 0 3px rgba(136, 85, 255, .18); }
+    .field::placeholder { color: #666; }
+    input[type="date"].field { min-width: 0; min-height: 2.6rem; -webkit-appearance: none; appearance: none; }
 
-    .field:focus {
-      border-color: #8855FF;
-      box-shadow: 0 0 0 3px rgba(136, 85, 255, .18);
-    }
-
-    .field::placeholder {
-      color: #666;
+    /* en celular, 16px evita el zoom automático de iOS al enfocar */
+    @media (max-width: 640px) {
+      .field, select.field, input.field { font-size: 16px; }
     }
 
     .lbl {
@@ -143,185 +97,160 @@
       font-weight: 500;
       transition: border-color .15s ease, background .15s ease, color .15s ease, transform .1s ease;
     }
-
-    .opt:hover {
-      border-color: #8855FF;
-      color: #fff;
+    .opt:active { transform: scale(.97); }
+    .opt:has(input:checked) { border-color: #8855FF; background: rgba(136, 85, 255, .16); color: #fff; }
+    .opt input { accent-color: #8855FF; width: 1rem; height: 1rem; flex-shrink: 0; }
+    .opt input:disabled { opacity: .5; }
+    @media (hover: hover) {
+      .opt:hover { border-color: #8855FF; color: #fff; }
     }
 
-    .opt:active {
-      transform: scale(.97);
+    /* insignias de estado de pago */
+    .badge {
+      padding: .25rem .625rem;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid;
+      white-space: nowrap;
     }
+    .badge-ok { background: rgba(136, 85, 255, .2); border-color: rgba(136, 85, 255, .5); color: #fff; }
+    .badge-due { background: #fff; border-color: #fff; color: #000; }
+    .badge-late { background: rgba(239, 68, 68, .15); border-color: rgba(239, 68, 68, .5); color: #fca5a5; }
+    .badge-wait { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .15); color: #ccc; }
 
-    .opt:has(input:checked) {
-      border-color: #8855FF;
-      background: rgba(136, 85, 255, .16);
-      color: #fff;
-    }
+    .wcard { content-visibility: auto; contain-intrinsic-size: auto 430px; }
 
-    .opt input {
-      accent-color: #8855FF;
-      width: 1rem;
-      height: 1rem;
-      flex-shrink: 0;
-    }
-
-    .opt input:disabled {
-      opacity: .5;
-    }
+    /* ===== textos de ayuda y componentes simples ===== */
+    .help { font-size: 12px; line-height: 1.55; color: #aaa; }
+    .guide { background: #050505; border: 1px solid #221B35; border-radius: 1rem; padding: .9rem 1rem; }
+    .guide summary { cursor: pointer; font-weight: 700; font-size: .95rem; list-style: none; display: flex; align-items: center; gap: .5rem; }
+    .guide summary::-webkit-details-marker { display: none; }
+    .guide summary::after { content: "▾"; margin-left: auto; color: #888; transition: transform .2s; }
+    .guide[open] summary::after { transform: rotate(180deg); }
+    .guide ol { margin: .8rem 0 0; padding: 0; list-style: none; display: grid; gap: .65rem; }
+    .guide li { display: flex; gap: .7rem; font-size: .8125rem; color: #ccc; line-height: 1.5; }
+    .guide li i { font-style: normal; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: rgba(136, 85, 255, .2); border: 1px solid rgba(136, 85, 255, .5); color: #fff; font-weight: 700; font-size: .75rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .guide li b { color: #fff; }
+    .pay-hero { background: #0D0D0D; border: 1px solid #221B35; border-radius: 1rem; padding: 1rem; text-align: center; margin-bottom: 1.25rem; }
+    .big-num { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 2.25rem; line-height: 1.1; }
+    .step { font-size: 11px; letter-spacing: .06em; color: #8855FF; font-weight: 700; margin: 1.35rem 0 .55rem; }
+    .pay-opts { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .6rem; }
+    .pay-opt { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; text-align: left; background: #0D0D0D; border: 1px solid #221B35; border-radius: .8rem; padding: .7rem .75rem; color: #ccc; font-size: .8125rem; font-weight: 600; transition: border-color .15s ease, background .15s ease; }
+    .pay-opt.active { border-color: #8855FF; background: rgba(136, 85, 255, .16); color: #fff; }
+    .pay-opt:active { transform: scale(.97); }
+    .pay-ico { font-size: 1.25rem; }
+    .calc-row { display: flex; justify-content: space-between; gap: .75rem; font-size: .8125rem; color: #bbb; padding: .3rem 0; }
+    .calc-row b { color: #fff; font-family: 'JetBrains Mono', monospace; font-weight: 600; white-space: nowrap; }
+    .calc-row.total { border-top: 1px solid #221B35; margin-top: .3rem; padding-top: .6rem; color: #fff; font-weight: 700; }
+    .hist { display: flex; justify-content: space-between; align-items: center; gap: .75rem; background: #0D0D0D; border: 1px solid #221B35; border-radius: .8rem; padding: .65rem .8rem; }
+    .debt { background: #0D0D0D; border: 1px solid #221B35; border-radius: .9rem; padding: .8rem .9rem; margin-bottom: .75rem; }
+    .debt-n { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 1.6rem; line-height: 1.15; }
+    @media (hover: hover) { .pay-opt:hover { border-color: #8855FF; color: #fff; } }
 
     .card-in {
       animation: cardIn .4s cubic-bezier(.16, 1, .3, 1) both;
       animation-delay: calc(var(--i, 0) * 45ms);
     }
-
     @keyframes cardIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px) scale(.985);
-      }
-
-      to {
-        opacity: 1;
-        transform: none;
-      }
+      from { opacity: 0; transform: translateY(10px) scale(.985); }
+      to { opacity: 1; transform: none; }
     }
-
-    .fade-in {
-      animation: fadeIn .25s ease both;
-    }
-
+    .fade-in { animation: fadeIn .25s ease both; }
     @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(4px);
-      }
-
-      to {
-        opacity: 1;
-        transform: none;
-      }
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: none; }
     }
 
-    .overlay {
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .25s ease;
-    }
-
-    .overlay.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
+    .overlay { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+    .overlay.open { opacity: 1; pointer-events: auto; }
     .sheet {
+      height: 100%;
+      height: 100dvh;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: env(safe-area-inset-bottom);
       transform: translateX(28px);
       opacity: 0;
       transition: transform .32s cubic-bezier(.16, 1, .3, 1), opacity .25s ease;
     }
+    .overlay.open .sheet { transform: none; opacity: 1; }
 
-    .overlay.open .sheet {
-      transform: none;
-      opacity: 1;
-    }
-
-    .skeleton-element {
-      background: #0D0D0D;
-      border: 1px solid #1A1A1A;
-      position: relative;
-      overflow: hidden;
-      border-radius: 8px;
-    }
-
-    .skeleton-element::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      transform: translateX(-100%);
-      background: linear-gradient(90deg, transparent, rgba(136, 85, 255, .18), transparent);
-      animation: shimmer 1.6s infinite;
-    }
-
-    @keyframes shimmer {
-      100% {
-        transform: translateX(100%);
-      }
-    }
+    #toast { bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
 
     @keyframes loadingBarSlide {
-      0% {
-        transform: translateX(-100%);
-      }
-
-      50% {
-        transform: translateX(60%);
-      }
-
-      100% {
-        transform: translateX(220%);
-      }
+      0% { transform: translateX(-100%); }
+      50% { transform: translateX(60%); }
+      100% { transform: translateX(220%); }
     }
-
-    .loading-bar-fill {
-      animation: loadingBarSlide 1.1s ease-in-out infinite;
-    }
+    .loading-bar-fill { animation: loadingBarSlide 1.1s ease-in-out infinite; }
 
     /* gráficos */
-    .seg {
-      animation: segDraw .9s cubic-bezier(.16, 1, .3, 1) both;
-    }
-
-    @keyframes segDraw {
-      from {
-        stroke-dasharray: 0 339.3;
-      }
-    }
-
-    .grow-x {
-      transform-origin: left;
-      animation: growX .7s cubic-bezier(.16, 1, .3, 1) both;
-    }
-
-    @keyframes growX {
-      from {
-        transform: scaleX(0);
-      }
-    }
-
+    .seg { animation: segDraw .9s cubic-bezier(.16, 1, .3, 1) both; }
+    @keyframes segDraw { from { stroke-dasharray: 0 339.3; } }
+    .grow-x { transform-origin: left; animation: growX .7s cubic-bezier(.16, 1, .3, 1) both; }
+    @keyframes growX { from { transform: scaleX(0); } }
     .grow-y {
       transform-origin: bottom;
       animation: growY .7s cubic-bezier(.16, 1, .3, 1) both;
       animation-delay: calc(var(--i, 0) * 12ms);
     }
+    @keyframes growY { from { transform: scaleY(0); } }
 
-    @keyframes growY {
-      from {
-        transform: scaleY(0);
-      }
-    }
+    .cal-cell { transition: transform .12s ease, background .15s ease, border-color .15s ease; }
+    .cal-cell:active { transform: scale(.9); }
 
-    .cal-cell {
-      transition: transform .12s ease, background .15s ease, border-color .15s ease;
-    }
+    .dim-metrics { opacity: .4; pointer-events: none; }
+    #metricsWrap { transition: opacity .25s ease; }
 
-    .cal-cell:active {
-      transform: scale(.9);
+    /* =================== SKELETON (oscuro, neutro) =================== */
+    #loadingScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: #000;
+      overflow: hidden;
+      transition: opacity .3s ease;
     }
-
-    .dim-metrics {
-      opacity: .4;
-      pointer-events: none;
+    .sk-wrap { max-width: 1400px; margin: 0 auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+    @media (min-width: 640px) { .sk-wrap { padding: 16px 24px; gap: 18px; } }
+    .sk {
+      display: block;
+      position: relative;
+      overflow: hidden;
+      background: #111113;
+      border-radius: 6px;
     }
-
-    #metricsWrap {
-      transition: opacity .25s ease;
+    .sk::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .06), transparent);
+      animation: skShimmer 1.8s ease-in-out infinite;
     }
+    @keyframes skShimmer { to { transform: translateX(100%); } }
+    .sk-card { background: #060607; border: 1px solid #161618; border-radius: 14px; padding: 14px; }
+    .sk-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid #131315; }
+    .sk-col { display: flex; flex-direction: column; gap: 8px; }
+    .sk-row { display: flex; align-items: center; gap: 10px; }
+    .sk-chips { display: flex; gap: 8px; align-items: center; overflow: hidden; }
+    .sk-grid4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .sk-split { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .sk-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .sk-bars { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+    .sk-bars .sk { flex: 1; border-radius: 3px 3px 0 0; }
+    .sk-circle { border-radius: 50%; }
+    .sk-hide-m { display: none; }
+    @media (min-width: 640px) { .sk-cards { grid-template-columns: repeat(2, 1fr); } .sk-hide-m { display: flex; } }
+    @media (min-width: 1024px) {
+      .sk-grid4 { grid-template-columns: repeat(4, 1fr); }
+      .sk-split { grid-template-columns: 3fr 2fr; }
+    }
+    @media (min-width: 1280px) { .sk-cards { grid-template-columns: repeat(3, 1fr); } }
 
     @media (prefers-reduced-motion: reduce) {
-
-      *,
-      *::before,
-      *::after {
+      *, *::before, *::after {
         animation-duration: .01ms !important;
         transition-duration: .01ms !important;
         animation-delay: 0ms !important;
@@ -332,27 +261,78 @@
 
 <body class="text-ink min-h-screen bg-base relative">
 
-  <!-- ======================= CARGA ======================= -->
-  <div id="loadingScreen" class="fixed inset-0 bg-base z-50 flex flex-col p-4 sm:p-8 space-y-6 overflow-hidden">
-    <div class="flex items-center justify-between gap-4 pb-4 border-b border-line/50">
-      <div class="space-y-2">
-        <div class="skeleton-element h-7 w-56"></div>
-        <div class="skeleton-element h-3 w-28"></div>
+  <!-- ======================= CARGA (skeleton oscuro) ======================= -->
+  <div id="loadingScreen" aria-hidden="true">
+    <div class="sk-wrap">
+      <div class="sk-head">
+        <div class="sk-col">
+          <i class="sk" style="width:200px;height:20px"></i>
+          <i class="sk" style="width:110px;height:10px"></i>
+        </div>
+        <div class="sk-row">
+          <i class="sk" style="width:40px;height:40px;border-radius:10px"></i>
+          <i class="sk" style="width:116px;height:40px;border-radius:10px"></i>
+        </div>
       </div>
-      <div class="skeleton-element h-10 w-36 rounded-xl"></div>
+
+      <div class="sk-card sk-chips">
+        <i class="sk" style="width:44px;height:12px"></i>
+        <i class="sk" style="width:56px;height:30px;border-radius:8px"></i>
+        <i class="sk" style="width:96px;height:30px;border-radius:8px"></i>
+        <i class="sk" style="width:84px;height:30px;border-radius:8px"></i>
+        <i class="sk sk-hide-m" style="width:92px;height:30px;border-radius:8px"></i>
+        <i class="sk sk-hide-m" style="width:110px;height:30px;border-radius:8px"></i>
+      </div>
+
+      <div class="sk-grid4">
+        <div class="sk-card sk-col"><i class="sk" style="width:60%;height:10px"></i><i class="sk" style="width:80%;height:28px"></i><i class="sk" style="width:45%;height:10px"></i></div>
+        <div class="sk-card sk-col"><i class="sk" style="width:55%;height:10px"></i><i class="sk" style="width:75%;height:28px"></i><i class="sk" style="width:50%;height:10px"></i></div>
+        <div class="sk-card sk-col"><i class="sk" style="width:65%;height:10px"></i><i class="sk" style="width:70%;height:28px"></i><i class="sk" style="width:40%;height:10px"></i></div>
+        <div class="sk-card sk-col"><i class="sk" style="width:70%;height:10px"></i><i class="sk" style="width:82%;height:28px"></i><i class="sk" style="width:48%;height:10px"></i></div>
+      </div>
+
+      <div class="sk-split">
+        <div class="sk-card sk-col" style="gap:16px">
+          <i class="sk" style="width:150px;height:16px"></i>
+          <div class="sk-col"><i class="sk" style="width:100%;height:8px"></i><i class="sk" style="width:88%;height:8px"></i></div>
+          <div class="sk-col"><i class="sk" style="width:100%;height:8px"></i><i class="sk" style="width:46%;height:8px"></i></div>
+          <div class="sk-col"><i class="sk" style="width:100%;height:8px"></i><i class="sk" style="width:30%;height:8px"></i></div>
+          <div class="sk-col"><i class="sk" style="width:100%;height:8px"></i><i class="sk" style="width:22%;height:8px"></i></div>
+        </div>
+        <div class="sk-card sk-row sk-hide-m" style="gap:18px">
+          <i class="sk sk-circle" style="width:130px;height:130px;flex-shrink:0"></i>
+          <div class="sk-col" style="flex:1"><i class="sk" style="width:100%;height:10px"></i><i class="sk" style="width:90%;height:10px"></i><i class="sk" style="width:95%;height:10px"></i><i class="sk" style="width:70%;height:10px"></i></div>
+        </div>
+      </div>
+
+      <div class="sk-card sk-col" style="gap:14px">
+        <i class="sk" style="width:210px;height:16px"></i>
+        <div class="sk-bars">
+          <i class="sk" style="height:35%"></i><i class="sk" style="height:55%"></i><i class="sk" style="height:42%"></i><i class="sk" style="height:70%"></i>
+          <i class="sk" style="height:48%"></i><i class="sk" style="height:85%"></i><i class="sk" style="height:60%"></i><i class="sk" style="height:38%"></i>
+          <i class="sk" style="height:72%"></i><i class="sk" style="height:52%"></i><i class="sk" style="height:90%"></i><i class="sk" style="height:44%"></i>
+          <i class="sk" style="height:64%"></i><i class="sk" style="height:40%"></i><i class="sk" style="height:76%"></i><i class="sk" style="height:58%"></i>
+          <i class="sk" style="height:34%"></i><i class="sk" style="height:68%"></i><i class="sk" style="height:50%"></i><i class="sk" style="height:80%"></i>
+        </div>
+      </div>
+
+      <div class="sk-cards">
+        <div class="sk-card sk-col" style="gap:14px">
+          <div class="sk-row"><i class="sk sk-circle" style="width:44px;height:44px"></i><div class="sk-col" style="flex:1"><i class="sk" style="width:60%;height:12px"></i><i class="sk" style="width:40%;height:9px"></i></div></div>
+          <i class="sk" style="width:100%;height:56px"></i>
+          <i class="sk" style="width:100%;height:36px"></i>
+        </div>
+        <div class="sk-card sk-col sk-hide-m" style="gap:14px">
+          <div class="sk-row"><i class="sk sk-circle" style="width:44px;height:44px"></i><div class="sk-col" style="flex:1"><i class="sk" style="width:55%;height:12px"></i><i class="sk" style="width:35%;height:9px"></i></div></div>
+          <i class="sk" style="width:100%;height:56px"></i>
+          <i class="sk" style="width:100%;height:36px"></i>
+        </div>
+      </div>
     </div>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="skeleton-element h-28 rounded-2xl"></div>
-      <div class="skeleton-element h-28 rounded-2xl"></div>
-      <div class="skeleton-element h-28 rounded-2xl"></div>
-      <div class="skeleton-element h-28 rounded-2xl"></div>
-    </div>
-    <div class="skeleton-element h-56 rounded-2xl w-full"></div>
-    <div class="skeleton-element flex-1 rounded-2xl w-full"></div>
   </div>
 
   <!-- ======================= TOP BAR ======================= -->
-  <header class="sticky top-0 z-30 bg-base/90 backdrop-blur border-b border-line">
+  <header class="sticky top-0 z-30 bg-base border-b border-line">
     <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
       <div class="leading-tight min-w-0">
         <h1 class="font-display font-bold text-lg tracking-tight text-white truncate">Trabajadores y planilla</h1>
@@ -397,30 +377,40 @@
       </div>
     </section>
 
+    <details class="guide">
+      <summary>💡 ¿Cómo funciona? (léelo una vez, es corto)</summary>
+      <ol>
+        <li><i>1</i><span><b>Marca los días.</b> En cada trabajador toca <b>📅 Marcar días</b> y señala si vino, faltó o descansó. Solo se pagan los días que vino.</span></li>
+        <li><i>2</i><span><b>Mira cuánto le debes.</b> En la tarjeta de cada trabajador sale <b>"Le debes"</b>: es lo que ya trabajó y todavía no le pagas.</span></li>
+        <li><i>3</i><span><b>Págale.</b> Toca <b>💸 Pagar / adelanto</b>, elige <b>"Pagarle su sueldo"</b> y confirma. El monto ya viene calculado.</span></li>
+        <li><i>4</i><span><b>Adelanto</b> = le das plata antes de que le toque. No se pierde: se resta sola de su próximo pago.</span></li>
+        <li><i>5</i><span><b>Descuento</b> = se le quita plata por algo (préstamo, daño). <b>Bono</b> = se le suma plata extra (horas extra, propina).</span></li>
+      </ol>
+      <p class="help" style="margin-top:.8rem">Ejemplo: gana S/ 300 en la semana y le diste un adelanto de S/ 50. El sistema te dirá que le debes S/ 250.</p>
+    </details>
+
     <div id="metricsWrap" class="space-y-6">
 
       <!-- ======================= KPIs ======================= -->
       <section>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div class="bg-panel border border-line rounded-2xl p-4 card-in" style="--i:0">
-            <p class="text-[11px] text-inkdim font-semibold mb-1">Ventas del rango</p>
+          <div class="bg-panel border border-line rounded-2xl p-4">
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Lo que vendiste</p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiVentas">S/ 0.00</p>
             <p class="text-[11px] text-inkfaint mt-1"><span id="kpiPedidos">0</span> pedidos entregados</p>
           </div>
-          <div class="bg-panel border border-line rounded-2xl p-4 card-in" style="--i:1">
-            <p class="text-[11px] text-inkdim font-semibold mb-1">Sueldos devengados</p>
+          <div class="bg-panel border border-line rounded-2xl p-4">
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Sueldos que se ganaron</p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiPlanilla">S/ 0.00</p>
             <p class="text-[11px] text-inkfaint mt-1" id="kpiPlanillaPct">0% de las ventas</p>
           </div>
-          <div class="bg-panel border border-line rounded-2xl p-4 card-in" style="--i:2">
-            <p class="text-[11px] text-inkdim font-semibold mb-1">Ya pagado / por pagar</p>
+          <div class="bg-panel border border-line rounded-2xl p-4">
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Falta pagar a tus trabajadores</p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiPendiente">S/ 0.00</p>
-            <p class="text-[11px] text-inkfaint mt-1">pagado: <span id="kpiPagado" class="font-mono">S/ 0.00</span></p>
+            <p class="text-[11px] text-inkfaint mt-1">ya les pagaste: <span id="kpiPagado" class="font-mono">S/ 0.00</span></p>
           </div>
-          <div
-            class="bg-panel border border-primary/40 rounded-2xl p-4 relative overflow-hidden shadow-lg shadow-primary/5 card-in"
-            style="--i:3">
-            <p class="text-[11px] text-primary font-bold mb-1">Ganancia neta del negocio</p>
+          <div class="bg-panel border border-primary/40 rounded-2xl p-4 relative overflow-hidden shadow-lg shadow-primary/5">
+            <p class="text-[11px] text-primary font-bold mb-1">Lo que te queda a ti</p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiUtilidad">S/ 0.00</p>
             <p class="text-[11px] text-inkfaint mt-1" id="kpiUtilidadPct">0% de las ventas</p>
           </div>
@@ -478,6 +468,16 @@
       </section>
     </div>
 
+    <!-- ======================= PRÓXIMOS PAGOS ======================= -->
+    <section id="paySection" class="hidden bg-panel border border-line rounded-2xl p-4">
+      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <h2 class="font-display font-bold text-lg text-white">Próximos pagos</h2>
+        <span class="text-[11px] font-mono text-primary" id="payTotal"></span>
+      </div>
+      <p class="help mb-3">Aquí ves a quién hay que pagar, cuándo y cuánto. Así sabes cuánta plata tener lista.</p>
+      <div id="payList" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-2"></div>
+    </section>
+
     <!-- ======================= TRABAJADORES ======================= -->
     <section>
       <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
@@ -504,14 +504,14 @@
   </main>
 
   <!-- ======================= PANEL LATERAL ======================= -->
-  <div id="overlay" class="overlay fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex justify-end">
-    <div class="sheet bg-panel w-full sm:w-[460px] h-full overflow-y-auto shadow-2xl border-l border-line">
+  <div id="overlay" class="overlay fixed inset-0 bg-black/80 z-40 flex justify-end">
+    <div class="sheet bg-panel w-full sm:w-[460px] overflow-y-auto shadow-2xl border-l border-line">
       <div id="panelContent" class="p-5"></div>
     </div>
   </div>
 
   <div id="toast"
-    class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xl shadow-primary/30 z-50 max-w-[90vw] text-center">
+    class="hidden fixed left-1/2 -translate-x-1/2 bg-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xl shadow-primary/30 z-50 max-w-[90vw] text-center">
   </div>
 
   <!-- =====================================================================
@@ -521,8 +521,25 @@
 
        Cada documento guarda: nombre, dni, tipoDoc, cargo, telefono, metodoPago,
        frecuencia, monto, diasPeriodo, diasTrabajo, modoDias, fechaIngreso,
+       ultimoPago ("YYYY-MM-DD" del último pago/adelanto),
+       proximoPago ("YYYY-MM-DD" de la próxima fecha de pago del ciclo),
        asistencia { d20260928: "trabajo" | "medio" | "vacaciones" | "falta" | "descanso" },
-       pagos { p<timestamp>: { tipo: "pago" | "adelanto" | "descuento" | "bono", fecha, monto, nota, metodo } }
+       pagos { p<timestamp>: {
+          tipo: "pago" | "adelanto" | "descuento" | "bono",
+          fecha, monto, nota, metodo, ts,
+          // solo en tipo "pago":
+          desde, hasta   -> período del ciclo que cubre el pago
+          cerro          -> true si el pago dejó el saldo en 0 (cierra el ciclo)
+          saldoAntes, saldoDespues
+       } }
+
+       CÓMO SE CALCULA:
+       saldo = (días trabajados × tarifa) + bonos − descuentos − pagos − adelantos
+       - El saldo es acumulado (no depende del rango), así nada se pierde entre semanas.
+       - Si pagas de más o adelantas de más, el saldo queda negativo y se descuenta
+         automáticamente del siguiente pago.
+       - El próximo pago corre solo: se cuenta desde el final del último ciclo cerrado
+         (no desde el día que pagaste), así pagar tarde no corre la fecha.
 
        IMPORTANTE: agrega en tus reglas de Firestore permiso de lectura y
        escritura para la subcolección "trabajadores" (igual que "pedidos").
@@ -544,8 +561,12 @@
     const parseIso = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
     const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
     const endOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+    const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return startOf(x); };
+    const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fmtDia = (d) => d.toLocaleDateString("es-PE", { day: "2-digit", month: "short" });
+    const fmtDiaLargo = (d) => d.toLocaleDateString("es-PE", { weekday: "short", day: "2-digit", month: "short" });
 
     function fmtMoney(n) {
       return "S/ " + (Number(n) || 0).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -564,7 +585,7 @@
       t.classList.remove("hidden");
       t.classList.add("fade-in");
       clearTimeout(window.__toastTimer);
-      window.__toastTimer = setTimeout(() => t.classList.add("hidden"), 2400);
+      window.__toastTimer = setTimeout(() => t.classList.add("hidden"), 2600);
     }
 
     function animateNumber(el, to, fmt) {
@@ -572,7 +593,7 @@
       const from = el._v || 0;
       el._v = to;
       cancelAnimationFrame(el._raf);
-      if (reduceMotion || from === to) { el.textContent = fmt(to); return; }
+      if (reduceMotion || from === to || !state.anim) { el.textContent = fmt(to); return; }
       const t0 = performance.now(), dur = 550;
       const step = (now) => {
         const k = Math.min(1, (now - t0) / dur);
@@ -587,9 +608,14 @@
     let tiendaId = sessionStorage.getItem("tiendaId");
     let localidad = sessionStorage.getItem("localidad");
 
-    const state = { workers: [], mozos: [], pedidos: [], range: "mes", workersReady: false, pedidosReady: false, search: "" };
+    const state = {
+      workers: [], mozos: [], pedidos: [], pedidosVer: 0, range: "mes",
+      workersReady: false, pedidosReady: false, search: "", anim: true,
+    };
     let started = false;
+    let firstPaint = false;
     let loadToken = 0;
+    let lastData = null;
     let panel = null; // { tipo: 'form'|'asistencia'|'pagos', id }
     let cal = { y: 0, m: 0, brush: "trabajo" };
     let movTipo = "pago";
@@ -606,10 +632,10 @@
     const FREC_LABEL = { diario: "por día", semanal: "por semana", quincenal: "por quincena", mensual: "por mes" };
     const METODOS = { Efectivo: "💵", Yape: "📱", Plin: "📲", Transferencia: "🏦" };
     const TIPOS_MOV = {
-      pago: { label: "Pago", ico: "✅", cls: "text-white" },
-      adelanto: { label: "Adelanto", ico: "⏩", cls: "text-white" },
-      descuento: { label: "Descuento", ico: "➖", cls: "text-red-400" },
-      bono: { label: "Bono / extra", ico: "➕", cls: "text-primary" },
+      pago: { label: "Pago de sueldo", btn: "Pagarle su sueldo", ico: "💵", cls: "text-white", ayuda: "Le entregas la plata que ya ganó. Si le pagas todo lo que le debes, queda al día." },
+      adelanto: { label: "Adelanto", btn: "Darle un adelanto", ico: "⏩", cls: "text-white", ayuda: "Le das plata ANTES de su día de pago. No se pierde: se resta sola de su próximo pago." },
+      descuento: { label: "Descuento", btn: "Descontarle", ico: "➖", cls: "text-red-400", ayuda: "Se le quita plata de su sueldo por algo (préstamo, consumo, daño, tardanza). Escribe el motivo." },
+      bono: { label: "Bono", btn: "Darle un bono", ico: "➕", cls: "text-primary", ayuda: "Se le suma plata extra a su sueldo (horas extra, propina, premio). Escribe el motivo." },
     };
     const DIA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
     const ORDEN_SEMANA = [1, 2, 3, 4, 5, 6, 0];
@@ -652,6 +678,24 @@
       return { costos, gastosOp: Number(cfg.gastosOperativos) || 0 };
     }
 
+    /* Se recalcula solo si cambian los pedidos, el rango o la config de costos */
+    let aggCache = { key: "", val: null };
+    function agregadoPedidos(from, to) {
+      let cfgRaw = "";
+      try { cfgRaw = localStorage.getItem("apr_costos_config_v1") || ""; } catch (e) { /* nada */ }
+      const key = `${state.pedidosVer}|${+from}|${+to}|${cfgRaw}`;
+      if (aggCache.key === key) return aggCache.val;
+      const entregados = state.pedidos.filter((p) => {
+        const d = fechaEfectiva(p);
+        return d && d >= from && d <= to && (p.estado || "").toLowerCase() === "entregado";
+      });
+      const ventas = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+      const { costos, gastosOp } = costoProductos(entregados);
+      const val = { entregados, ventas, costos, gastosOp };
+      aggCache = { key, val };
+      return val;
+    }
+
     /* ------------------------------ Rango de fechas ------------------------------ */
     function getRangeBounds() {
       const now = new Date();
@@ -686,20 +730,24 @@
     /* ------------------------------ Cálculo de trabajadores ------------------------------ */
     const tarifaDiaria = (w) => (Number(w.monto) || 0) / Math.max(1, Number(w.diasPeriodo) || 1);
 
+    /* Lo devengado y pagado DENTRO del rango (para las ganancias del negocio) */
     function calcWorker(w, from, to) {
       const tarifa = tarifaDiaria(w);
       const conteo = { trabajo: 0, medio: 0, vacaciones: 0, falta: 0, descanso: 0 };
       let diasPagados = 0;
-      eachDay(from, to).forEach((d) => {
-        const est = w.asistencia && w.asistencia["d" + ymd(d)];
-        if (est && ESTADOS[est]) { conteo[est]++; diasPagados += ESTADOS[est].factor; }
+      const fk = ymd(from), tk = ymd(to);
+      Object.entries(w.asistencia || {}).forEach(([k, est]) => {
+        const d = k.slice(1);
+        if (d < fk || d > tk || !ESTADOS[est]) return;
+        conteo[est]++;
+        diasPagados += ESTADOS[est].factor;
       });
       const base = diasPagados * tarifa;
       let pagado = 0, adelantos = 0, descuentos = 0, bonos = 0;
+      const fi = iso(from), ti = iso(to);
       Object.values(w.pagos || {}).forEach((p) => {
         if (!p || !p.fecha) return;
-        const f = parseIso(p.fecha);
-        if (f < startOf(from) || f > endOf(to)) return;
+        if (p.fecha < fi || p.fecha > ti) return;
         const m = Number(p.monto) || 0, t = p.tipo || "pago";
         if (t === "pago") pagado += m;
         else if (t === "adelanto") { pagado += m; adelantos += m; }
@@ -710,47 +758,102 @@
       return { tarifa, conteo, diasPagados, base, bonos, descuentos, adelantos, devengado, pagado, pendiente: devengado - pagado };
     }
 
-    function ultimoPago(w) {
-      let max = null;
-      Object.values(w.pagos || {}).forEach((p) => {
-        const t = p?.tipo || "pago";
-        if (p && p.fecha && (t === "pago" || t === "adelanto") && (!max || p.fecha > max)) max = p.fecha;
+    /* Saldo ACUMULADO real (no depende del rango):
+       lo ganado hasta hoy + bonos − descuentos − pagos − adelantos */
+    function ledger(w, pagosOverride) {
+      const tarifa = tarifaDiaria(w);
+      const hoyK = ymd(new Date());
+      let dias = 0;
+      Object.entries(w.asistencia || {}).forEach(([k, est]) => {
+        if (ESTADOS[est] && k.slice(1) <= hoyK) dias += ESTADOS[est].factor;
       });
-      return max;
+      let pagos = 0, adelantos = 0, descuentos = 0, bonos = 0;
+      Object.values(pagosOverride || w.pagos || {}).forEach((p) => {
+        if (!p) return;
+        const m = Number(p.monto) || 0, t = p.tipo || "pago";
+        if (t === "pago") pagos += m;
+        else if (t === "adelanto") adelantos += m;
+        else if (t === "descuento") descuentos += m;
+        else if (t === "bono") bonos += m;
+      });
+      const base = dias * tarifa;
+      const devengado = base + bonos - descuentos;
+      return { dias, tarifa, base, bonos, descuentos, pagos, adelantos, pagado: pagos + adelantos, devengado, saldo: devengado - pagos - adelantos };
     }
 
-
-    function estadoPago(w, calc) {
-      if (calc.pendiente <= 0.5) return { txt: "Al día", cls: "bg-primary/20 text-white border-primary/50" };
-      const last = ultimoPago(w);
-      const periodo = PERIODO_NATURAL[w.frecuencia] || 7;
-      const dias = last ? Math.floor((startOf(new Date()) - parseIso(last)) / 86400000) : 999;
-      if (dias >= periodo) return { txt: "Toca pagar", cls: "bg-white text-black border-white font-bold" };
-      return { txt: "Acumulando", cls: "bg-white/5 text-inkdim border-white/15" };
-    }
-    /* Próximo pago: se cuenta desde el último PAGO (los adelantos no reinician el ciclo) o desde el ingreso */
+    /* ---------- Ciclo de pago (corre solo) ---------- */
     function addPeriodo(d, frec) {
       const x = new Date(d);
-      if (frec === "mensual") x.setMonth(x.getMonth() + 1);
-      else x.setDate(x.getDate() + (PERIODO_NATURAL[frec] || 7));
+      if (frec === "mensual") {
+        const dia = x.getDate();
+        x.setDate(1);
+        x.setMonth(x.getMonth() + 1);
+        const ult = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+        x.setDate(Math.min(dia, ult));
+      } else {
+        x.setDate(x.getDate() + (PERIODO_NATURAL[frec] || 7));
+      }
       return startOf(x);
     }
-    function proximoPago(w) {
-      let last = null;
-      Object.values(w.pagos || {}).forEach((p) => {
-        if (p && p.fecha && (p.tipo || "pago") === "pago" && (!last || p.fecha > last)) last = p.fecha;
+
+    /* Inicio del ciclo abierto = día siguiente al final del último ciclo CERRADO por un pago.
+       Pagos viejos sin "hasta" se tratan como antes: el ciclo arranca el día del pago. */
+    function inicioCiclo(w, pagos) {
+      let hasta = null;
+      Object.values(pagos || w.pagos || {}).forEach((p) => {
+        if (!p || (p.tipo || "pago") !== "pago" || !p.fecha) return;
+        if (p.cerro === false) return; // pago parcial: no cierra el ciclo
+        const h = p.hasta || iso(addDays(parseIso(p.fecha), -1));
+        if (!hasta || h > hasta) hasta = h;
       });
-      const base = last ? parseIso(last) : (w.fechaIngreso ? parseIso(w.fechaIngreso) : startOf(new Date()));
-      const fecha = addPeriodo(base, w.frecuencia);
-      const dias = Math.round((fecha - startOf(new Date())) / 86400000);
-      return { fecha, dias };
+      if (hasta) return addDays(parseIso(hasta), 1);
+      return w.fechaIngreso ? parseIso(w.fechaIngreso) : startOf(new Date());
     }
+
+    function cicloInfo(w, pagos) {
+      const inicio = inicioCiclo(w, pagos);
+      const vence = addPeriodo(inicio, w.frecuencia);
+      const fin = addDays(vence, -1);
+      const dias = Math.round((vence - startOf(new Date())) / 86400000);
+      return { inicio, fin, vence, dias };
+    }
+
+    /* Período que cubre un pago que deja el saldo en 0 (incluye ciclos atrasados ya vencidos) */
+    function periodoAlCerrar(w) {
+      const c = cicloInfo(w);
+      const hoy = startOf(new Date());
+      let vence = c.vence, guard = 0;
+      while (guard++ < 400) {
+        const sig = addPeriodo(vence, w.frecuencia);
+        if (sig <= hoy) vence = sig; else break;
+      }
+      return { desde: c.inicio, hasta: addDays(vence, -1) };
+    }
+
+    function ultimoMov(pagos) {
+      let best = null;
+      Object.entries(pagos || {}).forEach(([k, p]) => {
+        const t = p?.tipo || "pago";
+        if (!p || !p.fecha || (t !== "pago" && t !== "adelanto")) return;
+        if (!best || p.fecha > best.fecha || (p.fecha === best.fecha && k > best.k)) best = { k, ...p, tipo: t };
+      });
+      return best;
+    }
+
+    function estadoPago(r) {
+      if (r.led.saldo <= 0.5) return { txt: "Al día ✓", cls: "badge badge-ok" };
+      if (r.ciclo.dias < 0) return { txt: "Pago atrasado", cls: "badge badge-late" };
+      if (r.ciclo.dias === 0) return { txt: "Pagar hoy", cls: "badge badge-due" };
+      return { txt: "Aún no toca", cls: "badge badge-wait" };
+    }
+
     function textoProximoPago(p) {
-      const f = p.fecha.toLocaleDateString("es-PE", { weekday: "short", day: "2-digit", month: "short" });
-      if (p.dias < 0) return { txt: `Pago atrasado ${-p.dias} día${-p.dias === 1 ? "" : "s"}`, cls: "text-red-400 font-semibold" };
+      const f = fmtDiaLargo(p.fecha);
+      if (p.dias < 0) return { txt: `Pago atrasado ${-p.dias} día${-p.dias === 1 ? "" : "s"} (era el ${f})`, cls: "text-red-400 font-semibold" };
       if (p.dias === 0) return { txt: "Toca pagar hoy", cls: "text-white font-bold" };
       return { txt: `Faltan ${p.dias} día${p.dias === 1 ? "" : "s"} · ${f}`, cls: "text-inkdim" };
     }
+
     /* ------------------------------ Firebase ------------------------------ */
     const colTrabajadores = () => tiendaSubCol(localidad, "tiendas", tiendaId, "trabajadores");
     const docTrabajador = (id) => tiendaSubDoc(localidad, "tiendas", tiendaId, "trabajadores", id);
@@ -760,7 +863,7 @@
     function escucharMozos() {
       onSnapshot(colMozos(), (snap) => {
         state.mozos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        renderWorkers(compute());
+        actualizar();
       }, (err) => console.warn("mozos:", err));
     }
     function setConn(text, ok) {
@@ -771,11 +874,10 @@
 
     function ocultarLoader() {
       const ls = $("loadingScreen");
-      if (ls && !ls.classList.contains("hidden")) {
-        ls.style.transition = "opacity .3s ease";
-        ls.style.opacity = "0";
-        setTimeout(() => ls.classList.add("hidden"), 300);
-      }
+      if (!ls) return;
+      ls.style.pointerEvents = "none";
+      ls.style.opacity = "0";
+      setTimeout(() => ls.remove(), 320);
     }
 
     function normalizarPedido(id, raw) {
@@ -783,26 +885,42 @@
       return { id, ...raw, esMesa: false };
     }
 
+    /* Agrupa los renders en un solo frame (varios snapshots seguidos = 1 render) */
+    let rafId = 0;
+    function renderSoon() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => { rafId = 0; renderAll(); });
+    }
+    function actualizar() {
+      if (!state.workersReady || !state.pedidosReady) return;
+      if (!firstPaint) {
+        firstPaint = true;
+        state.anim = true;
+        renderAll();
+        ocultarLoader();
+        return;
+      }
+      renderSoon();
+    }
+
     function escucharTrabajadores() {
       onSnapshot(colTrabajadores(), (snap) => {
         state.workers = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
         state.workersReady = true;
-        renderAll();
-        refrescarPanel();
-        if (state.pedidosReady) ocultarLoader();
+        actualizar();
       }, (err) => {
         console.error(err);
         setConn("⚠️ Error de permisos en «trabajadores»", false);
         state.workersReady = true;
-        ocultarLoader();
+        actualizar();
       });
     }
 
     async function cargarPedidos() {
       const token = ++loadToken;
       $("rangeLoadingBar").classList.remove("hidden");
-      $("metricsWrap").classList.add("dim-metrics");
+      if (firstPaint) $("metricsWrap").classList.add("dim-metrics");
       $("refreshIcon").style.transform = `rotate(${token * 360}deg)`;
       const [from, to] = getRangeBounds();
       const q = query(
@@ -816,47 +934,47 @@
         const snap = await getDocs(q);
         if (token !== loadToken) return;
         state.pedidos = snap.docs.map((d) => normalizarPedido(d.id, d.data()));
-        state.pedidosReady = true;
+        state.pedidosVer++;
         setConn(`conectado · ${state.pedidos.length} pedidos en el rango`, true);
       } catch (err) {
         console.error(err);
         if (token !== loadToken) return;
         setConn("⚠️ Error al leer los pedidos", false);
-        state.pedidosReady = true;
       }
+      state.pedidosReady = true;
       $("rangeLoadingBar").classList.add("hidden");
       $("metricsWrap").classList.remove("dim-metrics");
-      renderAll();
-      if (state.workersReady) ocultarLoader();
+      if (firstPaint) { state.anim = true; renderAll(); }
+      else actualizar();
     }
 
     /* ------------------------------ Render principal ------------------------------ */
     function compute() {
       const [from, to] = getRangeBounds();
-      const entregados = state.pedidos.filter((p) => {
-        const d = fechaEfectiva(p);
-        return d && d >= from && d <= to && (p.estado || "").toLowerCase() === "entregado";
-      });
-      const ventas = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
-      const { costos, gastosOp } = costoProductos(entregados);
-      const rows = state.workers.map((w) => ({ w, ...calcWorker(w, from, to) }));
+      const { entregados, ventas, costos, gastosOp } = agregadoPedidos(from, to);
+      const rows = state.workers.map((w) => ({ w, ...calcWorker(w, from, to), led: ledger(w), ciclo: cicloInfo(w) }));
       const planilla = rows.reduce((s, r) => s + r.devengado, 0);
       const pagado = rows.reduce((s, r) => s + r.pagado, 0);
+      const porPagar = rows.reduce((s, r) => s + Math.max(0, r.led.saldo), 0);
       const utilidad = ventas - costos - gastosOp - planilla;
-      return { from, to, entregados, ventas, costos, gastosOp, rows, planilla, pagado, utilidad };
+      return { from, to, entregados, ventas, costos, gastosOp, rows, planilla, pagado, porPagar, utilidad };
     }
 
     function renderAll() {
       $("noStore").classList.toggle("hidden", !!(tiendaId && localidad));
       const data = compute();
+      lastData = data;
       renderKpis(data);
       renderWaterfall(data);
       renderDonut(data);
       renderDayChart(data);
       renderWorkerBars(data);
+      renderProximos(data);
       renderWorkers(data);
       const labels = { hoy: "Hoy", semana: "Esta semana", mes: "Este mes", mespasado: "Mes pasado", custom: "Rango personalizado" };
       $("rangeEcho").textContent = labels[state.range] || "";
+      state.anim = false;
+      refrescarPanel();
     }
 
     const fmtM = (n) => fmtMoney(n);
@@ -867,7 +985,7 @@
       $("kpiPedidos").textContent = d.entregados.length;
       animateNumber($("kpiPlanilla"), d.planilla, fmtM);
       $("kpiPlanillaPct").textContent = `${pct(d.planilla, d.ventas).toFixed(1)}% de las ventas`;
-      animateNumber($("kpiPendiente"), Math.max(0, d.planilla - d.pagado), fmtM);
+      animateNumber($("kpiPendiente"), d.porPagar, fmtM);
       $("kpiPagado").textContent = fmtMoney(d.pagado);
       animateNumber($("kpiUtilidad"), d.utilidad, fmtM);
       $("kpiUtilidad").className = `font-display font-extrabold text-2xl sm:text-3xl ${d.utilidad >= 0 ? "text-white" : "text-red-400"}`;
@@ -875,6 +993,7 @@
     }
 
     function renderWaterfall(d) {
+      const an = state.anim;
       const filas = [
         { label: "Ventas entregadas", val: d.ventas, sign: "", cls: "bg-primary", txt: "text-white" },
         { label: "Costo de productos", val: d.costos, sign: "−", cls: "bg-primary/40", txt: "text-inkdim" },
@@ -892,7 +1011,7 @@
             <span class="font-mono ${f.txt} ${f.destacado ? "font-bold text-base" : ""}">${fmtMoney(f.val)}</span>
           </div>
           <div class="h-2.5 rounded-full bg-panel2 overflow-hidden border border-line">
-            <div class="${f.cls} h-full rounded-full grow-x" style="width:${w}%;animation-delay:${i * 70}ms"></div>
+            <div class="${f.cls} h-full rounded-full ${an ? "grow-x" : ""}" style="width:${w}%;${an ? `animation-delay:${i * 70}ms` : ""}"></div>
           </div>
         </div>`;
       }).join("");
@@ -907,6 +1026,7 @@
     }
 
     function renderDonut(d) {
+      const an = state.anim;
       const C = 339.292;
       const partes = [
         { label: "Te queda", val: Math.max(0, d.utilidad), color: "#8855FF" },
@@ -921,7 +1041,7 @@
       if (total > 0) {
         partes.forEach((p) => {
           const len = (p.val / total) * C;
-          svg += `<circle class="seg" cx="70" cy="70" r="54" fill="none" stroke="${p.color}" stroke-width="18" stroke-dasharray="${Math.max(0, len - 1.5)} ${C - Math.max(0, len - 1.5)}" stroke-dashoffset="${-off}"><title>${p.label}: ${fmtMoney(p.val)}</title></circle>`;
+          svg += `<circle class="${an ? "seg" : ""}" cx="70" cy="70" r="54" fill="none" stroke="${p.color}" stroke-width="18" stroke-dasharray="${Math.max(0, len - 1.5)} ${C - Math.max(0, len - 1.5)}" stroke-dashoffset="${-off}"><title>${p.label}: ${fmtMoney(p.val)}</title></circle>`;
           off += len;
         });
       }
@@ -939,17 +1059,19 @@
     }
 
     function renderDayChart(d) {
+      const an = state.anim;
       const dias = eachDay(d.from, d.to);
       const ventasDia = {}, sueldoDia = {};
       d.entregados.forEach((p) => {
         const k = ymd(fechaEfectiva(p));
         ventasDia[k] = (ventasDia[k] || 0) + (Number(p.total) || 0);
       });
+      const tarifas = state.workers.map((w) => ({ w, t: tarifaDiaria(w) }));
       dias.forEach((dt) => {
         const k = ymd(dt);
-        state.workers.forEach((w) => {
+        tarifas.forEach(({ w, t }) => {
           const est = w.asistencia && w.asistencia["d" + k];
-          if (est && ESTADOS[est]) sueldoDia[k] = (sueldoDia[k] || 0) + tarifaDiaria(w) * ESTADOS[est].factor;
+          if (est && ESTADOS[est]) sueldoDia[k] = (sueldoDia[k] || 0) + t * ESTADOS[est].factor;
         });
       });
 
@@ -970,9 +1092,9 @@
       labels.style.minWidth = minW + "px";
 
       chart.innerHTML = cols.map((c, i) => `
-        <div class="flex-1 min-w-[10px] h-full flex items-end justify-center gap-[2px]" title="${c.fecha.toLocaleDateString("es-PE", { day: "2-digit", month: "short" })} · ventas ${fmtMoney(c.v)} · sueldos ${fmtMoney(c.s)}">
-          <div class="w-1/2 rounded-t bg-primary grow-y" style="--i:${i};height:${Math.max(c.v ? (c.v / max) * 100 : 0, c.v ? 3 : 1)}%;opacity:${c.v ? 1 : .25}"></div>
-          <div class="w-1/2 rounded-t bg-white grow-y" style="--i:${i};height:${Math.max(c.s ? (c.s / max) * 100 : 0, c.s ? 3 : 1)}%;opacity:${c.s ? .9 : .15}"></div>
+        <div class="flex-1 min-w-[10px] h-full flex items-end justify-center gap-[2px]" title="${fmtDia(c.fecha)} · ventas ${fmtMoney(c.v)} · sueldos ${fmtMoney(c.s)}">
+          <div class="w-1/2 rounded-t bg-primary ${an ? "grow-y" : ""}" style="--i:${i};height:${Math.max(c.v ? (c.v / max) * 100 : 0, c.v ? 3 : 1)}%;opacity:${c.v ? 1 : .25}"></div>
+          <div class="w-1/2 rounded-t bg-white ${an ? "grow-y" : ""}" style="--i:${i};height:${Math.max(c.s ? (c.s / max) * 100 : 0, c.s ? 3 : 1)}%;opacity:${c.s ? .9 : .15}"></div>
         </div>`).join("");
 
       const cada = Math.max(1, Math.ceil(cols.length / 12));
@@ -981,6 +1103,7 @@
     }
 
     function renderWorkerBars(d) {
+      const an = state.anim;
       const el = $("workerBars");
       if (!d.rows.length) { el.innerHTML = `<p class="text-sm text-inkfaint py-3">Agrega trabajadores para ver su costo.</p>`; return; }
       const max = Math.max(1, ...d.rows.map((r) => r.devengado));
@@ -991,13 +1114,38 @@
             <span class="font-mono text-inkfaint shrink-0">${fmtMoney(r.devengado)}</span>
           </div>
           <div class="h-2 rounded-full bg-panel2 overflow-hidden border border-line relative">
-            <div class="absolute inset-y-0 left-0 rounded-full bg-primary/40 grow-x" style="width:${(Math.max(0, r.devengado) / max) * 100}%;animation-delay:${i * 60}ms"></div>
-            <div class="absolute inset-y-0 left-0 rounded-full bg-primary grow-x" style="width:${(Math.max(0, Math.min(r.pagado, r.devengado)) / max) * 100}%;animation-delay:${i * 60 + 80}ms"></div>
+            <div class="absolute inset-y-0 left-0 rounded-full bg-primary/40 ${an ? "grow-x" : ""}" style="width:${(Math.max(0, r.devengado) / max) * 100}%;${an ? `animation-delay:${i * 60}ms` : ""}"></div>
+            <div class="absolute inset-y-0 left-0 rounded-full bg-primary ${an ? "grow-x" : ""}" style="width:${(Math.max(0, Math.min(r.pagado, r.devengado)) / max) * 100}%;${an ? `animation-delay:${i * 60 + 80}ms` : ""}"></div>
           </div>
         </div>`).join("") + `<p class="text-[10px] text-inkfaint pt-1">Barra fuerte = ya pagado · barra suave = por pagar</p>`;
     }
 
+    /* Lista de quién cobra y cuánto hay que tener listo */
+    function renderProximos(d) {
+      $("paySection").classList.toggle("hidden", !state.workers.length);
+      const lista = d.rows.filter((r) => r.led.saldo > 0.5).sort((a, b) => a.ciclo.vence - b.ciclo.vence);
+      const listo = lista.filter((r) => r.ciclo.dias <= 7).reduce((s, r) => s + r.led.saldo, 0);
+      const atras = lista.filter((r) => r.ciclo.dias < 0).length;
+      $("payTotal").textContent = lista.length
+        ? `Ten listo en 7 días: ${fmtMoney(listo)}${atras ? ` · ${atras} atrasado${atras === 1 ? "" : "s"}` : ""}`
+        : "";
+      $("payList").innerHTML = lista.length
+        ? lista.map((r) => {
+          const pp = textoProximoPago({ fecha: r.ciclo.vence, dias: r.ciclo.dias });
+          return `
+          <div class="flex items-center justify-between gap-3 bg-panel2 border border-line rounded-xl px-3 py-2.5">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-white truncate">${esc(r.w.nombre)}</p>
+              <p class="text-[11px] ${pp.cls}">${pp.txt}</p>
+            </div>
+            <p class="font-mono font-bold text-sm text-white shrink-0">${METODOS[r.w.metodoPago] || "💵"} ${fmtMoney(r.led.saldo)}</p>
+          </div>`;
+        }).join("")
+        : `<p class="text-sm text-inkfaint">Todo pagado. No hay sueldos pendientes.</p>`;
+    }
+
     function renderWorkers(d) {
+      const an = state.anim;
       const q = state.search.trim().toLowerCase();
       const lista = d.rows.filter((r) => !q || (r.w.nombre || "").toLowerCase().includes(q) || (r.w.dni || "").includes(q));
       $("workerCount").textContent = state.workers.length ? `(${state.workers.length})` : "";
@@ -1005,10 +1153,12 @@
 
       $("workersGrid").innerHTML = lista.map((r, i) => {
         const w = r.w;
-        const est = estadoPago(w, r);
-        const prog = r.devengado > 0 ? Math.min(100, (r.pagado / r.devengado) * 100) : 0;
-        const pp = textoProximoPago(proximoPago(w));
+        const est = estadoPago(r);
+        const prog = r.led.devengado > 0 ? Math.min(100, (r.led.pagado / r.led.devengado) * 100) : 0;
+        const pp = textoProximoPago({ fecha: r.ciclo.vence, dias: r.ciclo.dias });
+        const ult = ultimoMov(w.pagos);
         const mozo = state.mozos.find((m) => m.trabajadorId === w.id);
+        const saldo = r.led.saldo;
         const resumen = (r.adelantos || r.bonos)
           ? `<p class="text-[11px] text-inkfaint mb-3">${[
             r.adelantos ? "⏩ Adelantos " + fmtMoney(r.adelantos) : "",
@@ -1016,7 +1166,7 @@
           ].filter(Boolean).join(" · ")}</p>`
           : "";
         return `
-        <div class="bg-panel border border-line rounded-2xl p-4 card-in hover:border-primary/50 transition-colors" style="--i:${Math.min(i, 8)}">
+        <div class="wcard bg-panel border border-line rounded-2xl p-4 ${an ? "card-in" : ""} hover:border-primary/50 transition-colors" style="--i:${Math.min(i, 8)}">
           <div class="flex items-start justify-between gap-3 mb-3">
             <div class="flex items-center gap-3 min-w-0">
               <div class="w-11 h-11 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-display font-bold text-lg shrink-0">${esc((w.nombre || "?").trim().charAt(0).toUpperCase())}</div>
@@ -1025,49 +1175,36 @@
                 <p class="text-xs text-inkfaint truncate">${w.cargo ? esc(w.cargo) + " · " : ""}${w.tipoDoc === "CE" ? "C.E." : "DNI"} ${esc(w.dni)}</p>
               </div>
             </div>
-            <span class="px-2.5 py-1 rounded-full text-[11px] border whitespace-nowrap font-semibold ${est.cls}">${est.txt}</span>
+            <span class="${est.cls}">${est.txt}</span>
           </div>
 
           <div class="flex flex-wrap gap-1.5 mb-3">
             <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-xs text-white font-medium">${METODOS[w.metodoPago] || "💵"} ${esc(w.metodoPago || "Efectivo")}</span>
             <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-xs text-white font-medium">${fmtMoney(w.monto)} ${FREC_LABEL[w.frecuencia] || ""}</span>
             <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-xs text-inkdim font-medium">${descansosDe(w).length ? "Descansa " + descansosDe(w).join(", ") : "Sin descanso"}</span>
-                        ${mozo ? `<span class="px-2.5 py-1 rounded-lg bg-primary/20 border border-primary/40 text-xs text-white font-medium">🧑‍🍳 Mozo${mozo.activo === false ? " (inactivo)" : ""}</span>` : ""}
+            ${mozo ? `<span class="px-2.5 py-1 rounded-lg bg-primary/20 border border-primary/40 text-xs text-white font-medium">🧑‍🍳 Mozo${mozo.activo === false ? " (inactivo)" : ""}</span>` : ""}
           </div>
 
-                <div class="grid grid-cols-2 gap-2 mb-2">
-            <div class="bg-panel2 border border-line rounded-xl px-2.5 py-2">
-              <p class="text-[10px] text-inkfaint">Días trabajados</p>
-              <p class="font-mono font-bold text-sm text-white">${r.diasPagados % 1 ? r.diasPagados.toFixed(1) : r.diasPagados}
-                <span class="text-[10px] text-inkfaint font-normal">× ${fmtMoney(r.tarifa)}</span></p>
-            </div>
-            <div class="bg-panel2 border border-line rounded-xl px-2.5 py-2">
-              <p class="text-[10px] text-inkfaint">➖ Descuentos</p>
-              <p class="font-mono font-bold text-sm ${r.descuentos > 0 ? "text-red-400" : "text-inkfaint"}">${r.descuentos > 0 ? "− " + fmtMoney(r.descuentos) : "Sin descuentos"}</p>
-            </div>
-            <div class="bg-panel2 border border-line rounded-xl px-2.5 py-2">
-              <p class="text-[10px] text-inkfaint">Le toca</p>
-              <p class="font-mono font-bold text-sm text-white">${fmtMoney(r.devengado)}</p>
-            </div>
-            <div class="bg-panel2 border border-line rounded-xl px-2.5 py-2">
-              <p class="text-[10px] text-inkfaint">Falta pagar</p>
-              <p class="font-mono font-bold text-sm ${r.pendiente > 0.5 ? "text-white" : "text-inkfaint"}">${fmtMoney(Math.max(0, r.pendiente))}</p>
-            </div>
-          </div>
-          <div class="flex items-center justify-between gap-2 bg-panel2 border border-line rounded-xl px-3 py-2 mb-3 text-xs">
-            <span class="text-inkfaint">📆 Próximo pago</span>
-            <span class="${pp.cls} text-right">${pp.txt}</span>
+          <div class="debt">
+            <p class="text-[11px] text-inkfaint" style="margin-bottom:.15rem">${saldo < -0.5 ? "Ya recibió de más" : "Le debes"}</p>
+            <p class="debt-n ${saldo < -0.5 ? "text-red-400" : saldo > 0.5 ? "text-white" : "text-inkfaint"}">${fmtMoney(Math.abs(saldo) < 0.5 ? 0 : Math.abs(saldo))}</p>
+            <p class="help" style="margin-top:.35rem">${saldo > 0.5 ? "Es lo que ya trabajó y todavía no le pagas." : saldo < -0.5 ? "Le diste más de lo que ganó. Se resta de su próximo pago." : "No le debes nada por ahora."}</p>
           </div>
 
-          <div class="h-1.5 rounded-full bg-panel2 overflow-hidden border border-line mb-3">
-            <div class="h-full bg-primary rounded-full transition-all duration-700" style="width:${prog}%"></div>
+          <div class="bg-panel2 border border-line rounded-xl px-3 py-2 mb-3 text-xs space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-inkfaint">📆 Próximo pago</span>
+              <span class="${pp.cls} text-right">${pp.txt}</span>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-inkfaint">✅ Último pago</span>
+              <span class="text-inkdim text-right">${ult ? `${fmtDia(parseIso(ult.fecha))} · ${fmtMoney(ult.monto)}${ult.tipo === "adelanto" ? " (adelanto)" : ""}` : "Aún no le has pagado"}</span>
+            </div>
           </div>
-
-          ${resumen}
 
           <div class="grid grid-cols-4 gap-2">
-            <button data-act="asistencia" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-white text-sm font-semibold py-2 rounded-xl hover:border-primary active:scale-95 transition">📅 Días</button>
-            <button data-act="pagos" data-id="${w.id}" class="col-span-2 bg-primary text-white text-sm font-semibold py-2 rounded-xl hover:brightness-110 active:scale-95 transition">💸 Pagar</button>
+            <button data-act="asistencia" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-white text-sm font-semibold py-2 rounded-xl hover:border-primary active:scale-95 transition">📅 Marcar días</button>
+            <button data-act="pagos" data-id="${w.id}" class="col-span-2 bg-primary text-white text-sm font-semibold py-2 rounded-xl hover:brightness-110 active:scale-95 transition">💸 Pagar / adelanto</button>
             <button data-act="editar" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-inkdim text-xs font-semibold py-1.5 rounded-lg hover:text-white hover:border-primary active:scale-95 transition">✏️ Editar</button>
             <button data-act="borrar" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-inkdim text-xs font-semibold py-1.5 rounded-lg hover:text-red-400 hover:border-red-500/50 active:scale-95 transition">🗑 Eliminar</button>
           </div>
@@ -1079,10 +1216,12 @@
     function abrirPanel(html, meta) {
       panel = meta;
       $("panelContent").innerHTML = html;
+      document.body.classList.add("lock");
       requestAnimationFrame(() => $("overlay").classList.add("open"));
     }
     function cerrarPanel() {
       $("overlay").classList.remove("open");
+      document.body.classList.remove("lock");
       panel = null;
     }
     function refrescarPanel() {
@@ -1128,17 +1267,17 @@
           </div>
 
           <div class="border-t border-line pt-4 grid grid-cols-2 gap-3">
-            <div><label class="lbl">Método de pago</label><select id="fMetodo" class="field">${opt(METODOS, v.metodoPago)}</select></div>
-            <div><label class="lbl">Cuándo se le paga</label>
+            <div><label class="lbl">¿Cómo le pagas?</label><select id="fMetodo" class="field">${opt(METODOS, v.metodoPago)}</select></div>
+            <div><label class="lbl">¿Cada cuánto le pagas?</label>
               <select id="fFrec" class="field">
                 ${["diario", "semanal", "quincenal", "mensual"].map((f) => `<option value="${f}" ${v.frecuencia === f ? "selected" : ""}>${f[0].toUpperCase() + f.slice(1)}</option>`).join("")}
               </select>
             </div>
           </div>
-          <div><label class="lbl">Monto por período (S/)</label><input id="fMonto" type="number" min="0" step="0.5" class="field font-mono" value="${v.monto ?? ""}" placeholder="0.00"></div>
+          <div><label class="lbl">¿Cuánto le vas a pagar cada vez? (S/)</label><input id="fMonto" type="number" inputmode="decimal" min="0" step="0.5" class="field font-mono" value="${v.monto ?? ""}" placeholder="0.00"></div>
 
           <div>
-            <label class="lbl">Días de la semana que trabaja</label>
+            <label class="lbl">¿Qué días trabaja? (los que no marques son su descanso)</label>
             <div class="grid grid-cols-7 gap-1.5">
               ${ORDEN_SEMANA.map((d) => `<label class="opt !flex-col !gap-1 !px-0 !py-2 justify-center text-center text-xs"><input type="checkbox" class="fDia" value="${d}" ${diasSel.includes(d) ? "checked" : ""}><span>${DIA_CORTO[d]}</span></label>`).join("")}
             </div>
@@ -1146,11 +1285,11 @@
           </div>
 
           <div>
-            <label class="lbl">Días que se le pagan por período</label>
+            <label class="lbl">¿Cuántos días cubre ese pago?</label>
             <div class="space-y-2">
               <label class="opt"><input type="radio" name="fModo" value="auto" ${modo === "auto" ? "checked" : ""}> <span>Automático <span class="text-inkfaint" id="fAutoTxt"></span></span></label>
               <label class="opt"><input type="radio" name="fModo" value="manual" ${modo === "manual" ? "checked" : ""}> <span class="shrink-0">Manual</span>
-                <input id="fDias" type="number" min="1" step="1" class="field !w-24 !py-1 font-mono ml-auto" value="${v.diasPeriodo ?? ""}"></label>
+                <input id="fDias" type="number" inputmode="numeric" min="1" step="1" class="field !w-24 !py-1 font-mono ml-auto" value="${v.diasPeriodo ?? ""}"></label>
             </div>
           </div>
 
@@ -1184,11 +1323,11 @@
           ? addPeriodo(parseIso(ing), frec).toLocaleDateString("es-PE", { weekday: "long", day: "2-digit", month: "long" })
           : "—";
         $("fTarifaInfo").innerHTML = monto > 0
-          ? `💵 Se le paga <b>${fmtMoney(monto)}</b> ${FREC_LABEL[frec]} (${dias} ${dias === 1 ? "día" : "días"}).<br>
-             📅 Cada día trabajado: <b>${fmtMoney(monto / dias)}</b>. Si falta o descansa, ese día no se paga.<br>
-             ➖ Los descuentos y adelantos que registres se restan al pagar.<br>
-             ⏳ Primer pago: <b>${primer}</b>`
-          : "Escribe el monto y verás cuánto cuesta cada día trabajado.";
+          ? `💵 Le pagas <b>${fmtMoney(monto)}</b> ${FREC_LABEL[frec]}, o sea <b>${fmtMoney(monto / dias)}</b> por cada día que trabaje.<br>
+             📅 Si falta o descansa, ese día no se paga.<br>
+             ➖ Los adelantos y descuentos se restan solos cuando le pagues.<br>
+             ⏳ Su primer pago será el <b>${primer}</b>`
+          : "Escribe cuánto le vas a pagar y aquí te explico cómo se calcula.";
       };
       document.querySelectorAll(".fDia, input[name='fModo'], input[name='fTipoDoc']").forEach((el) => el.addEventListener("change", info));
       $("fFrec").addEventListener("change", info);
@@ -1215,6 +1354,7 @@
       if (!diasTrabajo.length) return showToast("Marca al menos un día de trabajo");
       if (!(monto > 0)) return showToast("Escribe cuánto se le paga");
 
+      const base = id ? state.workers.find((x) => x.id === id) : null;
       const data = {
         nombre, dni, tipoDoc, diasTrabajo, modoDias,
         cargo: $("fCargo").value.trim(),
@@ -1224,6 +1364,9 @@
         frecuencia: $("fFrec").value,
         monto, diasPeriodo: dias,
       };
+      // fecha del próximo pago guardada en el documento
+      data.proximoPago = iso(cicloInfo({ ...(base || {}), ...data }, base ? base.pagos : {}).vence);
+
       const btn = $("btnSaveWorker");
       btn.disabled = true; btn.textContent = "Guardando…";
       try {
@@ -1232,7 +1375,7 @@
           const mozo = state.mozos.find((m) => m.trabajadorId === id);
           if (mozo && mozo.nombre !== nombre) await updateDoc(docMozo(mozo.id), { nombre }).catch(() => { });
         } else {
-          await addDoc(colTrabajadores(), { ...data, asistencia: {}, pagos: {}, creado: serverTimestamp() });
+          await addDoc(colTrabajadores(), { ...data, ultimoPago: null, asistencia: {}, pagos: {}, creado: serverTimestamp() });
         }
         cerrarPanel();
         showToast(id ? "Trabajador actualizado" : "Trabajador agregado");
@@ -1250,11 +1393,9 @@
       if (!confirm(`¿Eliminar a ${w.nombre}? Se borrará su asistencia y pagos.${mozo ? " También dejará de ser mozo." : ""}`)) return;
       try {
         await deleteDoc(docTrabajador(id));
-        if (mozo) await deleteDoc(docMozo(mozo.id)).catch(() => {});
+        if (mozo) await deleteDoc(docMozo(mozo.id)).catch(() => { });
         showToast("Trabajador eliminado");
-      }
-      
-      catch (e) { console.error(e); showToast("No se pudo eliminar."); }
+      } catch (e) { console.error(e); showToast("No se pudo eliminar."); }
     }
 
     /* ---------- Asistencia (calendario) ---------- */
@@ -1268,7 +1409,7 @@
           <div class="min-w-0">
             <p class="text-xs text-primary font-semibold mb-0.5">Asistencia</p>
             <h3 class="font-display font-bold text-xl text-white truncate">${esc(w.nombre)}</h3>
-            <p class="text-xs text-inkfaint mt-1">Elige un pincel y toca los días</p>
+            <p class="text-xs text-inkfaint mt-1">1) Elige qué pasó (Trabajó, Faltó…) · 2) Toca los días en el calendario</p>
           </div>
           ${closeBtn}
         </div>
@@ -1322,7 +1463,7 @@
         <div class="grid grid-cols-7 gap-1.5 text-center text-[10px] text-inkfaint font-semibold mb-1.5">
           ${["L", "M", "X", "J", "V", "S", "D"].map((x) => `<span>${x}</span>`).join("")}
         </div>
-        <div class="grid grid-cols-7 gap-1.5 mb-4 fade-in">${celdas}</div>
+        <div class="grid grid-cols-7 gap-1.5 mb-4">${celdas}</div>
 
         <div class="grid grid-cols-2 gap-2 mb-4">
           <button data-fill class="bg-panel2 border border-line text-white text-xs font-semibold py-2.5 rounded-xl hover:border-primary active:scale-95 transition">⚡ Completar hasta hoy</button>
@@ -1338,6 +1479,7 @@
             <span class="font-display font-extrabold text-xl text-white">${fmtMoney(c.base)}</span>
           </div>
           <p class="text-[11px] text-inkfaint mt-1">${c.diasPagados % 1 ? c.diasPagados.toFixed(1) : c.diasPagados} días pagados × ${fmtMoney(c.tarifa)}</p>
+          <p class="help" style="margin-top:.6rem">Se pagan: Trabajó, Medio día y Vacaciones. No se pagan: Faltó y Descanso.</p>
         </div>`;
     }
 
@@ -1405,68 +1547,131 @@
       renderPagosBody(true);
     }
 
+    function quedaTxt(d) {
+      if (d > 0.5) return `le seguirás debiendo <b class="text-white">${fmtMoney(d)}</b>`;
+      if (d < -0.5) return `habrá recibido <b class="text-white">${fmtMoney(-d)}</b> de más (se restará de su próximo pago)`;
+      return "ya no le deberás nada";
+    }
+
+    function fraseMov(p) {
+      const m = fmtMoney(p.monto);
+      const t = p.tipo || "pago";
+      if (t === "adelanto") return `Le diste un adelanto de ${m}`;
+      if (t === "descuento") return `Le descontaste ${m}`;
+      if (t === "bono") return `Le diste un bono de ${m}`;
+      return p.cerro === false ? `Le pagaste ${m} (pago incompleto)` : `Le pagaste ${m}`;
+    }
+
     function renderPagosBody(primera) {
       if (!panel || panel.tipo !== "pagos") return;
       const w = state.workers.find((x) => x.id === panel.id);
       const el = $("pagosBody");
       if (!w || !el) return;
-      const [from, to] = getRangeBounds();
-      const c = calcWorker(w, from, to);
-      const pp = textoProximoPago(proximoPago(w));
+      const L = ledger(w);
+      const c = cicloInfo(w);
+      const pp = textoProximoPago({ fecha: c.vence, dias: c.dias });
       const movs = Object.entries(w.pagos || {})
-        .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "") || b.k.localeCompare(a.k));
+        .map(([k, v]) => ({ k, ...v }))
+        .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "") || String(b.k).localeCompare(String(a.k)));
       const prev = primera ? null : { fecha: $("pFecha")?.value, monto: $("pMonto")?.value, nota: $("pNota")?.value };
       const T = TIPOS_MOV[movTipo];
-      const montoInicial = movTipo === "pago" && c.pendiente > 0 ? c.pendiente.toFixed(2) : "";
+      const montoInicial = movTipo === "pago" && L.saldo > 0.5 ? L.saldo.toFixed(2) : "";
       const motivoObligatorio = movTipo === "descuento" || movTipo === "bono";
-      const ph = { pago: "Ej. pago de la semana", adelanto: "Ej. adelanto para pasajes", descuento: "Ej. préstamo, consumo, daño, tardanza", bono: "Ej. horas extra, propina, incentivo" }[movTipo];
+      const ph = { pago: "Ej. pago de la semana", adelanto: "Ej. para pasajes", descuento: "Ej. préstamo, consumo, daño, tardanza", bono: "Ej. horas extra, propina, premio" }[movTipo];
+      const adelantado = L.saldo < -0.5;
+      const absSaldo = Math.abs(L.saldo) < 0.5 ? 0 : Math.abs(L.saldo);
+      const dias = L.dias % 1 ? L.dias.toFixed(1) : L.dias;
+      const fechaLbl = movTipo === "pago" || movTipo === "adelanto" ? "¿Qué día se lo das?" : "¿Qué fecha?";
 
       el.innerHTML = `
-        <div class="bg-panel2 border border-line rounded-xl px-4 py-3 mb-4">
-          <p class="text-[11px] text-inkfaint mb-2">Rango: <span class="text-primary font-mono">${$("rangeEcho").textContent}</span></p>
-                    <p class="text-[11px] mb-2 ${pp.cls}">📆 ${pp.txt}</p>
-          <div class="flex justify-between text-sm text-inkdim mb-1"><span>Días trabajados (${c.diasPagados % 1 ? c.diasPagados.toFixed(1) : c.diasPagados})</span><span class="font-mono text-white">${fmtMoney(c.base)}</span></div>
-          ${c.bonos > 0 ? `<div class="flex justify-between text-sm text-inkdim mb-1"><span>➕ Bonos / extras</span><span class="font-mono text-primary">+ ${fmtMoney(c.bonos)}</span></div>` : ""}
-          ${c.descuentos > 0 ? `<div class="flex justify-between text-sm text-inkdim mb-1"><span>➖ Descuentos</span><span class="font-mono text-red-400">− ${fmtMoney(c.descuentos)}</span></div>` : ""}
-          <div class="flex justify-between text-sm text-inkdim mb-1 pt-1 border-t border-line"><span>Le toca en total</span><span class="font-mono text-white">${fmtMoney(c.devengado)}</span></div>
-          <div class="flex justify-between text-sm text-inkdim mb-1"><span>Ya se le dio</span><span class="font-mono text-white">${fmtMoney(c.pagado)}</span></div>
-          ${c.adelantos > 0 ? `<p class="text-[11px] text-inkfaint text-right mb-1">(incluye ${fmtMoney(c.adelantos)} en adelantos)</p>` : ""}
-          <div class="flex justify-between items-baseline pt-2 border-t border-line">
-            <span class="text-sm text-inkdim">${c.pendiente < -0.5 ? "Se le adelantó de más" : "Falta pagar"}</span>
-            <span class="font-display font-extrabold text-xl ${c.pendiente < -0.5 ? "text-red-400" : "text-white"}">${fmtMoney(Math.abs(c.pendiente) < 0.5 ? 0 : Math.abs(c.pendiente))}</span>
-          </div>
+        <div class="pay-hero">
+          <p class="help" style="margin-bottom:.25rem">${adelantado ? "Ya recibió de más" : "Ahora mismo le debes"}</p>
+          <p class="big-num ${adelantado ? "text-red-400" : "text-white"}">${fmtMoney(absSaldo)}</p>
+          <p class="help" style="margin-top:.5rem">${L.saldo > 0.5 ? "Es lo que ya trabajó y todavía no le pagas." : adelantado ? "Le diste más de lo que ganó. Esa diferencia se resta de su próximo pago." : "No le debes nada por ahora."}</p>
+          <p class="text-[11px] ${pp.cls}" style="margin-top:.6rem">📆 ${pp.txt}</p>
         </div>
 
-        <div class="flex flex-wrap gap-1.5 mb-3">
-          ${Object.entries(TIPOS_MOV).map(([k, t]) => `<button data-tipo="${k}" class="chip px-3 py-1.5 rounded-full text-xs font-medium ${k === movTipo ? "active" : ""}">${t.ico} ${t.label}</button>`).join("")}
+        <p class="step" style="margin-top:0">PASO 1 · ¿QUÉ QUIERES HACER?</p>
+        <div class="pay-opts">
+          ${Object.entries(TIPOS_MOV).map(([k, t]) => `<button data-tipo="${k}" class="pay-opt ${k === movTipo ? "active" : ""}"><span class="pay-ico">${t.ico}</span><span>${t.btn}</span></button>`).join("")}
         </div>
+        <p class="help">${T.ayuda}</p>
 
+        <p class="step">PASO 2 · ¿CUÁNTO?</p>
         <div class="space-y-3 mb-5">
           <div class="grid grid-cols-2 gap-3">
-            <div><label class="lbl">Fecha</label><input id="pFecha" type="date" class="field font-mono" value="${prev?.fecha || iso(new Date())}"></div>
-            <div><label class="lbl">Monto (S/)</label><input id="pMonto" type="number" min="0" step="0.5" class="field font-mono" value="${prev ? prev.monto : montoInicial}"></div>
+            <div><label class="lbl">${fechaLbl}</label><input id="pFecha" type="date" class="field font-mono" value="${prev?.fecha || iso(new Date())}"></div>
+            <div><label class="lbl">Monto (S/)</label><input id="pMonto" type="number" inputmode="decimal" min="0" step="0.5" class="field font-mono" value="${prev ? prev.monto : montoInicial}"></div>
           </div>
-          <div><label class="lbl">${motivoObligatorio ? "Motivo (obligatorio)" : "Motivo / nota (opcional)"}</label><input id="pNota" class="field" value="${esc(prev?.nota || "")}" placeholder="${ph}"></div>
-          <button id="btnSavePago" class="w-full bg-primary text-white font-semibold text-sm py-3 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">${T.ico} Registrar ${T.label.toLowerCase()}</button>
+          ${movTipo === "pago" && L.saldo > 0.5 ? `<p class="help">Ya puse lo que le debes. Si le das menos, cambia el monto.</p>` : ""}
+          <div><label class="lbl">${motivoObligatorio ? "Motivo (obligatorio)" : "Nota (opcional)"}</label><input id="pNota" class="field" value="${esc(prev?.nota || "")}" placeholder="${ph}"></div>
+          <p id="pPreview" class="hidden help" style="background:#0D0D0D;border:1px solid #221B35;border-radius:.7rem;padding:.6rem .75rem"></p>
+          <button id="btnSavePago" class="w-full bg-primary text-white font-semibold text-sm py-3 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">${T.ico} Confirmar: ${T.btn.toLowerCase()}</button>
         </div>
 
-        <p class="lbl">Historial de movimientos</p>
+        <details class="guide" style="margin-bottom:1.25rem">
+          <summary>🧮 ¿Cómo se calculó lo que le debes?</summary>
+          <div style="margin-top:.7rem">
+            <div class="calc-row"><span>Días que trabajó (${dias} × ${fmtMoney(L.tarifa)} por día)</span><b>${fmtMoney(L.base)}</b></div>
+            ${L.bonos > 0 ? `<div class="calc-row"><span>➕ Bonos que se le sumaron</span><b>+ ${fmtMoney(L.bonos)}</b></div>` : ""}
+            ${L.descuentos > 0 ? `<div class="calc-row"><span>➖ Descuentos que se le quitaron</span><b>− ${fmtMoney(L.descuentos)}</b></div>` : ""}
+            <div class="calc-row total"><span>Total que ha ganado</span><b>${fmtMoney(L.devengado)}</b></div>
+            <div class="calc-row"><span>💵 Sueldos que ya le pagaste</span><b>− ${fmtMoney(L.pagos)}</b></div>
+            ${L.adelantos > 0 ? `<div class="calc-row"><span>⏩ Adelantos que ya le diste</span><b>− ${fmtMoney(L.adelantos)}</b></div>` : ""}
+            <div class="calc-row total"><span>${adelantado ? "Recibió de más" : "Le debes"}</span><b>${fmtMoney(absSaldo)}</b></div>
+          </div>
+          <p class="help" style="margin-top:.7rem">Su ciclo actual va del ${fmtDia(c.inicio)} al ${fmtDia(c.fin)}. Los días se marcan en «📅 Marcar días».</p>
+        </details>
+
+        <p class="step" style="margin-top:0">LO QUE YA REGISTRASTE</p>
         <div class="space-y-2">
           ${movs.length ? movs.map((p) => {
         const tipo = p.tipo || "pago";
         const t = TIPOS_MOV[tipo] || TIPOS_MOV.pago;
-        const signo = tipo === "descuento" ? "−" : tipo === "bono" ? "+" : "";
-        const mostrarMetodo = p.metodo && tipo !== "descuento" && tipo !== "bono";
+        const mostrarMetodo = p.metodo && (tipo === "pago" || tipo === "adelanto");
+        const cubre = tipo === "pago" && p.desde && p.hasta ? ` · por el trabajo del ${fmtDia(parseIso(p.desde))} al ${fmtDia(parseIso(p.hasta))}` : "";
         return `
-            <div class="flex items-center justify-between gap-3 bg-panel2 border border-line rounded-xl px-3 py-2.5 fade-in">
-              <div class="min-w-0">
-                <p class="text-sm font-mono font-semibold ${t.cls}">${t.ico} ${signo}${fmtMoney(p.monto)} <span class="text-[10px] font-body text-inkfaint font-medium ml-1">${t.label}</span></p>
-                <p class="text-[11px] text-inkfaint truncate">${p.fecha ? parseIso(p.fecha).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" }) : ""}${mostrarMetodo ? " · " + esc(p.metodo) : ""}${p.nota ? " · " + esc(p.nota) : ""}</p>
+            <div class="hist">
+              <div style="min-width:0">
+                <p class="text-sm font-semibold ${t.cls}">${t.ico} ${fraseMov(p)}</p>
+                <p class="text-[11px] text-inkfaint">${p.fecha ? parseIso(p.fecha).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" }) : ""}${mostrarMetodo ? " · " + esc(p.metodo) : ""}${cubre}${p.nota ? " · " + esc(p.nota) : ""}</p>
               </div>
-              <button data-delpago="${p.k}" class="text-inkfaint hover:text-red-400 text-sm px-2 py-1 active:scale-90 transition">🗑</button>
+              <button data-delpago="${p.k}" class="text-inkfaint hover:text-red-400 text-sm px-2 py-1 active:scale-90 transition shrink-0" title="Borrar">🗑</button>
             </div>`;
-      }).join("") : `<p class="text-sm text-inkfaint py-2">Todavía no hay movimientos registrados.</p>`}
+      }).join("") : `<p class="help">Todavía no has registrado pagos, adelantos, descuentos ni bonos.</p>`}
         </div>`;
+      previewPago();
+    }
+
+    /* Explica en palabras simples qué va a pasar antes de confirmar */
+    function previewPago() {
+      const el = $("pPreview");
+      if (!el || !panel || panel.tipo !== "pagos") return;
+      const w = state.workers.find((x) => x.id === panel.id);
+      if (!w) return;
+      const monto = Number($("pMonto").value) || 0;
+      if (!(monto > 0)) { el.classList.add("hidden"); return; }
+      const L = ledger(w);
+      const despues = L.saldo + (movTipo === "bono" ? monto : -monto);
+      let txt = "";
+      if (movTipo === "pago") {
+        if (despues <= 0.5) {
+          const h = periodoAlCerrar(w);
+          const sig = addPeriodo(addDays(h.hasta, 1), w.frecuencia);
+          txt = `✅ Con este pago queda <b class="text-white">al día</b>. Su próximo pago será el <b class="text-white">${fmtDiaLargo(sig)}</b>.`;
+          if (despues < -0.5) txt += ` Ojo: le estás pagando ${fmtMoney(-despues)} de más, se restará de su próximo pago.`;
+        } else {
+          txt = `Es un pago incompleto. Después de esto ${quedaTxt(despues)}.`;
+        }
+      } else if (movTipo === "adelanto") {
+        txt = `Después de este adelanto ${quedaTxt(despues)}.`;
+      } else if (movTipo === "descuento") {
+        txt = `Se le quitarán ${fmtMoney(monto)} de su sueldo. Después de esto ${quedaTxt(despues)}.`;
+      } else {
+        txt = `Se le sumarán ${fmtMoney(monto)} a su sueldo. Después de esto ${quedaTxt(despues)}.`;
+      }
+      el.innerHTML = txt;
+      el.classList.remove("hidden");
     }
 
     async function registrarPago() {
@@ -1475,19 +1680,36 @@
       const w = state.workers.find((x) => x.id === id);
       if (!w) return;
       const tipo = movTipo;
-      const monto = Number($("pMonto").value);
+      const monto = r2($("pMonto").value);
       const fecha = $("pFecha").value;
       const nota = $("pNota").value.trim();
       if (!fecha) return showToast("Elige la fecha");
       if (!(monto > 0)) return showToast("Escribe el monto");
       if ((tipo === "descuento" || tipo === "bono") && !nota) return showToast("Escribe el motivo");
+
+      const L = ledger(w);
+      const key = `p${Date.now()}`;
+      const mov = { tipo, fecha, monto, nota, metodo: w.metodoPago || "Efectivo", ts: Date.now() };
+      if (tipo === "pago") {
+        const despues = L.saldo - monto;
+        const h = periodoAlCerrar(w);
+        mov.desde = iso(h.desde);
+        mov.hasta = iso(h.hasta);
+        mov.cerro = despues <= 0.5;
+        mov.saldoAntes = r2(L.saldo);
+        mov.saldoDespues = r2(despues);
+      }
+      const pagosNuevo = { ...(w.pagos || {}), [key]: mov };
+      const ult = ultimoMov(pagosNuevo);
       const btn = $("btnSavePago");
       btn.disabled = true;
       try {
         await updateDoc(docTrabajador(id), {
-          [`pagos.p${Date.now()}`]: { tipo, fecha, monto, nota, metodo: w.metodoPago || "Efectivo" },
+          [`pagos.${key}`]: mov,
+          ultimoPago: ult ? ult.fecha : null,
+          proximoPago: iso(cicloInfo(w, pagosNuevo).vence),
         });
-        showToast(`${TIPOS_MOV[tipo].label} registrado`);
+        showToast(tipo === "pago" && mov.cerro ? "Pago registrado · ya está al día" : `${TIPOS_MOV[tipo].label} registrado`);
         movTipo = "pago";
         if (panel && panel.tipo === "pagos" && panel.id === id) renderPagosBody(true);
       } catch (e) {
@@ -1500,15 +1722,31 @@
     async function borrarPago(k) {
       if (!panel) return;
       const id = panel.id;
-      if (!confirm("¿Eliminar este movimiento?")) return;
-      try { await updateDoc(docTrabajador(id), { [`pagos.${k}`]: deleteField() }); showToast("Movimiento eliminado"); }
-      catch (e) { console.error(e); showToast("No se pudo eliminar."); }
+      const w = state.workers.find((x) => x.id === id);
+      if (!w || !confirm("¿Eliminar este movimiento? El saldo y el próximo pago se recalculan.")) return;
+      const pagosNuevo = { ...(w.pagos || {}) };
+      delete pagosNuevo[k];
+      const ult = ultimoMov(pagosNuevo);
+      try {
+        await updateDoc(docTrabajador(id), {
+          [`pagos.${k}`]: deleteField(),
+          ultimoPago: ult ? ult.fecha : null,
+          proximoPago: iso(cicloInfo(w, pagosNuevo).vence),
+        });
+        showToast("Movimiento eliminado");
+      } catch (e) { console.error(e); showToast("No se pudo eliminar."); }
     }
 
     /* ------------------------------ Eventos ------------------------------ */
     $("btnAddWorker").addEventListener("click", () => { if (!tiendaId) return showToast("Aún no se cargó la tienda"); abrirForm(null); });
     $("btnRefresh").addEventListener("click", () => { if (tiendaId && localidad) cargarPedidos(); });
-    $("searchWorker").addEventListener("input", (e) => { state.search = e.target.value; renderWorkers(compute()); });
+
+    let searchTimer;
+    $("searchWorker").addEventListener("input", (e) => {
+      state.search = e.target.value;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { if (lastData) renderWorkers(lastData); }, 120);
+    });
 
     $("workersGrid").addEventListener("click", (e) => {
       const b = e.target.closest("button[data-act]");
@@ -1518,6 +1756,10 @@
       if (act === "asistencia") abrirAsistencia(id);
       if (act === "pagos") abrirPagos(id);
       if (act === "borrar") eliminarTrabajador(id);
+    });
+
+    $("overlay").addEventListener("input", (e) => {
+      if (panel && panel.tipo === "pagos" && e.target.id === "pMonto") previewPago();
     });
 
     $("overlay").addEventListener("click", (e) => {

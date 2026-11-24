@@ -1,24 +1,125 @@
 ﻿<!DOCTYPE html>
-<html lang="es">
+<html lang="es" style="background:#000000">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
   <title>Historial de Pedidos</title>
 
-  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-  <link rel="stylesheet" href="../../style/tailwind.css">
+  <!-- Fondo negro ANTES de cualquier otro recurso: evita el destello blanco mientras carga -->
+  <style>
+    html,
+    body {
+      background: #000000;
+      color: #FFFFFF;
+      margin: 0;
+    }
+
+    /* ======================= SKELETON DE CARGA (independiente de Tailwind) =======================
+       Todo el estilo del skeleton vive aquí, en línea, para que se vea oscuro y correcto
+       desde el primer pintado, aunque tailwind.css o las fuentes tarden en llegar. */
+    #loadingScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: #000000;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    @media (min-width: 640px) {
+      #loadingScreen {
+        padding: 32px;
+      }
+    }
+
+    #loadingScreen .sk-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #1A1A1A;
+    }
+
+    #loadingScreen .sk-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #loadingScreen .sk-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    @media (min-width: 1024px) {
+      #loadingScreen .sk-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    #loadingScreen .sk-grow {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .sk,
+    .skeleton-element {
+      background: #0D0D0D;
+      border: 1px solid #1A1A1A;
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    .sk::after,
+    .skeleton-element::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(136, 85, 255, 0.18), transparent);
+      animation: shimmer 1.6s infinite;
+    }
+
+    @keyframes shimmer {
+      100% {
+        transform: translateX(100%);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .sk::after,
+      .skeleton-element::after {
+        animation: none;
+      }
+    }
+  </style>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
     rel="stylesheet">
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+  <link rel="stylesheet" href="../../style/tailwind.css">
 
-
+  <!-- OJO: xlsx, jsPDF y jsPDF-autotable YA NO se cargan aquí.
+       Eran ~1 MB de scripts bloqueantes que retrasaban el primer pintado y que
+       solo se usan al exportar. Ahora el JS los descarga la primera vez que se exporta. -->
 
   <style>
     body {
@@ -33,20 +134,6 @@
 
     .font-mono {
       font-family: 'JetBrains Mono', monospace;
-    }
-
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #221B35;
-      border-radius: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #000000;
     }
 
     .chip {
@@ -134,29 +221,6 @@
       color-scheme: dark;
     }
 
-    .skeleton-element {
-      background: #0D0D0D;
-      border: 1px solid #1A1A1A;
-      position: relative;
-      overflow: hidden;
-      border-radius: 8px;
-    }
-
-    .skeleton-element::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      transform: translateX(-100%);
-      background: linear-gradient(90deg, transparent, rgba(136, 85, 255, 0.18), transparent);
-      animation: shimmer 1.6s infinite;
-    }
-
-    @keyframes shimmer {
-      100% {
-        transform: translateX(100%);
-      }
-    }
-
     * {
       scrollbar-width: thin;
       scrollbar-color: #2a2a2a #000000;
@@ -180,20 +244,7 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #3d3d3d;
     }
-  </style>
 
-  <!-- JS separado del historial de pedidos. Ruta ABSOLUTA a propósito:
-       si esta página se sirve alguna vez detrás de una URL "bonita" con
-       segmentos extra (ej. /dashboard/{tiendaId}/algo), una ruta relativa
-       tipo "../js/..." se rompe porque se resuelve contra la URL visible,
-       no contra la ubicación física del archivo. -->
-  <script type="module" src="../js/dasboardjs/historial_venta.js"></script>
-
-</head>
-
-<body class="text-ink min-h-screen bg-base relative">
-
-  <style>
     @keyframes loadingBarSlide {
       0% {
         transform: translateX(-100%);
@@ -233,31 +284,42 @@
     }
   </style>
 
-  <!-- ======================= PANTALLA DE CARGA (SKELETON ELEGANTE) ======================= -->
-  <div id="loadingScreen" class="fixed inset-0 bg-base z-50 flex flex-col p-4 sm:p-8 space-y-6 overflow-hidden">
-    <div class="flex items-center justify-between gap-4 pb-4 border-b border-line/50">
-      <div class="space-y-2">
-        <div class="skeleton-element h-7 w-48"></div>
-        <div class="skeleton-element h-3 w-28"></div>
+  <!-- JS separado del historial de pedidos. Ruta ABSOLUTA a propósito:
+       si esta página se sirve alguna vez detrás de una URL "bonita" con
+       segmentos extra (ej. /dashboard/{tiendaId}/algo), una ruta relativa
+       tipo "../js/..." se rompe porque se resuelve contra la URL visible,
+       no contra la ubicación física del archivo. -->
+  <script type="module" src="../js/dasboardjs/historial_venta.js"></script>
+
+</head>
+
+<body class="text-ink min-h-screen bg-base relative">
+
+  <!-- ======================= PANTALLA DE CARGA (SKELETON DARK) ======================= -->
+  <div id="loadingScreen" aria-busy="true" aria-label="Cargando historial de pedidos">
+    <div class="sk-row">
+      <div class="sk-col">
+        <div class="sk" style="height:28px;width:190px"></div>
+        <div class="sk" style="height:12px;width:110px"></div>
       </div>
-      <div class="skeleton-element h-10 w-32 rounded-xl"></div>
+      <div class="sk" style="height:40px;width:128px;border-radius:12px"></div>
     </div>
 
-    <div class="space-y-3">
-      <div class="skeleton-element h-6 w-36"></div>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="skeleton-element h-28 rounded-2xl"></div>
-        <div class="skeleton-element h-28 rounded-2xl"></div>
-        <div class="skeleton-element h-28 rounded-2xl"></div>
-        <div class="skeleton-element h-28 rounded-2xl"></div>
+    <div class="sk-col" style="gap:12px">
+      <div class="sk" style="height:24px;width:144px"></div>
+      <div class="sk-grid">
+        <div class="sk" style="height:112px;border-radius:16px"></div>
+        <div class="sk" style="height:112px;border-radius:16px"></div>
+        <div class="sk" style="height:112px;border-radius:16px"></div>
+        <div class="sk" style="height:112px;border-radius:16px"></div>
       </div>
     </div>
 
-    <div class="skeleton-element h-24 rounded-2xl w-full"></div>
+    <div class="sk" style="height:96px;width:100%;border-radius:16px"></div>
 
-    <div class="space-y-3 flex-1 flex flex-col">
-      <div class="skeleton-element h-6 w-32"></div>
-      <div class="skeleton-element flex-1 rounded-2xl w-full"></div>
+    <div class="sk-grow">
+      <div class="sk" style="height:24px;width:128px"></div>
+      <div class="sk" style="flex:1;width:100%;border-radius:16px"></div>
     </div>
   </div>
 
@@ -619,6 +681,13 @@
       </div>
 
       <div class="md:hidden space-y-2.5" id="cardsBody"></div>
+
+      <div id="loadMoreWrap" class="hidden text-center pt-4">
+        <button id="btnLoadMore"
+          class="bg-panel2 border border-line text-white font-semibold text-sm px-5 py-2.5 rounded-xl hover:border-primary active:scale-95 transition">
+          Mostrar más pedidos
+        </button>
+      </div>
 
       <div id="emptyState" class="hidden text-center py-16 text-inkfaint">
         <p class="text-3xl mb-2" id="emptyStateIcon">🍽️</p>

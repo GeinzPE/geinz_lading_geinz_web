@@ -1,10 +1,60 @@
 <!DOCTYPE html>
-<html lang="es" class="dark">
+<html lang="es" class="dark" style="background:#030305">
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#030305">
+  <meta name="color-scheme" content="dark">
   <title>Reseñas - Dashboard</title>
+
+  <!-- Fondo negro + skeleton EN LÍNEA: se pinta al instante, sin esperar fuentes ni scripts -->
+  <style>
+    html, body { margin: 0; background: #030305; }
+    #skel {
+      position: fixed; inset: 0; z-index: 200; overflow-y: auto; overflow-x: hidden;
+      background: #030305; color: #f4f4f5;
+      transition: opacity .35s ease;
+    }
+    #skel.out { opacity: 0; pointer-events: none; }
+    #skel * { box-sizing: border-box; }
+    #skel .hd {
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(3,3,5,.9);
+    }
+    #skel .hd-in {
+      max-width: 48rem; margin: 0 auto; padding: 16px 24px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    #skel .w { max-width: 48rem; margin: 0 auto; padding: 32px 24px 80px; }
+    #skel .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+    #skel .cd {
+      background: #0e0e14; border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px; padding: 18px;
+    }
+    #skel .pills {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;
+      padding: 12px; border-radius: 16px;
+      background: rgba(24,24,27,.4); border: 1px solid rgba(39,39,42,.8);
+    }
+    #skel .rv { display: flex; gap: 12px; margin-bottom: 16px; }
+    #skel .col { flex: 1; min-width: 0; }
+    #skel .sk {
+      position: relative; overflow: hidden;
+      background: #101014; border: 1px solid #1a1a22; border-radius: 8px;
+    }
+    #skel .sk::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(168,85,247,.18), transparent);
+      animation: skm 1.6s infinite;
+    }
+    @keyframes skm { 100% { transform: translateX(100%); } }
+    @media (max-width: 600px) {
+      #skel .hd-in { padding: 14px 16px; }
+      #skel .w { padding: 24px 16px 60px; }
+    }
+    @media (prefers-reduced-motion: reduce) { #skel .sk::after { animation: none; } }
+  </style>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -165,11 +215,85 @@
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
   </style>
 </head>
 
 <body
   class="font-sans antialiased min-h-screen relative overflow-x-hidden selection:bg-purple-500 selection:text-white">
+
+  <!-- ============ SKELETON DARK (pantalla completa) ============ -->
+  <div id="skel" aria-busy="true" aria-label="Cargando reseñas">
+    <div class="hd">
+      <div class="hd-in">
+        <div class="sk" style="width:8px;height:28px;border-radius:99px"></div>
+        <div>
+          <div class="sk" style="height:10px;width:150px"></div>
+          <div class="sk" style="height:22px;width:min(230px,60vw);margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="w">
+      <!-- Resumen -->
+      <div class="g2">
+        <div class="cd">
+          <div class="sk" style="height:11px;width:70px"></div>
+          <div class="sk" style="height:32px;width:110px;margin-top:12px"></div>
+          <div class="sk" style="height:10px;width:60px;margin-top:10px"></div>
+        </div>
+        <div class="cd">
+          <div class="sk" style="height:11px;width:90px"></div>
+          <div class="sk" style="height:32px;width:50px;margin-top:12px"></div>
+          <div class="sk" style="height:10px;width:110px;margin-top:10px"></div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="pills">
+        <div class="sk" style="height:34px;width:70px;border-radius:12px"></div>
+        <div class="sk" style="height:34px;width:84px;border-radius:12px"></div>
+        <div class="sk" style="height:34px;width:84px;border-radius:12px"></div>
+        <div class="sk" style="height:34px;width:84px;border-radius:12px"></div>
+        <div class="sk" style="height:34px;width:84px;border-radius:12px"></div>
+      </div>
+
+      <!-- Reseñas -->
+      <div class="cd rv">
+        <div class="sk" style="width:38px;height:38px;border-radius:99px;flex:none"></div>
+        <div class="col">
+          <div class="sk" style="height:14px;width:45%"></div>
+          <div class="sk" style="height:11px;width:90px;margin-top:10px"></div>
+          <div class="sk" style="height:11px;width:95%;margin-top:14px"></div>
+          <div class="sk" style="height:11px;width:70%;margin-top:8px"></div>
+          <div class="sk" style="height:60px;width:100%;margin-top:14px;border-radius:12px"></div>
+        </div>
+      </div>
+      <div class="cd rv">
+        <div class="sk" style="width:38px;height:38px;border-radius:99px;flex:none"></div>
+        <div class="col">
+          <div class="sk" style="height:14px;width:38%"></div>
+          <div class="sk" style="height:11px;width:90px;margin-top:10px"></div>
+          <div class="sk" style="height:11px;width:88%;margin-top:14px"></div>
+          <div class="sk" style="height:11px;width:55%;margin-top:8px"></div>
+          <div class="sk" style="height:60px;width:100%;margin-top:14px;border-radius:12px"></div>
+        </div>
+      </div>
+      <div class="cd rv">
+        <div class="sk" style="width:38px;height:38px;border-radius:99px;flex:none"></div>
+        <div class="col">
+          <div class="sk" style="height:14px;width:52%"></div>
+          <div class="sk" style="height:11px;width:90px;margin-top:10px"></div>
+          <div class="sk" style="height:11px;width:92%;margin-top:14px"></div>
+          <div class="sk" style="height:11px;width:62%;margin-top:8px"></div>
+          <div class="sk" style="height:60px;width:100%;margin-top:14px;border-radius:12px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Glows de Fondo -->
   <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
@@ -180,7 +304,7 @@
 
   <!-- Header -->
   <header class="sticky top-0 z-30 backdrop-blur-xl bg-[#030305]/80 border-b border-white/[0.08]">
-    <div class="max-w-3xl px-4 sm:px-6 py-4 flex items-center justify-between">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-2 h-7 bg-purple-500 rounded-full shadow-[0_0_12px_rgba(168,85,247,0.5)]"></div>
         <div>
@@ -224,7 +348,7 @@
     <!-- Lista de reseñas -->
     <div id="reviews-list" class="flex flex-col gap-4"></div>
 
-    <!-- Skeleton de carga inicial -->
+    <!-- Skeleton de carga (al cambiar de filtro) -->
     <div id="reviews-skeleton" class="flex flex-col gap-4">
       <div class="glass-card rounded-2xl p-4 h-24 skeleton-line"></div>
       <div class="glass-card rounded-2xl p-4 h-24 skeleton-line"></div>
@@ -247,6 +371,46 @@
     </div>
 
   </main>
+
+  <!-- Cierra el skeleton SOLO, sin tocar resena.js:
+       se desvanece cuando la primera carga termina (el skeleton interno se oculta,
+       aparecen reseñas o aparece el estado vacío).
+       Respaldo: a los 10 s se cierra igual para que nunca quede pegado. -->
+  <script>
+    (function () {
+      var skel = document.getElementById("skel");
+      var lista = document.getElementById("reviews-list");
+      var inner = document.getElementById("reviews-skeleton");
+      var vacio = document.getElementById("empty-state");
+      if (!skel) return;
+      var cerrado = false, mo = null;
+
+      function cerrar() {
+        if (cerrado) return;
+        cerrado = true;
+        if (mo) mo.disconnect();
+        skel.classList.add("out");
+        skel.setAttribute("aria-busy", "false");
+        setTimeout(function () { skel.style.display = "none"; }, 400);
+      }
+
+      function listo() {
+        if (lista && lista.children.length) return true;
+        if (vacio && !vacio.classList.contains("hidden")) return true;
+        if (inner && inner.classList.contains("hidden")) return true;
+        return false;
+      }
+
+      if ("MutationObserver" in window) {
+        mo = new MutationObserver(function () { if (listo()) cerrar(); });
+        if (lista) mo.observe(lista, { childList: true });
+        if (vacio) mo.observe(vacio, { attributes: true, attributeFilter: ["class"] });
+        if (inner) mo.observe(inner, { attributes: true, attributeFilter: ["class"] });
+      }
+      if (listo()) cerrar();
+      setTimeout(cerrar, 10000);
+    })();
+  </script>
 
 </body>
 

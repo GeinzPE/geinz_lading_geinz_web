@@ -5,9 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mi comprobante</title>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap"
-    rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&family=Courier+Prime:wght@400;700&family=Roboto+Mono:wght@400;600&display=swap"
     rel="stylesheet">
@@ -37,7 +37,8 @@
 
     html,
     body {
-      height: 100%
+      height: 100%;
+      background: var(--bg)
     }
 
     body {
@@ -342,7 +343,8 @@
       display: flex;
       gap: 10px;
       justify-content: flex-end;
-      align-items: center
+      align-items: center;
+      overflow: hidden
     }
 
     .bar .msg {
@@ -357,10 +359,6 @@
 
     .bar .msg.err {
       color: #F87171
-    }
-
-    .bar {
-      overflow: hidden
     }
 
     /* barra de progreso */
@@ -434,10 +432,202 @@
         transform: rotate(360deg)
       }
     }
+
+    /* ═════════ SKELETON (visible desde el primer pintado) ═════════ */
+    #skel {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: var(--bg);
+      overflow: hidden;
+      opacity: 1;
+      transition: opacity .45s cubic-bezier(.4, 0, .2, 1)
+    }
+
+    #skel.out {
+      opacity: 0;
+      pointer-events: none
+    }
+
+    #skel .sk-wrap {
+      max-width: 1180px;
+      margin: auto;
+      padding: 22px 18px 90px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      gap: 22px;
+      align-items: start
+    }
+
+    @media(max-width:900px) {
+      #skel .sk-wrap {
+        grid-template-columns: 1fr;
+        padding-top: 70px
+      }
+
+      #skel .sk-prev {
+        display: none
+      }
+    }
+
+    #skel .sk-col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px
+    }
+
+    #skel .sk-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    #skel .sk-row {
+      display: flex;
+      gap: 10px
+    }
+
+    #skel .sk-row>* {
+      flex: 1
+    }
+
+    #skel .sk-b {
+      display: block;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #14141a 25%, #1f1f28 37%, #14141a 63%);
+      background-size: 800px 100%;
+      animation: skShimmer 1.5s ease-in-out infinite
+    }
+
+    @keyframes skShimmer {
+      0% {
+        background-position: -400px 0
+      }
+
+      100% {
+        background-position: 400px 0
+      }
+    }
+
+    #skel .sk-circle {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      flex: none
+    }
+
+    #skel .sk-paper {
+      background: #1a1a20;
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center
+    }
+
+    #skel .sk-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 12px 18px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid var(--border2);
+      background: rgba(5, 5, 5, .94)
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #skel .sk-b {
+        animation: none;
+        opacity: .7
+      }
+
+      #skel {
+        transition-duration: .01s
+      }
+    }
   </style>
 </head>
 
 <body>
+
+  <!-- ═════════ SKELETON ═════════ -->
+  <div id="skel" aria-hidden="true">
+    <div class="sk-wrap">
+      <div class="sk-col">
+        <div>
+          <i class="sk-b" style="width:220px;height:24px;margin-bottom:10px"></i>
+          <i class="sk-b" style="width:70%;height:12px"></i>
+        </div>
+
+        <div class="sk-card">
+          <i class="sk-b" style="width:60px;height:14px"></i>
+          <div class="sk-row" style="align-items:center;gap:16px">
+            <i class="sk-b sk-circle"></i>
+            <div style="display:flex;flex-direction:column;gap:9px;flex:1">
+              <i class="sk-b" style="height:38px;width:140px"></i>
+              <i class="sk-b" style="height:12px;width:80%"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="sk-card">
+          <i class="sk-b" style="width:100px;height:14px"></i>
+          <i class="sk-b" style="height:42px"></i>
+          <i class="sk-b" style="height:42px"></i>
+          <div class="sk-row"><i class="sk-b" style="height:42px"></i><i class="sk-b" style="height:42px"></i></div>
+          <i class="sk-b" style="height:42px"></i>
+        </div>
+
+        <div class="sk-card">
+          <i class="sk-b" style="width:110px;height:14px"></i>
+          <i class="sk-b" style="height:42px"></i>
+          <i class="sk-b" style="height:42px"></i>
+          <i class="sk-b" style="height:42px"></i>
+          <i class="sk-b" style="height:30px;opacity:.7"></i>
+        </div>
+
+        <div class="sk-card">
+          <i class="sk-b" style="width:120px;height:14px"></i>
+          <i class="sk-b" style="height:30px"></i>
+          <i class="sk-b" style="height:30px;opacity:.85"></i>
+          <i class="sk-b" style="height:30px;opacity:.7"></i>
+          <i class="sk-b" style="height:30px;opacity:.55"></i>
+        </div>
+      </div>
+
+      <div class="sk-prev">
+        <i class="sk-b" style="width:60%;height:12px;margin-bottom:12px"></i>
+        <div class="sk-paper">
+          <i class="sk-b" style="width:56px;height:56px;border-radius:50%"></i>
+          <i class="sk-b" style="width:55%;height:14px"></i>
+          <i class="sk-b" style="width:40%;height:10px"></i>
+          <i class="sk-b" style="width:90%;height:10px;margin-top:10px"></i>
+          <i class="sk-b" style="width:90%;height:10px"></i>
+          <i class="sk-b" style="width:90%;height:10px"></i>
+          <i class="sk-b" style="width:90%;height:10px;opacity:.7"></i>
+          <i class="sk-b" style="width:70px;height:70px;margin-top:12px"></i>
+          <i class="sk-b" style="width:60%;height:10px"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="sk-bar">
+      <i class="sk-b" style="width:170px;height:38px;border-radius:10px"></i>
+      <i class="sk-b" style="width:130px;height:38px;border-radius:10px"></i>
+      <i class="sk-b" style="width:140px;height:38px;border-radius:10px"></i>
+    </div>
+  </div>
+
+  <!-- ═════════ CONTENIDO ═════════ -->
   <div class="wrap">
     <div class="col">
       <div>
@@ -547,13 +737,66 @@
     </div>
   </div>
 
-<div class="bar">
-  <div class="prog" id="prog"></div>
-  <span class="msg" id="msg"></span>
-  <button class="sec" id="btnTraerNegocio" type="button">Traer datos de mi negocio</button>
-  <button class="sec" id="btnPrint" type="button">Probar impresión</button>
-  <button class="btn" id="btnSave" type="button">Guardar cambios</button>
-</div>
+  <div class="bar">
+    <div class="prog" id="prog"></div>
+    <span class="msg" id="msg"></span>
+    <button class="sec" id="btnTraerNegocio" type="button">Traer datos de mi negocio</button>
+    <button class="sec" id="btnPrint" type="button">Probar impresión</button>
+    <button class="btn" id="btnSave" type="button">Guardar cambios</button>
+  </div>
+
+  <!-- ═════════ Quitar skeleton cuando TODO esté cargado ═════════ -->
+  <script>
+    (function () {
+      "use strict";
+      var skel = document.getElementById("skel");
+      if (!skel) return;
+
+      var t0 = Date.now();
+      var MIN_VISIBLE = 350;   // evita parpadeo si carga ultra rápido
+      var ESPERA_DATOS = 2500; // tiempo extra para que lleguen los datos de Firebase
+      var MAX = 8000;          // tope: nunca se queda pegado
+      var fuentesListas = false;
+      var hecho = false;
+
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () { fuentesListas = true; });
+      } else { fuentesListas = true; }
+
+      function ticketPintado() {
+        var t = document.getElementById("ticket");
+        return !!t && t.children.length > 0;
+      }
+      function hayDatos() {
+        var n = document.querySelector('[data-k="negocio.nombre"]');
+        return !!n && n.value.trim() !== "";
+      }
+
+      function quitar() {
+        if (hecho) return;
+        hecho = true;
+        clearInterval(timer);
+        // 2 frames para asegurar que el contenido real ya pintó debajo
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            skel.classList.add("out");
+            setTimeout(function () { skel.remove(); }, 500);
+          });
+        });
+      }
+
+      // Por si tu JS quiere avisar explícitamente: window.dispatchEvent(new Event("comprobante:listo"))
+      window.addEventListener("comprobante:listo", quitar);
+
+      var timer = setInterval(function () {
+        var dt = Date.now() - t0;
+        if (dt > MAX) return quitar();
+        if (dt < MIN_VISIBLE) return;
+        if (document.readyState !== "complete" || !fuentesListas || !ticketPintado()) return;
+        if (hayDatos() || dt > ESPERA_DATOS) quitar();
+      }, 60);
+    })();
+  </script>
 
 </body>
 

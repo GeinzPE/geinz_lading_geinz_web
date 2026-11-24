@@ -1,0 +1,146 @@
+/* publicaciones_ui.css
+   Se carga DESPUÉS del <style> de publicaciones.html.
+   Rediseño de Ofertas / Banners / Generador + skeletons por vista. */
+
+@keyframes puIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes puSh { to { transform: translateX(100%); } }
+
+/* ───────── Skeletons ───────── */
+.pu-skel { transition: opacity .3s ease; }
+.pu-skel.out { opacity: 0; pointer-events: none; }
+.pu-oculto { display: none !important; }
+.pu-entra { animation: puIn .45s cubic-bezier(.16, 1, .3, 1) both; }
+.pu-sk {
+  display: block; position: relative; overflow: hidden;
+  background: #12121a; border: 1px solid #1c1c26; border-radius: 8px;
+}
+.pu-sk::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(168, 85, 247, .16), transparent);
+  animation: puSh 1.5s infinite;
+}
+.pu-c { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 20px; background: #0d0d14; border: 1px solid rgba(255, 255, 255, .06); }
+.pu-g4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.pu-gc { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.pu-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+
+/* ───────── Encabezados de tarjeta ───────── */
+#vista-ofertas .card {
+  position: relative; overflow: hidden; margin-bottom: 22px;
+  border-radius: 24px; padding: 22px;
+  background: linear-gradient(180deg, #101018, #0a0a10);
+  border: 1px solid rgba(255, 255, 255, .08);
+}
+#vista-ofertas .card::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, transparent, #a855f7, transparent); opacity: .55;
+}
+.of-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+.of-ico {
+  flex: none; width: 44px; height: 44px; border-radius: 14px; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(168, 85, 247, .14); border: 1px solid rgba(168, 85, 247, .3);
+}
+.of-head .sec-title { margin: 0 0 3px; font-size: 17px; }
+.of-head .sec-sub { margin: 0; line-height: 1.5; }
+.of-tip {
+  margin: 0 0 14px; padding: 10px 14px; border-radius: 14px; font-size: 12px; line-height: 1.5;
+  color: #c4b5fd; background: rgba(168, 85, 247, .08); border: 1px solid rgba(168, 85, 247, .18);
+}
+.of-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px 16px; border-radius: 16px;
+  background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08);
+}
+.of-toggle b { display: block; font-size: 13px; color: #fff; }
+.of-toggle small { color: #8b869b; font-size: 11.5px; }
+
+/* ───────── Tarjetas de banner y oferta ───────── */
+#ofertasGrid, #bannersGrid { gap: 18px !important; }
+#vista-ofertas .of-card {
+  border-radius: 22px; overflow: hidden; background: #0d0d14;
+  border: 1px solid rgba(255, 255, 255, .08);
+  animation: puIn .45s cubic-bezier(.16, 1, .3, 1) both;
+  transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+#vista-ofertas .of-card:hover { transform: translateY(-3px); border-color: rgba(168, 85, 247, .45); box-shadow: 0 18px 40px -18px rgba(124, 58, 237, .55); }
+#vista-ofertas .of-card.dirty { border-color: #a855f7; }
+#vista-ofertas .of-img::after {
+  content: ""; position: absolute; inset: auto 0 0 0; height: 45%;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .7)); pointer-events: none;
+}
+#vista-ofertas .of-price-tag, #vista-ofertas .of-edit, #vista-ofertas .of-del { z-index: 3; }
+#vista-ofertas .of-body { padding: 14px; gap: 12px; }
+#vista-ofertas .of-desc, #vista-ofertas .of-price {
+  background: #12121a; border: 1px solid rgba(255, 255, 255, .09); border-radius: 12px;
+  transition: border-color .2s, box-shadow .2s;
+}
+#vista-ofertas .of-desc:focus, #vista-ofertas .of-price:focus-within { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, .18); }
+#vista-ofertas .of-desc.error, #vista-ofertas .of-price.error { border-color: rgba(244, 63, 94, .8); }
+#vista-ofertas .of-save {
+  border-radius: 12px; padding: 11px; font-weight: 700;
+  background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff;
+  box-shadow: 0 8px 20px -10px rgba(168, 85, 247, .8); transition: filter .2s, transform .15s, opacity .2s;
+}
+#vista-ofertas .of-save:hover:not(:disabled) { filter: brightness(1.1); }
+#vista-ofertas .of-save:active:not(:disabled) { transform: scale(.98); }
+#vista-ofertas .of-save:disabled { background: #1a1a24; color: #6b6b7b; box-shadow: none; }
+#vista-ofertas .of-save.ok { background: #22c55e; color: #000; }
+
+/* Chips y días */
+#vista-ofertas .bn-tipo-chip, #vista-ofertas .of-dia {
+  border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .04); color: #b4b4c2;
+  border-radius: 999px; font-weight: 600; cursor: pointer; user-select: none;
+  transition: background .2s, color .2s, border-color .2s, transform .15s, box-shadow .2s;
+}
+#vista-ofertas .bn-tipo-chip { padding: 8px 14px; font-size: 12px; }
+#vista-ofertas .bn-tipo-chip:hover, #vista-ofertas .of-dia:hover { border-color: rgba(168, 85, 247, .5); color: #fff; }
+#vista-ofertas .bn-tipo-chip:active, #vista-ofertas .of-dia:active { transform: scale(.95); }
+#vista-ofertas .bn-tipo-chip.active, #vista-ofertas .of-dia.on {
+  background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; border-color: transparent;
+  box-shadow: 0 6px 16px -6px rgba(168, 85, 247, .8);
+}
+#vista-ofertas .bn-click-row { border-radius: 14px; background: rgba(255, 255, 255, .03); }
+
+/* Tarjeta "Agregar" */
+#vista-ofertas .of-add {
+  min-height: 260px; border-radius: 22px; font-weight: 600; font-size: 14px;
+  border: 2px dashed rgba(168, 85, 247, .35); background: rgba(168, 85, 247, .04); color: #c4b5fd;
+  transition: background .25s, border-color .25s, transform .2s;
+}
+#vista-ofertas .of-add:hover { background: rgba(168, 85, 247, .12); border-color: #a855f7; transform: translateY(-3px); }
+
+/* ───────── Generador de promociones ───────── */
+#vista-ofertas .gen-grid { gap: 18px; }
+#vista-ofertas .gen-box { padding: 16px; border-radius: 20px; background: #0d0d14; border: 1px solid rgba(255, 255, 255, .08); }
+.gen-step { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #fff; }
+.gen-num {
+  flex: none; width: 26px; height: 26px; border-radius: 50%; font-size: 12px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff;
+}
+.gen-step small { display: block; font-weight: 500; font-size: 11.5px; color: #8b869b; }
+#vista-ofertas .gen-row { border-radius: 14px; background: #12121a; transition: border-color .2s, transform .15s; }
+#vista-ofertas .gen-row:hover { border-color: rgba(168, 85, 247, .4); }
+#vista-ofertas .gen-btn { width: 30px; height: 30px; border-radius: 50%; transition: background .2s, transform .15s; }
+#vista-ofertas .gen-btn:active { transform: scale(.9); }
+#vista-ofertas .gen-res div { border-radius: 14px; background: #08080d; }
+#vista-ofertas .gen-res b { font-size: 18px; }
+#vista-ofertas .gen-img { border-radius: 16px; background-color: #12121a; border-color: rgba(168, 85, 247, .4); cursor: pointer; transition: border-color .2s; }
+#vista-ofertas .gen-img:hover { border-color: #a855f7; }
+#vista-ofertas #genCrear { padding: 14px; font-size: 14px; border-radius: 14px; }
+#vista-ofertas #genLimpiar, #vista-ofertas #genImgBtn {
+  background: rgba(255, 255, 255, .06); color: #e4e4e7; border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 12px; transition: background .2s;
+}
+#vista-ofertas #genLimpiar:hover, #vista-ofertas #genImgBtn:hover { background: rgba(255, 255, 255, .12); }
+#genAnalisis { animation: puIn .3s ease both; }
+
+@media (max-width: 560px) {
+  #vista-ofertas .card { padding: 16px; border-radius: 20px; }
+  .of-head { gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pu-sk::after, .pu-entra, #vista-ofertas .of-card, #genAnalisis { animation: none !important; }
+  #vista-ofertas * { transition: none !important; }
+}

@@ -1,7 +1,10 @@
 import { setFaviconCircular } from "../favicon/favicon.js";
 import { registrarTokenWeb } from "../../notificaciones.js";
 import { montarTarjetaFidelizacion } from "../../tarjeta_fidelizacion_desing/tarjeta.js";
-import { mostrarBienvenidaRegistro } from "../share/registra_bievenida.js";
+import {
+  mostrarBienvenidaRegistro,
+  completarRegistroPendiente,
+} from "../share/registra_bievenida.js";
 import { abrirComoLlegar } from "../../modales/modal_google_maps.js";
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
@@ -8724,7 +8727,7 @@ function diaEspecialProximo() {
       setTimeout(hideBizLoader, 3500); // seguro anti-bloqueo
     }
 
-    injectReviewsStyles();
+   injectReviewsStyles();
     bindReputacionBadgeClick();
     bindReviewsFilterEvents(params);
 
@@ -11762,17 +11765,18 @@ const PW_ESTADOS_QUERY = [
 ];
 
 const PEDIDO_ACTUAL_CSS = `
-  .pw-pill{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  .pw-pill{position:fixed;left:0;right:0;margin-left:auto;margin-right:auto;width:max-content;
+    bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:none;
     z-index:9600;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);padding:12px 18px;border-radius:999px;
     cursor:pointer;font-family:inherit;font-weight:800;font-size:13px;color:#fff;white-space:nowrap;
     background:rgba(11,11,13,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
     border:1px solid rgba(var(--dr),var(--dg),var(--db),.55);
     box-shadow:0 12px 30px -8px rgba(0,0,0,.7),0 0 26px -8px rgba(var(--dr),var(--dg),var(--db),.55);}
-  .pw-pill:active{transform:translateX(-50%) scale(.97);}
+  .pw-pill:active{transform:scale(.97);}
   .pw-pill .pw-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--c,#4ade80);animation:paBlink 1.6s ease-in-out infinite;}
   .pw-pill .pw-state{font-weight:700;font-size:12px;color:var(--c);overflow:hidden;text-overflow:ellipsis;}
   .pw-enter .pw-pill{animation:pwIn .45s cubic-bezier(.22,.85,.32,1) both;}
-  @keyframes pwIn{from{opacity:0;transform:translate(-50%,16px);}to{opacity:1;transform:translate(-50%,0);}}
+  @keyframes pwIn{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
 
   .pw-card{display:none;}
   .pw-card-list .pa-row,#pwDialogList .pa-row{margin-bottom:8px;}
@@ -11820,7 +11824,6 @@ const PEDIDO_ACTUAL_CSS = `
   .pw-overlay.open .pw-sheet{transform:none;}
 }
 `;
-
 let _pwUnsub = null;
 let _pwUid = null;
 let _pwPedidos = [];

@@ -35,6 +35,56 @@ let localidad =
 const auth = getAuth(app);
 
 // ══════════════════════════════════════════════════════════════════════
+//  PLAN: qué permite el doc de servicios en esta pantalla
+//  (declarado al INICIO para que exista antes de que se use en cualquier parte)
+// ══════════════════════════════════════════════════════════════════════
+const RUTA_PUB = "cliente_y_fidelizacion.publicidad_ofertas";
+
+// Regla CSS: el atributo hidden SIEMPRE gana a cualquier display del chip
+(function inyectarEstiloHidden() {
+  const st = document.createElement("style");
+  st.textContent = `[hidden]{display:none !important}`;
+  document.head.appendChild(st);
+})();
+
+// true si es true, o si es un mapa con algún true adentro
+function _on(v) {
+  if (typeof v === "boolean") return v;
+  if (v && typeof v === "object" && typeof v.toDate !== "function")
+    return Object.values(v).some(_on);
+  return false;
+}
+
+// Las redes nacen APAGADAS hasta que llegue el plan real desde el padre.
+window.GEINZ_PLAN = {
+  fanpage: false,
+  instagram: false,
+  youtube: false,
+  banner: true,
+  ofertas: true,
+  misPublicaciones: true,
+  maxOfertas: 5,
+};
+
+function _mostrar(el, visible) {
+  if (!el) return;
+  el.hidden = !visible;
+  el.style.display = visible ? "" : "none";
+}
+
+// Muestra/oculta los chips del selector según el plan
+function aplicarChipsPlan(plan) {
+  const chip = (t) =>
+    document.querySelector(`.tipo-pub-chip[data-tipo="${t}"]`);
+  _mostrar(chip("solo_fb"), !!plan.fanpage);
+  _mostrar(chip("solo_ig"), !!plan.instagram);
+  _mostrar(chip("solo_yt"), !!plan.youtube);
+}
+
+// Ocultos desde el arranque (antes de que llegue el plan)
+aplicarChipsPlan(window.GEINZ_PLAN);
+
+// ══════════════════════════════════════════════════════════════════════
 //  CONSTANTES (URLs de Cloud Functions y configuración de Meta)
 // ══════════════════════════════════════════════════════════════════════
 const CLOUD_FN_PUBLICAR_FB =
@@ -63,6 +113,7 @@ let terminosAceptados = false;
 //   "plataforma"  → feed de Geinz (próximamente)
 //   "perfil"      → perfil público de Geinz (+ switches opcionales de FB / IG)
 //   "solo_redes"  → SOLO redes sociales, sin crear la promo en Geinz
+//   "youtube"     → sube un video a YouTube
 let tipoPublicacionActual = "perfil";
 
 // Redes elegidas en modo "solo_redes". Se pueden marcar una o ambas.
@@ -102,7 +153,7 @@ function esSoloRedes() {
 // ahora significa "modo solo redes" (cubre Facebook, Instagram o ambas).
 const esSoloFacebook = esSoloRedes;
 
-// Perfil y solo redes no cobran créditos por publicar
+// Perfil, solo redes y YouTube no cobran créditos por publicar
 function esPublicacionGratis() {
   return tipoPublicacionActual === "perfil" || esSoloRedes() || esYoutube();
 }
@@ -552,7 +603,7 @@ function calcularDias() {
 }
 
 function calcularCostoTotal() {
-  if (esPublicacionGratis()) return 0; // perfil y solo redes no cobran
+  if (esPublicacionGratis()) return 0; // perfil, solo redes y YouTube no cobran
   const tipo =
     document.querySelector('input[name="plazo"]:checked')?.value || "dias";
   let total = 0;
@@ -646,11 +697,11 @@ function actualizarEstadoBotonPublicar() {
     return;
   }
   // En "solo redes" cada red elegida debe estar conectada
-  // (y la Fanpage además debe estar habilitada en el plan).
+  // y habilitada en el plan.
   const redesOk =
     !esSoloRedes() ||
-    ((!redesSolo.fb || (fbConectado && window.GEINZ_PLAN?.fanpage !== false)) &&
-      (!redesSolo.ig || igConectado));
+    ((!redesSolo.fb || (fbConectado && !!window.GEINZ_PLAN?.fanpage)) &&
+      (!redesSolo.ig || (igConectado && !!window.GEINZ_PLAN?.instagram)));
 
   const habilitado =
     tieneImagen && tieneTitulo && tieneDesc && saldoOk && terminosOk && redesOk;
@@ -705,7 +756,7 @@ function renderBullets(tipo) {
 //   • Si el usuario desmarca todas las redes, vuelve automáticamente a "perfil".
 // ══════════════════════════════════════════════════════════════════════
 window.selectTipoPublicacion = function (el) {
-  if (el.disabled || el.classList.contains("is-disabled")) return;
+  if (el.disabled || el.hidden || el.classList.contains("is-disabled")) return;
 
   const tipo = el.dataset.tipo;
   const chips = document.querySelectorAll("#tipoPubSelector .tipo-pub-chip");
@@ -780,19 +831,23 @@ function aplicarTipoPublicacionUI() {
   // WhatsApp / compartir / precio: ocultos en "solo redes".
   // En YouTube no se tocan: se esconden junto con toda la lista de parámetros.
   ["wp", "share", "price"].forEach((id) => {
-    alternarBloque(document.getElementById(id)?.closest(".param-box"), !esSoloRed);
+    alternarBloque(
+      document.getElementById(id)?.closest(".param-box"),
+      !esSoloRed,
+    );
   });
 
-  // Facebook / Instagram: en "solo redes" solo se ve la red elegida;
-  // si marcó las dos, se ven las dos.
-  const planFb = window.GEINZ_PLAN?.fanpage !== false;
+  // Facebook / Instagram: solo se ven si el plan los incluye (true explícito).
+  // En "solo redes" solo se ve la red elegida; si marcó las dos, se ven las dos.
+  const planFb = !!window.GEINZ_PLAN?.fanpage;
   alternarBloque(
     document.getElementById("paramBoxFb"),
     planFb && (!esSoloRed || redesSolo.fb),
   );
+  const planIg = !!window.GEINZ_PLAN?.instagram;
   alternarBloque(
     document.getElementById("paramBoxIg"),
-    !esSoloRed || redesSolo.ig,
+    planIg && (!esSoloRed || redesSolo.ig),
   );
 
   // Forzar encendido el switch de cada red elegida (si ya está conectada)
@@ -1225,15 +1280,16 @@ function formatFechaSlash(str) {
     const desc = descripcionInput.value.trim();
     if (!esYoutube())
       aplicarPrecioDetectado(detectarPrecioTexto(`${titulo} ${desc}`));
-const zonaImg = document.getElementById("iaZonaImagen");
-if (zonaImg) alternarBloque(zonaImg, imgsCount > 0 && !esYoutube(), "flex");
 
-const zonaTxt = document.getElementById("iaZonaTexto");
-if (zonaTxt) {
-  const mostrar = desc.length >= 10 && !esYoutube();
-  alternarBloque(zonaTxt, mostrar, "flex");
-  if (mostrar) renderBullets(tipoTextoIA);
-}
+    const zonaImg = document.getElementById("iaZonaImagen");
+    if (zonaImg) alternarBloque(zonaImg, imgsCount > 0 && !esYoutube(), "flex");
+
+    const zonaTxt = document.getElementById("iaZonaTexto");
+    if (zonaTxt) {
+      const mostrar = desc.length >= 10 && !esYoutube();
+      alternarBloque(zonaTxt, mostrar, "flex");
+      if (mostrar) renderBullets(tipoTextoIA);
+    }
 
     const tieneContenido = titulo.length >= 4 && desc.length >= 15;
     showBtn(btnMensajeWpIA, tieneContenido);
@@ -1677,12 +1733,12 @@ if (zonaTxt) {
     const btn = document.querySelector(".btn-submit");
     const { fb, ig } = redesSolo;
 
-    // Cada red elegida debe estar conectada
-    if (fb && (!fbConectado || window.GEINZ_PLAN?.fanpage === false)) {
+    // Cada red elegida debe estar conectada y habilitada en el plan
+    if (fb && (!fbConectado || !window.GEINZ_PLAN?.fanpage)) {
       mostrarToast("Conecta tu Fanpage de Facebook primero", "error");
       return;
     }
-    if (ig && !igConectado) {
+    if (ig && (!igConectado || !window.GEINZ_PLAN?.instagram)) {
       mostrarToast("Conecta tu Instagram primero", "error");
       return;
     }
@@ -1781,7 +1837,7 @@ if (zonaTxt) {
   //  PUBLICAR PROMOCIÓN (modo perfil, con FB / IG opcionales)
   // ══════════════════════════════════════════════════════════
   async function publicarPromocion() {
-        // ── Modo YouTube: lo maneja publicaciones_youtube.js ──
+    // ── Modo YouTube: lo maneja publicaciones_youtube.js ──
     if (esYoutube()) {
       if (!terminosAceptados) {
         mostrarToast("Acepta los términos de la publicación", "error");
@@ -2122,7 +2178,7 @@ if (zonaTxt) {
       await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
 
       // ── Instagram (independiente de Facebook) ──
-      if (igPublicarActivo && igConectado) {
+      if (igPublicarActivo && igConectado && window.GEINZ_PLAN?.instagram) {
         skSetStep(
           3,
           "Publicando en Instagram...",
@@ -3632,38 +3688,16 @@ function mostrarIgConectado(username) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  PLAN: qué permite el doc de servicios en esta pantalla
+//  PLAN: aplicar el doc de servicios a esta pantalla
+//  (las constantes y helpers del plan están al inicio del archivo)
 // ══════════════════════════════════════════════════════════════════════
-const RUTA_PUB = "cliente_y_fidelizacion.publicidad_ofertas";
-
-// true si es true, o si es un mapa con algún true adentro
-function _on(v) {
-  if (typeof v === "boolean") return v;
-  if (v && typeof v === "object" && typeof v.toDate !== "function")
-    return Object.values(v).some(_on);
-  return false;
-}
-
-// Valores por defecto hasta que llegue el doc
-window.GEINZ_PLAN = {
-  fanpage: true,
-  banner: true,
-  ofertas: true,
-  misPublicaciones: true,
-  maxOfertas: 5,
-};
-
-function _mostrar(el, visible) {
-  if (el) el.style.display = visible ? "" : "none";
-}
-
 function aplicarServicios(servicios) {
   window.ES_PRESENCIAL =
     String(servicios?.panel_admin?.tipo_tienda ?? servicios?.tipo_tienda ?? "")
       .toLowerCase()
       .trim() === "fisica";
   if (datosTienda) _aplicarDatosTienda(datosTienda);
-  aplicarTipoPublicacionUI();
+
   const base = leer(servicios, RUTA_PUB);
 
   // Créditos de IA desde la DB (setCreditosIA vive en otro script; si no existe, no rompe)
@@ -3671,14 +3705,26 @@ function aplicarServicios(servicios) {
   if (cred !== undefined && typeof setCreditosIA === "function")
     setCreditosIA(cred);
 
-  if (!base) return;
+  // Sin datos del plan: las redes quedan ocultas (plan por defecto = apagado)
+  if (!base) {
+    aplicarChipsPlan(window.GEINZ_PLAN);
+    aplicarTipoPublicacionUI();
+    return;
+  }
 
   const pub = base.publicidad || {};
   const of = base.ofertas || {};
   const maxOfertas = Number(of.cantidad_ofertas ?? base.cantidad_ofertas) || 0;
 
+  // youtuve puede venir true o como texto; "" / false = apagado
+  const _onYt = (v) =>
+    v === true ||
+    (typeof v === "string" && v.trim() !== "" && v.trim() !== "false");
+
   const plan = {
     fanpage: _on(pub.fanpage ?? base.fanpage),
+    instagram: _on(pub.instagram),
+    youtube: _onYt(pub.youtuve ?? pub.youtube),
     banner: _on(of.baner ?? base.baner),
     ofertas: maxOfertas > 0,
     misPublicaciones: _on(base.mis_publicaciones),
@@ -3686,44 +3732,65 @@ function aplicarServicios(servicios) {
   };
   window.GEINZ_PLAN = plan;
 
-  // 1) Fanpage
-  aplicarTipoPublicacionUI(); // decide si se ve Facebook según el modo y el plan
+  // Apagar publicaciones que el plan no permite
   if (!plan.fanpage) {
     fbPublicarActivo = false;
     const sw = document.getElementById("fbPublicarSwitch");
     if (sw) sw.checked = false;
     document.getElementById("fbPublicarPanel")?.classList.remove("open");
   }
+  if (!plan.instagram) {
+    igPublicarActivo = false;
+    const sw = document.getElementById("igPublicarSwitch");
+    if (sw) sw.checked = false;
+    document.getElementById("igPublicarPanel")?.classList.remove("open");
+  }
 
-  // 1b) La opción "Solo en Facebook" solo existe si el plan incluye Fanpage.
-  //     Si estaba marcada y el plan ya no la permite, se desmarca;
-  //     si no queda ninguna red, se vuelve a "Publicación en perfil".
-  const chipFb = document.querySelector('.tipo-pub-chip[data-tipo="solo_fb"]');
-  if (chipFb) chipFb.style.display = plan.fanpage ? "" : "none";
+  // Chips del selector: se ven solo si el plan los incluye
+  aplicarChipsPlan(plan);
+  const chip = (t) =>
+    document.querySelector(`.tipo-pub-chip[data-tipo="${t}"]`);
+
+  // Si estaba elegida una opción que el plan ya no tiene, se desmarca
+  let cambio = false;
   if (!plan.fanpage && redesSolo.fb) {
-    chipFb?.classList.remove("active");
+    chip("solo_fb")?.classList.remove("active");
     redesSolo.fb = false;
-    if (!redesSolo.ig) {
-      tipoPublicacionActual = "perfil";
-      document.querySelector('.tipo-pub-chip[data-tipo="perfil"]')?.click();
+    cambio = true;
+  }
+  if (!plan.instagram && redesSolo.ig) {
+    chip("solo_ig")?.classList.remove("active");
+    redesSolo.ig = false;
+    cambio = true;
+  }
+  if (!plan.youtube && tipoPublicacionActual === "youtube") {
+    chip("solo_yt")?.classList.remove("active");
+    cambio = true;
+  }
+  if (cambio) {
+    if (redesSolo.fb || redesSolo.ig) {
+      tipoPublicacionActual = "solo_redes";
     } else {
-      aplicarTipoPublicacionUI();
+      tipoPublicacionActual = "perfil";
+      chip("perfil")?.classList.add("active");
     }
   }
 
-  // 2) Pestañas
+  aplicarTipoPublicacionUI();
+
+  // Pestañas
   const tabMis = document.querySelector('.vista-tab[data-vista="mis"]');
   const tabOfertas = document.querySelector('.vista-tab[data-vista="ofertas"]');
   _mostrar(tabMis, plan.misPublicaciones);
   _mostrar(tabOfertas, plan.banner || plan.ofertas);
 
-  // 3) Banner y ofertas
+  // Banner y ofertas
   _mostrar(document.getElementById("cardBanner"), plan.banner);
   _mostrar(document.getElementById("cardOfertas"), plan.ofertas);
 
-  // 4) Si la pestaña activa quedó oculta, volver a Publicar
+  // Si la pestaña activa quedó oculta, volver a Publicar
   const activa = document.querySelector(".vista-tab.active");
-  if (activa && activa.style.display === "none") {
+  if (activa && (activa.hidden || activa.style.display === "none")) {
     document.querySelector('.vista-tab[data-vista="publicar"]')?.click();
   }
 
@@ -3732,3 +3799,6 @@ function aplicarServicios(servicios) {
   // Avisa a publicaciones_perfil.js para repintar las celdas
   window.dispatchEvent(new CustomEvent("geinz:plan", { detail: plan }));
 }
+
+// Pide el plan al padre por si llegó antes de que este iframe cargara
+window.parent.postMessage({ type: "PEDIR_DATOS_TIENDA" }, window.location.origin);

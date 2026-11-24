@@ -186,6 +186,76 @@ function fechaLima() {
     second: "2-digit",
   }).format(new Date());
 }
+/**
+ * Si el usuario eligió gustos/momentos sin sesión y luego inició sesión,
+ * guarda esas preferencias en Firestore. Devuelve true si guardó algo.
+ */
+export async function completarRegistroPendiente({
+  auth,
+  registradoDoc,
+  getUserData,
+  negocio,
+}) {
+  const user = auth.currentUser;
+  if (!user) return false;
+
+  // 1) leer borrador vigente
+  let pend = null;
+  try {
+    const p = JSON.parse(localStorage.getItem(PEND_KEY(negocio.id)) || "null");
+    if (p && Date.now() - (p.ts || 0) <= PEND_TTL) pend = p;
+  } catch {}
+  if (!pend) return false;
+
+  const gustos = Array.isArray(pend.gustos) ? pend.gustos : [];
+  const momentos = Array.isArray(pend.momentos) ? pend.momentos : [];
+  if (!gustos.length && !momentos.length) return false;
+
+  // 2) si ya hay registro guardado, no pisarlo
+  const ref = registradoDoc(negocio.localidad, negocio.id, user.uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return false;
+
+  // 3) datos de la cuenta
+  let data = {};
+  try {
+    data = (await getUserData(user.uid)) || {};
+  } catch {}
+
+  const nombre =
+    capitalizar(
+      String(
+        data.nombre || data.nombre_user || data.nombre_completo || user.displayName || "",
+      ).split(" ")[0],
+    ) || null;
+
+  await setDoc(
+    ref,
+    {
+      id_usuario: user.uid,
+      id_registro: user.uid,
+      tiene_cuenta: true,
+      correo: user.email || null,
+      nombre,
+      nombre_completo: data.nombre_completo || null,
+      gustos,
+      momentos,
+      acepta_promos: true,
+      id_negocio: negocio.id,
+      localidad: negocio.localidad,
+      negocio_nombre: negocio.nombre || null,
+      negocio_alias: negocio.alias || null,
+      origen: "enlace_registro",
+      dispositivo: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "movil" : "pc",
+      fecha_texto: fechaLima(),
+      registrado_en: serverTimestamp(),
+      actualizado_en: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return true;
+}
 function injectStyles() {
   if (document.getElementById("rwStyle")) return;
   const st = document.createElement("style");

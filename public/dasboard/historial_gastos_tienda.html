@@ -1,12 +1,122 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" style="background:#000">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
   <title>Historial de gastos</title>
+
+  <!-- Fondo negro + skeleton en línea: se pinta al instante, sin esperar CSS ni fuentes -->
+  <style>
+    html,
+    body {
+      background: #000;
+      margin: 0;
+    }
+
+    #skel {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: #000;
+      overflow: hidden;
+      transition: opacity .35s ease;
+    }
+
+    #skel.out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #skel .in {
+      padding: 16px clamp(14px, 2.5vw, 40px);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    #skel .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #skel .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #skel .kp {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    #skel .tl {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    #skel .fl {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #skel .sk {
+      background: #0d0d0d;
+      border: 1px solid #1a1a1a;
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #skel .sk::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(136, 85, 255, .18), transparent);
+      animation: skShimmer 1.6s infinite;
+    }
+
+    #skel .line {
+      height: 1px;
+      background: #221b35;
+      margin: 0 calc(-1 * clamp(14px, 2.5vw, 40px));
+    }
+
+    @keyframes skShimmer {
+      100% {
+        transform: translateX(100%);
+      }
+    }
+
+    @media (max-width: 860px) {
+      #skel .kp {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      #skel .kp .sk:first-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #skel .sk::after {
+        animation: none;
+      }
+    }
+  </style>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
@@ -15,6 +125,46 @@
 </head>
 
 <body>
+
+  <!-- ============ SKELETON DARK ============ -->
+  <div id="skel" aria-busy="true" aria-label="Cargando historial de gastos">
+    <div class="in">
+      <div class="row">
+        <div class="col">
+          <div class="sk" style="height:26px;width:210px"></div>
+          <div class="sk" style="height:12px;width:260px;max-width:60vw"></div>
+        </div>
+        <div class="row" style="gap:8px">
+          <div class="sk" style="height:38px;width:130px"></div>
+          <div class="sk" style="height:38px;width:140px"></div>
+        </div>
+      </div>
+
+      <div class="kp">
+        <div class="sk" style="height:104px;border-radius:16px"></div>
+        <div class="sk" style="height:104px;border-radius:16px"></div>
+        <div class="sk" style="height:104px;border-radius:16px"></div>
+        <div class="sk" style="height:104px;border-radius:16px"></div>
+      </div>
+
+      <div class="line"></div>
+
+      <div class="tl">
+        <div class="sk" style="height:64px;border-radius:14px"></div>
+        <div class="sk" style="height:64px;border-radius:14px"></div>
+        <div class="sk" style="height:64px;border-radius:14px"></div>
+      </div>
+
+      <div class="fl">
+        <div class="sk" style="height:38px;width:340px;max-width:100%;border-radius:999px"></div>
+        <div class="sk" style="height:38px;width:190px"></div>
+        <div class="sk" style="height:38px;flex:1;min-width:160px"></div>
+      </div>
+
+      <div class="sk" style="height:22px;width:190px"></div>
+      <div class="sk" style="height:300px;width:100%;border-radius:16px"></div>
+    </div>
+  </div>
 
   <header class="top">
     <div class="top-in">
@@ -138,6 +288,37 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- Cierra el skeleton SOLO, sin tocar insumos.js:
+       en cuanto el KPI principal deja de decir "…" (llegaron los datos) se desvanece.
+       Respaldo: a los 12 s se cierra igual para que nunca quede pegado. -->
+  <script>
+    (function () {
+      var skel = document.getElementById("skel");
+      var kpi = document.getElementById("kMesQueda");
+      if (!skel) return;
+      var cerrado = false;
+      function cerrar() {
+        if (cerrado) return;
+        cerrado = true;
+        if (mo) mo.disconnect();
+        skel.classList.add("out");
+        skel.setAttribute("aria-busy", "false");
+        setTimeout(function () { skel.style.display = "none"; }, 400);
+      }
+      function listo() {
+        var t = (kpi && kpi.textContent || "").trim();
+        return t !== "" && t !== "…" && t !== "...";
+      }
+      var mo = null;
+      if (kpi && "MutationObserver" in window) {
+        mo = new MutationObserver(function () { if (listo()) cerrar(); });
+        mo.observe(kpi, { childList: true, characterData: true, subtree: true });
+      }
+      if (listo()) cerrar();
+      setTimeout(cerrar, 12000);
+    })();
+  </script>
 
 </body>
 
