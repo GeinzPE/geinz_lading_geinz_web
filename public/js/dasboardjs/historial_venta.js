@@ -185,6 +185,7 @@ function listenPedidos() {
       renderAll();
     })
     .catch(() => {});
+    escucharGastosOperativos(from, to);
   const col = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const q = query(
     col,
@@ -773,6 +774,32 @@ function computeHoraPico(list) {
   return { franjas, horaTop: maxIdx, cantTop: franjas[maxIdx] };
 }
 
+let gastosOpState = 0;
+
+// Suma los gastos generales (luz, limpieza, bebidas...) del rango, desde Historial de gastos
+let unsubGastos = null;
+// Escucha en vivo los gastos generales del rango (luz, bebidas, limpieza...)
+function escucharGastosOperativos(from, to) {
+  if (unsubGastos) unsubGastos();
+  const col = tiendaSubCol(localidad, "tiendas", tiendaId, "gastos_insumos");
+  unsubGastos = onSnapshot(
+    query(
+      col,
+      where("fechaMs", ">=", from.getTime()),
+      where("fechaMs", "<=", to.getTime()),
+    ),
+    (snap) => {
+      let t = 0;
+      snap.forEach((d) => {
+        const g = d.data();
+        if (g.tipo === "gasto_general") t += Number(g.monto) || 0;
+      });
+      gastosOpState = t;
+      renderAll();
+    },
+    (e) => console.warn("No se pudieron leer los gastos", e),
+  );
+}
 let prevTotalState = 0;
 const prevCache = new Map();
 
@@ -898,9 +925,9 @@ function computeFinanzas(entregados) {
     });
   });
   const margenBruto = ingresos - costos;
-  const gastosOp = Number(costosConfig.gastosOperativos) || 0;
+  const gastosOp = gastosOpState;
   const utilidadNeta = margenBruto - gastosOp;
-  return { ingresos, costos, margenBruto, utilidadNeta };
+  return { ingresos, costos, margenBruto, utilidadNeta, gastosOp };
 }
 
 function computeGananciaPorProducto(entregados) {
@@ -930,10 +957,14 @@ function computeGananciaPorProducto(entregados) {
 }
 
 function renderRentabilidad(entregados) {
-  const { ingresos, costos, margenBruto, utilidadNeta } =
+  const { ingresos, costos, margenBruto, utilidadNeta, gastosOp } =
     computeFinanzas(entregados);
+  const kg = document.getElementById("kpiGastosOpTxt");
+  if (kg) kg.textContent = `margen bruto − gastos (${fmtMoney(gastosOp)})`;
 
   document.getElementById("kpiIngresos").textContent = fmtMoney(ingresos);
+    const ko = document.getElementById("kpiGastosOp");
+  if (ko) ko.textContent = fmtMoney(gastosOp);
   document.getElementById("kpiCostos").textContent = fmtMoney(costos);
   document.getElementById("kpiMargenBruto").textContent = fmtMoney(margenBruto);
   document.getElementById("kpiMargenPct").textContent =
@@ -997,8 +1028,7 @@ function poblarCostoProductosList() {
 function openCostModal() {
   document.getElementById("inputCostoPct").value =
     costosConfig.porcentaje ?? 35;
-  document.getElementById("inputGastosOp").value =
-    costosConfig.gastosOperativos ?? 0;
+
   poblarCostoProductosList();
   const overlay = document.getElementById("costModalOverlay");
   if (overlay) overlay.classList.remove("hidden");
@@ -1028,8 +1058,7 @@ if (btnGuardarCostos) {
     });
     costosConfig = {
       porcentaje: Number(document.getElementById("inputCostoPct").value) || 0,
-      gastosOperativos:
-        Number(document.getElementById("inputGastosOp").value) || 0,
+
       overrides,
     };
     saveCostosConfig(costosConfig);
@@ -1345,7 +1374,7 @@ function exportarCSV() {
     ["Margen bruto (S/)", finanzas.margenBruto.toFixed(2)],
     [
       "Gastos operativos (S/)",
-      (Number(costosConfig.gastosOperativos) || 0).toFixed(2),
+      finanzas.gastosOp.toFixed(2),
     ],
     ["Utilidad neta (S/)", finanzas.utilidadNeta.toFixed(2)],
     [
@@ -1452,7 +1481,7 @@ function exportarExcel() {
     { Métrica: "Margen bruto (S/)", Valor: finanzas.margenBruto.toFixed(2) },
     {
       Métrica: "Gastos operativos (S/)",
-      Valor: (Number(costosConfig.gastosOperativos) || 0).toFixed(2),
+      Valor: finanzas.gastosOp.toFixed(2),
     },
     { Métrica: "Utilidad neta (S/)", Valor: finanzas.utilidadNeta.toFixed(2) },
     {

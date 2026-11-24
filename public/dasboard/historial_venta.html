@@ -343,23 +343,23 @@
         </div>
 
         <div class="bg-panel border border-line rounded-2xl p-4">
-                  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-          <div class="bg-panel border border-primary/40 rounded-2xl p-4">
-            <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Venta neta</p>
-            <p class="font-display font-extrabold text-2xl text-white" id="kpiVentaNeta">S/ 0.00</p>
-            <p class="text-[11px] text-inkfaint mt-1">sin delivery</p>
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+            <div class="bg-panel border border-primary/40 rounded-2xl p-4">
+              <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Venta neta</p>
+              <p class="font-display font-extrabold text-2xl text-white" id="kpiVentaNeta">S/ 0.00</p>
+              <p class="text-[11px] text-inkfaint mt-1">sin delivery</p>
+            </div>
+            <div class="bg-panel border border-line rounded-2xl p-4">
+              <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">🛵 Delivery cobrado</p>
+              <p class="font-display font-extrabold text-2xl text-white" id="kpiDeliveryTotal">S/ 0.00</p>
+              <p class="text-[11px] text-inkfaint mt-1"><span id="kpiDeliveryCount">0</span> pedidos con delivery</p>
+            </div>
+            <div class="bg-panel border border-line rounded-2xl p-4">
+              <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ticket neto</p>
+              <p class="font-display font-extrabold text-2xl text-white" id="kpiTicketNeto">S/ 0.00</p>
+              <p class="text-[11px] text-inkfaint mt-1">sin delivery</p>
+            </div>
           </div>
-          <div class="bg-panel border border-line rounded-2xl p-4">
-            <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">🛵 Delivery cobrado</p>
-            <p class="font-display font-extrabold text-2xl text-white" id="kpiDeliveryTotal">S/ 0.00</p>
-            <p class="text-[11px] text-inkfaint mt-1"><span id="kpiDeliveryCount">0</span> pedidos con delivery</p>
-          </div>
-          <div class="bg-panel border border-line rounded-2xl p-4">
-            <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ticket neto</p>
-            <p class="font-display font-extrabold text-2xl text-white" id="kpiTicketNeto">S/ 0.00</p>
-            <p class="text-[11px] text-inkfaint mt-1">sin delivery</p>
-          </div>
-        </div>
           <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Yape/Plin vs. Efectivo/Tarjeta
           </p>
           <div class="space-y-2.5" id="barPago"></div>
@@ -440,7 +440,7 @@
           <span class="text-xs font-mono text-inkfaint">basado en costos configurados</span>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
           <div class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ingresos</p>
             <p class="font-display font-extrabold text-2xl text-white" id="kpiIngresos">S/ 0.00</p>
@@ -448,6 +448,11 @@
           <div class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Costos estimados</p>
             <p class="font-display font-extrabold text-2xl text-white" id="kpiCostos">S/ 0.00</p>
+          </div>
+          <div class="bg-panel border border-line rounded-2xl p-4">
+            <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Gastos operativos</p>
+            <p class="font-display font-extrabold text-2xl text-white" id="kpiGastosOp">S/ 0.00</p>
+            <p class="text-[11px] text-inkfaint mt-1">luz, bebidas, limpieza…</p>
           </div>
           <div class="bg-panel border border-primary/40 rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Margen bruto</p>
@@ -457,7 +462,7 @@
           <div class="bg-panel border border-primary/40 rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Utilidad neta</p>
             <p class="font-display font-extrabold text-2xl text-white" id="kpiUtilidadNeta">S/ 0.00</p>
-            <p class="text-[11px] text-inkfaint mt-1">margen bruto − gastos operativos</p>
+            <p class="text-[11px] text-inkfaint mt-1" id="kpiGastosOpTxt">margen bruto − gastos operativos</p>
           </div>
         </div>
 
@@ -500,14 +505,9 @@
                 específico)</span>
             </div>
           </div>
-
-          <div class="mb-5">
-            <label class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5 block">Gastos
-              operativos del período (S/)</label>
-            <input id="inputGastosOp" type="number" min="0" step="0.5"
-              class="w-32 text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
-            <p class="text-[11px] text-inkfaint mt-1">Alquiler, planilla, servicios, etc. Se resta del margen bruto para
-              la utilidad neta.</p>
+          <div class="mb-5 text-[11px] text-inkfaint bg-panel2 border border-line rounded-xl px-3 py-2.5">
+            Los gastos operativos se toman solos de <b class="text-white">Historial de gastos</b>, del mismo rango de
+            fechas que estás viendo.
           </div>
 
           <div class="mb-3">
@@ -565,7 +565,7 @@
             <option value="directo">🧾 Venta directa</option>
           </select>
         </div>
-                <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2">
           <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Delivery</span>
           <select id="filterDelivery"
             class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
@@ -575,7 +575,7 @@
           </select>
         </div>
 
-                <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2">
           <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Boleta</span>
           <select id="filterComprobante"
             class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
