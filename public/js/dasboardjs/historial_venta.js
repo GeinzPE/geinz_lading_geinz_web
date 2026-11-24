@@ -18,6 +18,42 @@ import {
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
 
+/* ---------------- Librerías de exportación (carga bajo demanda) ----------------
+   xlsx + jsPDF + autotable pesan ~1 MB. Antes se cargaban en el <head> y bloqueaban
+   el primer pintado. Ahora se descargan solo la primera vez que se usa Exportar. */
+const XLSX_URL =
+  "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+const JSPDF_URL =
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+const AUTOTABLE_URL =
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js";
+
+const _scriptsCargados = {};
+function cargarScript(src) {
+  if (_scriptsCargados[src]) return _scriptsCargados[src];
+  _scriptsCargados[src] = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => {
+      delete _scriptsCargados[src]; // permite reintentar
+      reject(new Error("No se pudo cargar " + src));
+    };
+    document.head.appendChild(s);
+  });
+  return _scriptsCargados[src];
+}
+async function cargarLibExcel() {
+  if (window.XLSX) return;
+  await cargarScript(XLSX_URL);
+}
+async function cargarLibPDF() {
+  if (!window.jspdf) await cargarScript(JSPDF_URL);
+  // autotable se engancha a jsPDF, por eso va después
+  if (!(window.jspdf && window.jspdf.jsPDF.API.autoTable))
+    await cargarScript(AUTOTABLE_URL);
+}
+
 /* ---------------- Adaptación de textos según categoría de negocio ---------------- */
 function normalizarCategoria(cat) {
   return (cat || "")
@@ -63,6 +99,19 @@ function aplicarTextosPorCategoria() {
 }
 aplicarTextosPorCategoria();
 
+/* Red de seguridad: si por cualquier motivo no llegan los datos de la tienda
+   (o Firestore no responde), el skeleton no se queda pegado para siempre. */
+const LOADER_TIMEOUT_MS = 15000;
+setTimeout(() => {
+  const ls = document.getElementById("loadingScreen");
+  if (ls && ls.style.display !== "none") {
+    ocultarLoader();
+    if (!tiendaId || !localidad) {
+      setConnStatus("⚠️ No se recibieron los datos de la tienda", false);
+    }
+  }
+}, LOADER_TIMEOUT_MS);
+
 if (!tiendaId || !localidad) {
   window.addEventListener("message", (e) => {
     if (e.data?.tipo !== "DATOS_TIENDA") return;
@@ -103,14 +152,19 @@ function setConnStatus(text, ok) {
 }
 
 let unsubscribePedidos = null;
+let reqId = 0; // descarta respuestas viejas si el usuario cambia de rango rápido
 
 function ocultarLoader() {
   const loadingScreen = document.getElementById("loadingScreen");
-  if (loadingScreen && !loadingScreen.classList.contains("hidden")) {
-    loadingScreen.style.transition = "opacity 0.3s ease";
-    loadingScreen.style.opacity = "0";
-    setTimeout(() => loadingScreen.classList.add("hidden"), 300);
-  }
+  if (!loadingScreen || loadingScreen.dataset.cerrado === "1") return;
+  loadingScreen.dataset.cerrado = "1";
+  loadingScreen.style.transition = "opacity 0.3s ease";
+  loadingScreen.style.opacity = "0";
+  loadingScreen.style.pointerEvents = "none";
+  // display:none explícito (no depende de que la clase "hidden" gane sobre "flex")
+  setTimeout(() => {
+    loadingScreen.style.display = "none";
+  }, 300);
 }
 
 function mostrarCargaRango() {
@@ -135,7 +189,9 @@ function mostrarSkeletonLista() {
   const cards = document.getElementById("cardsBody");
   const empty = document.getElementById("emptyState");
   const resultCount = document.getElementById("resultCount");
+  const loadMore = document.getElementById("loadMoreWrap");
   if (empty) empty.classList.add("hidden");
+  if (loadMore) loadMore.classList.add("hidden");
   if (resultCount) resultCount.textContent = "";
 
   if (tbody) {
@@ -143,7 +199,7 @@ function mostrarSkeletonLista() {
       .map(
         () => `
       <tr>
-        <td class="px-4 py-3" colspan="7"><div class="skeleton-element h-4 w-full rounded"></div></td>
+        <td class="px-4 py-3" colspan="9"><div class="skeleton-element" style="height:16px;width:100%;border-radius:4px"></div></td>
       </tr>`,
       )
       .join("");
@@ -155,14 +211,14 @@ function mostrarSkeletonLista() {
       <div class="bg-panel border border-line rounded-2xl p-4">
         <div class="flex justify-between items-start mb-2">
           <div class="space-y-1.5 w-2/3">
-            <div class="skeleton-element h-3 w-20 rounded"></div>
-            <div class="skeleton-element h-4 w-32 rounded"></div>
+            <div class="skeleton-element" style="height:12px;width:80px;border-radius:4px"></div>
+            <div class="skeleton-element" style="height:16px;width:128px;border-radius:4px"></div>
           </div>
-          <div class="skeleton-element h-5 w-16 rounded-full"></div>
+          <div class="skeleton-element" style="height:20px;width:64px;border-radius:999px"></div>
         </div>
         <div class="flex justify-between items-center">
-          <div class="skeleton-element h-3 w-16 rounded"></div>
-          <div class="skeleton-element h-4 w-14 rounded"></div>
+          <div class="skeleton-element" style="height:12px;width:64px;border-radius:4px"></div>
+          <div class="skeleton-element" style="height:16px;width:56px;border-radius:4px"></div>
         </div>
       </div>`,
       )
@@ -176,16 +232,38 @@ function listenPedidos() {
     unsubscribePedidos();
     unsubscribePedidos = null;
   }
+  const myReq = ++reqId;
   mostrarCargaRango();
 
   const [from, to] = getRangeBounds();
-  cargarTotalPeriodoAnterior(from, to)
-    .then((t) => {
-      prevTotalState = t;
-      renderAll();
-    })
-    .catch(() => {});
-    escucharGastosOperativos(from, to);
+
+  // El período anterior ya NO compite con la carga principal:
+  // se pide recién cuando llegan los pedidos del rango actual.
+  prevTotalState = null;
+  let prevProgramado = false;
+  const programarPeriodoAnterior = () => {
+    if (prevProgramado) return;
+    prevProgramado = true;
+    const run = () => {
+      if (myReq !== reqId) return;
+      cargarTotalPeriodoAnterior(from, to)
+        .then((t) => {
+          if (myReq !== reqId) return;
+          prevTotalState = t;
+          renderAll();
+        })
+        .catch(() => {
+          if (myReq !== reqId) return;
+          prevTotalState = 0;
+          renderAll();
+        });
+    };
+    if (window.requestIdleCallback)
+      window.requestIdleCallback(run, { timeout: 1500 });
+    else setTimeout(run, 150);
+  };
+
+  escucharGastosOperativos(from, to);
   const col = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const q = query(
     col,
@@ -201,15 +279,19 @@ function listenPedidos() {
     unsubscribePedidos = onSnapshot(
       q,
       (snap) => {
+        if (myReq !== reqId) return;
         pedidosRaw = snap.docs.map((d) => normalizarPedido(d.id, d.data()));
         setConnStatus(`conectado · ${pedidosRaw.length} pedidos hoy`, true);
-        renderAll();
+        renderAllNow();
         ocultarLoader();
         ocultarCargaRango();
+        programarPeriodoAnterior();
       },
       (err) => {
         console.error(err);
+        if (myReq !== reqId) return;
         setConnStatus("⚠️ Error de conexión / permisos en Firestore", false);
+        ocultarLoader();
         ocultarCargaRango();
       },
     );
@@ -217,17 +299,20 @@ function listenPedidos() {
     setConnStatus("cargando…", null);
     getDocs(q)
       .then((snap) => {
+        if (myReq !== reqId) return; // llegó tarde: el usuario ya cambió de rango
         pedidosRaw = snap.docs.map((d) => normalizarPedido(d.id, d.data()));
         setConnStatus(
           `conectado · ${pedidosRaw.length} pedidos en el rango`,
           true,
         );
-        renderAll();
+        renderAllNow();
         ocultarLoader();
         ocultarCargaRango();
+        programarPeriodoAnterior();
       })
       .catch((err) => {
         console.error(err);
+        if (myReq !== reqId) return;
         setConnStatus("⚠️ Error de conexión / permisos en Firestore", false);
         ocultarLoader();
         ocultarCargaRango();
@@ -627,6 +712,9 @@ function fechaEfectiva(p) {
 function getFilteredOrders() {
   const [from, to] = getRangeBounds();
   const estadoF = document.getElementById("filterEstado").value;
+  const origenF = document.getElementById("filterOrigen").value;
+  const deliF = document.getElementById("filterDelivery")?.value || "todos";
+  const compF = document.getElementById("filterComprobante")?.value || "todos";
   const q = document.getElementById("searchBox").value.trim().toLowerCase();
 
   return pedidosRaw
@@ -636,16 +724,10 @@ function getFilteredOrders() {
 
       if (estadoF !== "todos" && (p.estado || "").toLowerCase() !== estadoF)
         return false;
-      const origenF = document.getElementById("filterOrigen").value;
-      const deliF = document.getElementById("filterDelivery")?.value || "todos";
       if (deliF === "con" && !tieneDelivery(p)) return false;
       if (deliF === "sin" && tieneDelivery(p)) return false;
       if (origenF !== "todos" && getOrigenInfo(p).key !== origenF) return false;
-      if (
-        document.getElementById("filterComprobante")?.value === "con" &&
-        !p.comprobante?.numero
-      )
-        return false;
+      if (compF === "con" && !p.comprobante?.numero) return false;
       if (q) {
         const nombre = ((p.cliente && p.cliente.nombre) || "").toLowerCase();
         const tel = telefonoCliente(p).toLowerCase();
@@ -781,6 +863,7 @@ let unsubGastos = null;
 // Escucha en vivo los gastos generales del rango (luz, bebidas, limpieza...)
 function escucharGastosOperativos(from, to) {
   if (unsubGastos) unsubGastos();
+  gastosOpState = 0;
   const col = tiendaSubCol(localidad, "tiendas", tiendaId, "gastos_insumos");
   unsubGastos = onSnapshot(
     query(
@@ -800,7 +883,8 @@ function escucharGastosOperativos(from, to) {
     (e) => console.warn("No se pudieron leer los gastos", e),
   );
 }
-let prevTotalState = 0;
+// null = todavía calculando; número = total del período anterior
+let prevTotalState = null;
 const prevCache = new Map();
 
 async function cargarTotalPeriodoAnterior(from, to) {
@@ -866,7 +950,12 @@ function renderInteligente(entregados, from, to) {
   const { prevTotal } = computeComparativaTotal(from, to);
   const comparativaLabel = document.getElementById("comparativaLabel");
   const comparativaSub = document.getElementById("comparativaSub");
-  if (prevTotal > 0) {
+  if (prevTotal === null) {
+    comparativaLabel.textContent = "…";
+    comparativaLabel.className =
+      "font-display font-extrabold text-lg text-white";
+    comparativaSub.textContent = "calculando período anterior…";
+  } else if (prevTotal > 0) {
     const cambio = ((totalActual - prevTotal) / prevTotal) * 100;
     const signo = cambio >= 0 ? "+" : "";
     comparativaLabel.textContent = `${signo}${cambio.toFixed(1)}%`;
@@ -963,7 +1052,7 @@ function renderRentabilidad(entregados) {
   if (kg) kg.textContent = `margen bruto − gastos (${fmtMoney(gastosOp)})`;
 
   document.getElementById("kpiIngresos").textContent = fmtMoney(ingresos);
-    const ko = document.getElementById("kpiGastosOp");
+  const ko = document.getElementById("kpiGastosOp");
   if (ko) ko.textContent = fmtMoney(gastosOp);
   document.getElementById("kpiCostos").textContent = fmtMoney(costos);
   document.getElementById("kpiMargenBruto").textContent = fmtMoney(margenBruto);
@@ -1068,11 +1157,20 @@ if (btnGuardarCostos) {
   });
 }
 
+/* ---------------- Lista de pedidos con paginación ----------------
+   Pintar 2000 filas (tabla + tarjetas) de golpe era lo más pesado de la pantalla.
+   Ahora se pintan 100 y el resto se carga con "Mostrar más pedidos".
+   Las métricas y exportaciones siguen usando TODOS los pedidos filtrados. */
+const PAGE_SIZE = 100;
+let visibleCount = PAGE_SIZE;
+
 function renderList(list) {
   const tbody = document.getElementById("tableBody");
   const cards = document.getElementById("cardsBody");
   const empty = document.getElementById("emptyState");
   const resultCount = document.getElementById("resultCount");
+  const loadMoreWrap = document.getElementById("loadMoreWrap");
+  const btnLoadMore = document.getElementById("btnLoadMore");
   if (resultCount) {
     resultCount.textContent = `(${list.length})`;
   }
@@ -1080,15 +1178,22 @@ function renderList(list) {
   if (!list.length) {
     tbody.innerHTML = "";
     cards.innerHTML = "";
+    if (loadMoreWrap) loadMoreWrap.classList.add("hidden");
     if (empty) empty.classList.remove("hidden");
     return;
   }
   if (empty) empty.classList.add("hidden");
 
-  tbody.innerHTML = list
+  const visibles = list.slice(0, visibleCount);
+  const restantes = list.length - visibles.length;
+  if (loadMoreWrap) loadMoreWrap.classList.toggle("hidden", restantes <= 0);
+  if (btnLoadMore && restantes > 0)
+    btnLoadMore.textContent = `Mostrar más pedidos (${restantes} restantes)`;
+
+  tbody.innerHTML = visibles
     .map(
       (p) => `
-    <tr class="row-hover cursor-pointer fade-in" onclick="window.openModal('${p.id}')">
+    <tr class="row-hover cursor-pointer" onclick="window.openModal('${p.id}')">
          <td class="px-4 py-3 font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? `<p class="text-[10px] text-inkfaint font-normal">🧾 ${p.comprobante.numero}</p>` : ""}</td>
       <td class="px-4 py-3 text-inkdim">${fmtFechaHora(p)}</td>
       <td class="px-4 py-3">
@@ -1108,10 +1213,10 @@ function renderList(list) {
     )
     .join("");
 
-  cards.innerHTML = list
+  cards.innerHTML = visibles
     .map(
       (p) => `
-    <div class="bg-panel border border-line rounded-2xl p-4 fade-in active:scale-[.98] transition hover:border-primary/50" onclick="window.openModal('${p.id}')">
+    <div class="bg-panel border border-line rounded-2xl p-4 active:scale-[.98] transition hover:border-primary/50" onclick="window.openModal('${p.id}')">
       <div class="flex justify-between items-start mb-2">
         <div>
            <p class="font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? ` · 🧾 ${p.comprobante.numero}` : ""}</p>
@@ -1133,6 +1238,14 @@ function renderList(list) {
   `,
     )
     .join("");
+}
+
+const btnLoadMoreEl = document.getElementById("btnLoadMore");
+if (btnLoadMoreEl) {
+  btnLoadMoreEl.addEventListener("click", () => {
+    visibleCount += PAGE_SIZE;
+    renderAllNow();
+  });
 }
 
 function openModal(id) {
@@ -1210,7 +1323,7 @@ function openModal(id) {
       }
 
       ${detalleCuponModalHtml(p)}
-${p.pago_voucher?.url ? `<div class="mb-5"><p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Voucher de pago${p.pago_voucher.por ? ` · ${p.pago_voucher.por}` : ""}</p><img src="${p.pago_voucher.url}" class="max-h-60 rounded-xl border border-line"></div>` : ""}
+${p.pago_voucher?.url ? `<div class="mb-5"><p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Voucher de pago${p.pago_voucher.por ? ` · ${p.pago_voucher.por}` : ""}</p><img src="${p.pago_voucher.url}" loading="lazy" class="max-h-60 rounded-xl border border-line"></div>` : ""}
       <div class="mb-5">
         <p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Productos</p>
         <div class="bg-panel2 border border-line rounded-xl px-3">${productosHtml || '<p class="text-sm text-inkfaint py-3">Sin productos</p>'}</div>
@@ -1372,10 +1485,7 @@ function exportarCSV() {
     ["Ingresos totales (S/)", finanzas.ingresos.toFixed(2)],
     ["Costos estimados (S/)", finanzas.costos.toFixed(2)],
     ["Margen bruto (S/)", finanzas.margenBruto.toFixed(2)],
-    [
-      "Gastos operativos (S/)",
-      finanzas.gastosOp.toFixed(2),
-    ],
+    ["Gastos operativos (S/)", finanzas.gastosOp.toFixed(2)],
     ["Utilidad neta (S/)", finanzas.utilidadNeta.toFixed(2)],
     [
       "Delivery cobrado (S/)",
@@ -1396,10 +1506,19 @@ function exportarCSV() {
   showToast(`Exportados ${list.length} pedidos a CSV`);
 }
 
-function exportarExcel() {
+async function exportarExcel() {
   const list = getFilteredOrders();
   if (!list.length) {
     showToast("No hay pedidos para exportar con estos filtros.");
+    return;
+  }
+
+  try {
+    if (!window.XLSX) showToast("Preparando exportación a Excel…");
+    await cargarLibExcel();
+  } catch (e) {
+    console.error(e);
+    showToast("No se pudo cargar la librería de Excel. Revisa tu conexión.");
     return;
   }
 
@@ -1524,10 +1643,19 @@ function exportarExcel() {
   showToast(`Exportados ${list.length} pedidos a Excel`);
 }
 
-function exportarPDF() {
+async function exportarPDF() {
   const list = getFilteredOrders();
   if (!list.length) {
     showToast("No hay pedidos para exportar con estos filtros.");
+    return;
+  }
+
+  try {
+    if (!window.jspdf) showToast("Preparando exportación a PDF…");
+    await cargarLibPDF();
+  } catch (e) {
+    console.error(e);
+    showToast("No se pudo cargar la librería de PDF. Revisa tu conexión.");
     return;
   }
 
@@ -1710,8 +1838,16 @@ if (filterOrigen) filterOrigen.addEventListener("change", renderAll);
 document
   .getElementById("filterDelivery")
   ?.addEventListener("change", renderAll);
+
+// Búsqueda con pequeño debounce: no recalcula todo en cada tecla
 const searchBox = document.getElementById("searchBox");
-if (searchBox) searchBox.addEventListener("input", renderAll);
+let searchTimer = null;
+if (searchBox)
+  searchBox.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderAll, 150);
+  });
+
 const btnResetFilters = document.getElementById("btnResetFilters");
 if (btnResetFilters) {
   btnResetFilters.addEventListener("click", () => {
@@ -1726,10 +1862,13 @@ if (btnResetFilters) {
       .querySelectorAll("#dateChips .chip")
       .forEach((c) => c.classList.remove("active"));
     document.querySelector('[data-range="hoy"]').classList.add("active");
+    const cambioRango = currentRange !== "hoy";
     currentRange = "hoy";
     const customRangeBox = document.getElementById("customRangeBox");
     if (customRangeBox) customRangeBox.classList.add("hidden");
-    renderAll();
+    // Si estaba en otro rango hay que volver a pedir los datos de HOY
+    if (cambioRango) listenPedidos();
+    else renderAll();
   });
 }
 
@@ -1752,7 +1891,43 @@ if (comparativaInfoBtn && comparativaTooltip) {
   comparativaTooltip.addEventListener("click", (e) => e.stopPropagation());
 }
 
+/* ---------------- Render ----------------
+   renderAll() agrupa varias llamadas seguidas (pedidos + gastos + período anterior +
+   filtros) en UN solo pintado por frame. renderAllNow() pinta de inmediato. */
+let renderPendiente = false;
+let lastFilterKey = "";
+
 function renderAll() {
+  if (renderPendiente) return;
+  renderPendiente = true;
+  requestAnimationFrame(() => {
+    renderPendiente = false;
+    renderAllNow();
+  });
+}
+
+function filtroKey() {
+  const v = (id) => document.getElementById(id)?.value || "";
+  return [
+    currentRange,
+    v("filterEstado"),
+    v("filterOrigen"),
+    v("filterDelivery"),
+    v("filterComprobante"),
+    v("searchBox"),
+    v("customFrom"),
+    v("customTo"),
+  ].join("|");
+}
+
+function renderAllNow() {
+  // Si cambió algún filtro, la lista vuelve a mostrar la primera página
+  const key = filtroKey();
+  if (key !== lastFilterKey) {
+    lastFilterKey = key;
+    visibleCount = PAGE_SIZE;
+  }
+
   const list = getFilteredOrders();
   renderMetrics(list);
   renderList(list);

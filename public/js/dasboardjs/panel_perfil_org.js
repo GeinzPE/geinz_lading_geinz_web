@@ -209,6 +209,7 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   init() {
     if (!tiendaId || !localidad) return;
+    setTimeout(() => this._quitarSkeleton({}), 10000); // nunca se queda pegado
     this.TIENDA_REF = tiendaSubDoc(localidad, "tiendas", tiendaId);
     this._bindEvents();
     this._injectFieldSaveBtnStyles();
@@ -1013,8 +1014,9 @@ window.PanelPerfil = {
     onSnapshot(
       this.TIENDA_REF,
       (snap) => {
-        if (!snap.exists()) {
+             if (!snap.exists()) {
           this.showToast("⚠️ Documento no encontrado");
+          this._quitarSkeleton({});
           return;
         }
 
@@ -1039,23 +1041,48 @@ window.PanelPerfil = {
         this.populateUI(next);
         this.loadCategorias();
 
-        document.querySelector(".app")?.classList.remove("loading-data");
-        const sk = document.getElementById("skeletonOverlay");
-        if (sk) {
-          sk.classList.add("hidden");
-          setTimeout(() => sk.remove(), 450);
-        }
+          document.querySelector(".app")?.classList.remove("loading-data");
+        this._quitarSkeleton(next);
 
         enviarDatosAFrames();
       },
-      (err) => {
+         (err) => {
         console.error("❌ Error Firestore:", err);
         this.showToast("Error al conectar con Firestore");
         document.querySelector(".app")?.classList.remove("loading-data");
+        this._quitarSkeleton({});
       },
     );
   },
 
+    // Quita el skeleton cuando YA llegaron los datos y el logo (o falló / no hay logo)
+  _quitarSkeleton(data) {
+    const sk = document.getElementById("skeletonOverlay");
+    if (!sk || sk._quitando) return;
+    sk._quitando = true;
+
+    let hecho = false;
+    const salir = () => {
+      if (hecho) return;
+      hecho = true;
+      // 2 frames para que el contenido real ya esté pintado debajo
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          sk.classList.add("hidden"); // fade suave (ya definido en tu CSS)
+          setTimeout(() => sk.remove(), 500);
+        }),
+      );
+    };
+
+    const url = data?.img_tienda?.logo_tienda || data?.logo_tienda || "";
+    const img = document.getElementById("avatarImg");
+    if (!url || !img) return salir();
+    if (img.complete && img.naturalWidth > 0) return salir();
+
+    img.addEventListener("load", salir, { once: true });
+    img.addEventListener("error", salir, { once: true });
+    setTimeout(salir, 3000); // si el logo tarda más de 3 s, no esperamos más
+  },
   _diffData(prev, next, prefix = "") {
     const changed = {};
     const allKeys = new Set([
@@ -1243,7 +1270,7 @@ window.PanelPerfil = {
       setTimeout(() => this._setupFieldSaveBtns(), 100);
     }
 
-    if (!this.map) setTimeout(() => this.initMapbox(), 400);
+    if (!this.map) setTimeout(() => this.initMapbox(), 2000);
   },
 
   // ═══════════════════════════════════════════
@@ -1765,7 +1792,29 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   initMapbox() {
     const container = document.getElementById("mapBoxPerfil");
-    if (!container || typeof mapboxgl === "undefined") return;
+    if (!container) return;
+
+    // Mapbox se descarga solo cuando hace falta (no frena la carga inicial)
+    if (typeof mapboxgl === "undefined") {
+      if (this._mapboxCargando) return;
+      this._mapboxCargando = true;
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css";
+      document.head.appendChild(css);
+      const s = document.createElement("script");
+      s.src = "https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js";
+      s.onload = () => {
+        this._mapboxCargando = false;
+        this.initMapbox();
+      };
+      s.onerror = () => {
+        this._mapboxCargando = false;
+        console.warn("No se pudo cargar Mapbox");
+      };
+      document.head.appendChild(s);
+      return;
+    }
 
     mapboxgl.accessToken =
       "pk.eyJ1IjoiYmVuamFtaW5sb3BleiIsImEiOiJjbWZrajJ2NHIxOXBkMmtvZW1kMTA5NWNoIn0.7s_234BN9y0pkTIgtF6ikw";

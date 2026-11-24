@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════
 //  LEGAL.JS — conexión real a Firestore
-//  Usa exactamente las rutas que ya tienes en ../rutas/rutas.js
+//  Usa las rutas de ../rutas/rutas.js
 // ══════════════════════════════════════════
 import {
   getDoc,
@@ -13,7 +13,11 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { db, auth } from "../db/db.js";
-import {
+// Import con "* as" para que, si todavía no creaste cookiesWebDoc en rutas.js,
+// la página NO se rompa (usa un respaldo automático).
+import * as RUTAS from "../rutas/rutas.js";
+
+const {
   tiendaDoc,
   data_user_logeado,
   libroReclamacionesConfigDoc,
@@ -21,7 +25,16 @@ import {
   reclamacionDoc,
   politicasPrivacidadDoc,
   terminosCondicionesDoc,
-} from "../rutas/rutas.js";
+} = RUTAS;
+
+// Documento de cookies: usa RUTAS.cookiesWebDoc si existe; si no, lo crea
+// como "hermano" del documento de políticas (misma carpeta, id "cookies_web").
+function cookiesDocRef(localidad, negocioId) {
+  if (typeof RUTAS.cookiesWebDoc === "function") {
+    return RUTAS.cookiesWebDoc(localidad, negocioId);
+  }
+  return politicasPrivacidadDoc(localidad, negocioId).parent.doc("cookies_web");
+}
 
 // ══════════════════════════════════════════
 //  ESTADO GLOBAL DEL MÓDULO
@@ -31,7 +44,18 @@ let _negocioId = null;
 const _editorLegalRefs = {}; // se llena dentro de initEditorLegalTexto
 
 // ══════════════════════════════════════════
+//  SKELETON: mientras <body> tenga "cargando", se ven barras con brillo
+// ══════════════════════════════════════════
+function mostrarSkeleton() {
+  document.body.classList.add("cargando");
+}
+function ocultarSkeleton() {
+  document.body.classList.remove("cargando");
+}
+
+// ══════════════════════════════════════════
 //  PLAN: qué ítems de Legal están activos en la DB
+//  (Cookies web es obligatoria: no depende del plan)
 // ══════════════════════════════════════════
 const RUTAS_LEGAL = {
   libro: "mi_negocio.legal.libro_reclamaciones",
@@ -44,8 +68,6 @@ const _nodo = (obj, ruta) => ruta.split(".").reduce((o, k) => o?.[k], obj);
 const _on = (v, def) => (v === undefined ? def : v === true);
 const _flag = (s, ruta, def = false) => _on(_nodo(s, ruta), def);
 
-// qué elementos controla cada ítem del plan
-// (Reclamos va junto con Libro de reclamaciones)
 const ELEMENTOS_LEGAL = {
   libro: () => [
     document.getElementById("tabBtnLibro"),
@@ -99,7 +121,7 @@ function aplicarPlanLegal(servicios) {
     if (primera) activarTab(primera.dataset.tab);
   }
 
-  // si no queda ningún ítem, ocultar la tarjeta de visibilidad también
+  // si no queda ningún ítem de visibilidad, ocultar la tarjeta de visibilidad
   const alguno = Object.values(PLAN_LEGAL).some(Boolean);
   document
     .querySelector(".master-card")
@@ -181,6 +203,7 @@ function iniciales(nombre = "", apellido = "") {
 
 // ══════════════════════════════════════════
 //  GENERACIÓN DE DOCUMENTOS LEGALES CON IA
+//  (libro, políticas y términos. Cookies NO usa IA)
 // ══════════════════════════════════════════
 const CLOUD_FUNCTION_GENERAR_DOC_LEGAL =
   "https://generardocumentolegal-oixttik5rq-uc.a.run.app";
@@ -190,7 +213,6 @@ const TITULOS_IA = {
   terminos_condiciones: "Términos y condiciones",
 };
 
-// Campos del negocio que el usuario puede revisar/editar antes de generar
 const CAMPOS_DATOS_IA = [
   ["nombre_comercial", "Nombre del negocio", "input"],
   ["razon_social", "Razón social", "input"],
@@ -201,7 +223,6 @@ const CAMPOS_DATOS_IA = [
   ["descripcion", "Describe tu negocio", "textarea"],
 ];
 
-// Preguntas extra según el documento (todas opcionales)
 const CAMPOS_RESP_IA = {
   libro_reclamaciones: [
     ["descripcion_operacion", "¿Qué vendes o qué servicio ofreces?"],
@@ -228,8 +249,7 @@ const CAMPOS_RESP_IA = {
   ],
 };
 
-// Llama a la Cloud Function (protocolo "callable" de Firebase v2:
-// body envuelto en {data:...}, respuesta envuelta en {result:...}).
+// Llama a la Cloud Function (protocolo "callable" de Firebase v2)
 async function llamarGenerarDocumentoLegal(
   tipo_documento,
   datos_negocio,
@@ -255,7 +275,6 @@ async function llamarGenerarDocumentoLegal(
   if (json.error) {
     throw new Error(json.error.message || "Error generando el documento");
   }
-  // json.result = { success, tipo_documento, titulo, contenido, campos?, preguntas_pendientes }
   if (json.result?.success === false) {
     throw new Error(
       json.result.error?.message || "No se pudo generar el documento",
@@ -264,8 +283,6 @@ async function llamarGenerarDocumentoLegal(
   return json.result;
 }
 
-// Pinta las preguntas_pendientes que devuelva Gemini cuando falte info,
-// junto con un botón para reenviar la generación ya con esas respuestas.
 function renderPreguntasPendientes(containerId, preguntas, onReenviar) {
   const cont = document.getElementById(containerId);
   if (!cont) return;
@@ -302,17 +319,17 @@ function renderPreguntasPendientes(containerId, preguntas, onReenviar) {
 function limpiarMarkdown(texto) {
   if (!texto) return "";
   return String(texto)
-    .replace(/```[a-z]*\n?/gi, "") // cercas de código
-    .replace(/^\s{0,3}#{1,6}\s*/gm, "") // ### títulos
-    .replace(/^\s*>\s?/gm, "") // > citas
-    .replace(/^\s*[*\-+•]\s+/gm, "• ") // viñetas (* - +) → •
-    .replace(/\*\*\*(.+?)\*\*\*/g, "$1") // ***negrita cursiva***
-    .replace(/\*\*(.+?)\*\*/g, "$1") // **negrita**
-    .replace(/__(.+?)__/g, "$1") // __negrita__
-    .replace(/\*(.+?)\*/g, "$1") // *cursiva*
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)") // [texto](url)
-    .replace(/\*+/g, "") // asteriscos sueltos que queden
-    .replace(/^\s*[-_*]{3,}\s*$/gm, "") // líneas ---
+    .replace(/```[a-z]*\n?/gi, "")
+    .replace(/^\s{0,3}#{1,6}\s*/gm, "")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/^\s*[*\-+•]\s+/gm, "• ")
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+    .replace(/\*+/g, "")
+    .replace(/^\s*[-_*]{3,}\s*$/gm, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -325,7 +342,7 @@ function contenidoAParrafos(contenido) {
     .filter((p) => p.length);
 }
 
-// Lee el negocio desde su ruta y lo traduce a los nombres que espera la Cloud Function
+// Lee el negocio y lo traduce a los nombres que espera la Cloud Function
 async function obtenerDatosNegocioParaIA(tipoDocumento) {
   const snap = await getDoc(tiendaDoc(_localidad, "tiendas", _negocioId));
   const t = snap.exists() ? snap.data() : {};
@@ -352,7 +369,6 @@ async function obtenerDatosNegocioParaIA(tipoDocumento) {
 
   const datos = {
     nombre_comercial: t.nombre_tienda || "",
-    // RUC y razón social: primero lo escrito en el formulario del Libro, luego lo guardado
     razon_social:
       document.getElementById("libroRazonSocial")?.value.trim() ||
       libro.razon_social ||
@@ -362,7 +378,6 @@ async function obtenerDatosNegocioParaIA(tipoDocumento) {
     telefono,
     direccion: ub["dirección"] || ub.direccion || "",
     pais: "Perú",
-    // 👇 ajusta estos nombres si en tu doc de tienda se llaman distinto
     categoria: t.categoria || "",
     subcategoria: t.subcategoria || "",
     descripcion: t.descripcion || "",
@@ -372,13 +387,10 @@ async function obtenerDatosNegocioParaIA(tipoDocumento) {
     redes_sociales: redes,
   };
 
-  // respuestas que el negocio ya escribió antes para este tipo de documento
   const guardadas = t.legal_ia?.[tipoDocumento] || {};
   return { datos, guardadas };
 }
 
-// Panel lateral. Al pulsar "Generar documento" el botón pasa a "Generando..." al instante
-// y el panel queda abierto hasta que llegue el resultado.
 function abrirModalDatosIA(tipoDocumento, titulo, datos, guardadas, onGenerar) {
   const overlay = document.createElement("div");
   overlay.className = "drawer-overlay";
@@ -451,8 +463,7 @@ function abrirModalDatosIA(tipoDocumento, titulo, datos, guardadas, onGenerar) {
   btnGen.addEventListener("click", async () => {
     if (ocupado) return;
 
-    // 1) leer lo que el negocio dejó en el panel
-    const datosOut = { ...datos }; // conserva redes_sociales, metodos_pago, etc.
+    const datosOut = { ...datos };
     const respOut = {};
     campos().forEach((el) => {
       const v = el.value.trim();
@@ -460,13 +471,11 @@ function abrirModalDatosIA(tipoDocumento, titulo, datos, guardadas, onGenerar) {
       else if (v) respOut[el.dataset.campo] = v;
     });
 
-    // 2) estado "generando" INSTANTÁNEO
     ocupado = true;
     btnGen.disabled = true;
     btnGen.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:8px"></span>Generando...`;
     campos().forEach((el) => (el.disabled = true));
 
-    // 3) llamar a la IA; si sale bien se cierra, si falla se reactiva
     try {
       await onGenerar({ datos: datosOut, respuestas: respOut });
       cerrar();
@@ -481,7 +490,6 @@ function abrirModalDatosIA(tipoDocumento, titulo, datos, guardadas, onGenerar) {
   });
 }
 
-// Guarda las respuestas SIN esperar (no frena la generación)
 function guardarRespuestasIA(tipoDocumento, respuestas) {
   updateDoc(tiendaDoc(_localidad, "tiendas", _negocioId), {
     [`legal_ia.${tipoDocumento}`]: respuestas,
@@ -490,7 +498,6 @@ function guardarRespuestasIA(tipoDocumento, respuestas) {
   );
 }
 
-// Clic en "✨ Generar con IA": el botón reacciona al instante, abre el panel y listo
 async function abrirFlujoIA(btn, tipoDocumento, titulo, onResultado) {
   if (!btn || btn.disabled) return;
   const original = btn.textContent;
@@ -504,7 +511,7 @@ async function abrirFlujoIA(btn, tipoDocumento, titulo, onResultado) {
       datos,
       guardadas,
       async (entrada) => {
-        guardarRespuestasIA(tipoDocumento, entrada.respuestas); // sin await
+        guardarRespuestasIA(tipoDocumento, entrada.respuestas);
         const resultado = await llamarGenerarDocumentoLegal(
           tipoDocumento,
           entrada.datos,
@@ -616,9 +623,8 @@ function aplicarResultadoTexto(resultado, prefix, entrada, tipoDocumento) {
 //  0) RESOLVER NEGOCIO ACTUAL (localidad + id)
 // ══════════════════════════════════════════
 function mostrarErrorNegocio(motivo, dataDebug) {
-  const badge = document.getElementById("legalLoadingBadge");
-  const wrap = document.querySelector(".max-w-5xl");
-  if (badge) badge.remove();
+  ocultarSkeleton();
+  const wrap = document.querySelector(".legal-wrap");
   const box = document.createElement("div");
   box.className = "card p-5 mb-6";
   box.style.border = "1px solid rgba(255,107,107,.4)";
@@ -627,12 +633,13 @@ function mostrarErrorNegocio(motivo, dataDebug) {
       No pude detectar tu negocio (localidad / id)
     </p>
     <p style="color:#d4d4d8;font-size:13px;line-height:1.6;margin:0 0 10px">
-      Motivo: ${motivo}. Copia esto y pásaselo a Claude para conectar la ruta correcta:
+      Motivo: ${esc(motivo)}. Copia esto y pásaselo a Claude para conectar la ruta correcta:
     </p>
-    <pre style="background:#000;padding:10px;border-radius:10px;font-size:11px;color:#9c9ca3;overflow:auto;max-height:220px">${JSON.stringify(dataDebug, null, 2)}</pre>
+    <pre style="background:#000;padding:10px;border-radius:10px;font-size:11px;color:#9c9ca3;overflow:auto;max-height:220px">${esc(JSON.stringify(dataDebug, null, 2))}</pre>
   `;
   wrap?.prepend(box);
 }
+
 function pedirNegocioAlPadre(timeoutMs = 10000) {
   return new Promise((resolve) => {
     const t = setTimeout(() => {
@@ -661,10 +668,16 @@ function pedirNegocioAlPadre(timeoutMs = 10000) {
 async function resolverNegocioActual() {
   // 1) lo que ya haya definido el dashboard
   if (window.NEGOCIO_ACTUAL?.localidad && window.NEGOCIO_ACTUAL?.id) {
-    return { localidad: window.NEGOCIO_ACTUAL.localidad, id: window.NEGOCIO_ACTUAL.id };
+    return {
+      localidad: window.NEGOCIO_ACTUAL.localidad,
+      id: window.NEGOCIO_ACTUAL.id,
+    };
   }
-  const sLoc = sessionStorage.getItem("negocioLocalidad") || sessionStorage.getItem("localidad");
-  const sId = sessionStorage.getItem("negocioId") || sessionStorage.getItem("id");
+  const sLoc =
+    sessionStorage.getItem("negocioLocalidad") ||
+    sessionStorage.getItem("localidad");
+  const sId =
+    sessionStorage.getItem("negocioId") || sessionStorage.getItem("id");
   if (sLoc && sId) return { localidad: sLoc, id: sId };
 
   // 2) preguntarle al dashboard (padre)
@@ -699,6 +712,7 @@ async function resolverNegocioActual() {
 
 // ══════════════════════════════════════════
 //  1) VISIBILIDAD EN EL PERFIL — footer{ libro_reclamaciones, politicas_privacidad, terminos_condiciones }
+//  Devuelve una promesa que se cumple con la PRIMERA lectura (para el skeleton)
 // ══════════════════════════════════════════
 function initFooterConfig() {
   const ref = tiendaDoc(_localidad, "tiendas", _negocioId);
@@ -707,28 +721,38 @@ function initFooterConfig() {
   const togglePoliticas = document.getElementById("togglePoliticas");
   const toggleTerminos = document.getElementById("toggleTerminos");
 
-  onSnapshot(ref, (snap) => {
-    if (!snap.exists()) return;
-    const footer = snap.data().footer || {};
-    toggleLibro.checked = footer.libro_reclamaciones === true;
-    togglePoliticas.checked = footer.politicas_privacidad === true;
-    toggleTerminos.checked = footer.terminos_condiciones === true;
-
-    actualizarTabsDisponibles(footer);
-  });
-
   [toggleLibro, togglePoliticas, toggleTerminos].forEach((toggle) => {
     toggle.addEventListener("change", async () => {
-      const campo = toggle.dataset.config; // libro_reclamaciones | politicas_privacidad | terminos_condiciones
+      const campo = toggle.dataset.config;
       try {
         await updateDoc(ref, { [`footer.${campo}`]: toggle.checked });
         showToast("Actualizado");
       } catch (e) {
         console.error(e);
-        toggle.checked = !toggle.checked; // revertir visualmente
+        toggle.checked = !toggle.checked;
         showToast("No se pudo actualizar, intenta de nuevo");
       }
     });
+  });
+
+  return new Promise((resolve) => {
+    onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) {
+          const footer = snap.data().footer || {};
+          toggleLibro.checked = footer.libro_reclamaciones === true;
+          togglePoliticas.checked = footer.politicas_privacidad === true;
+          toggleTerminos.checked = footer.terminos_condiciones === true;
+          actualizarTabsDisponibles(footer);
+        }
+        resolve();
+      },
+      (e) => {
+        console.error(e);
+        resolve();
+      },
+    );
   });
 }
 
@@ -739,6 +763,7 @@ function actualizarTabsDisponibles(footer) {
     !footer.politicas_privacidad;
   document.getElementById("tabBtnTerminos").disabled =
     !footer.terminos_condiciones;
+  // Cookies web NO se deshabilita nunca: es obligatoria
 }
 
 // ══════════════════════════════════════════
@@ -781,12 +806,11 @@ function pintarCamposLibro(campos) {
       campo.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
     const row = document.createElement("label");
     row.className = "checkbox-row";
-    row.innerHTML = `<input type="checkbox" data-campo="${campo}" ${activo ? "checked" : ""}> <span class="text-[12.5px]">${label}</span>`;
+    row.innerHTML = `<input type="checkbox" data-campo="${esc(campo)}" ${activo ? "checked" : ""}> <span class="text-[12.5px]">${esc(label)}</span>`;
     grid.appendChild(row);
   });
 }
 
-// La IA marca/desmarca; el negocio corrige después
 function aplicarCamposIALibro(campos) {
   const grid = document.getElementById("libroCamposGrid");
   Object.entries(campos || {}).forEach(([campo, activo]) => {
@@ -797,20 +821,9 @@ function aplicarCamposIALibro(campos) {
 
 async function initLibroReclamaciones() {
   const ref = libroReclamacionesConfigDoc(_localidad, _negocioId);
-  const snap = await getDoc(ref);
-  const d = snap.exists() ? snap.data() : {};
-
-  document.getElementById("libroTitulo").value = pick(d, ["titulo"]) || "";
-  document.getElementById("libroRuc").value = pick(d, ["ruc"]) || "";
-  document.getElementById("libroRazonSocial").value =
-    pick(d, ["razon_social", "razon social"]) || "";
-  document.getElementById("libroDescripcion").value =
-    pick(d, ["descripcion"]) || "";
-
   const grid = document.getElementById("libroCamposGrid");
-  // mezcla con los defaults para que los negocios antiguos también vean "Envío de imágenes"
-  pintarCamposLibro({ ...CAMPOS_LIBRO_DEFAULT, ...(d.campos || {}) });
 
+  // el botón de guardar se conecta de una vez (ya no espera a la lectura)
   document
     .getElementById("btnGuardarLibro")
     .addEventListener("click", async () => {
@@ -849,6 +862,19 @@ async function initLibroReclamaciones() {
         btn.textContent = "Guardar cambios";
       }
     });
+
+  const snap = await getDoc(ref);
+  const d = snap.exists() ? snap.data() : {};
+
+  document.getElementById("libroTitulo").value = pick(d, ["titulo"]) || "";
+  document.getElementById("libroRuc").value = pick(d, ["ruc"]) || "";
+  document.getElementById("libroRazonSocial").value =
+    pick(d, ["razon_social", "razon social"]) || "";
+  document.getElementById("libroDescripcion").value =
+    pick(d, ["descripcion"]) || "";
+
+  // mezcla con los defaults para que negocios antiguos también vean los campos nuevos
+  pintarCamposLibro({ ...CAMPOS_LIBRO_DEFAULT, ...(d.campos || {}) });
 }
 
 // ══════════════════════════════════════════
@@ -867,43 +893,7 @@ function initReclamos() {
   const badge = document.getElementById("reclamosPendCount");
   const sound = document.getElementById("reclamoSound");
 
-  loadingEl.style.display = "flex";
-
-  const q = query(
-    reclamacionesCol(_localidad, _negocioId),
-    orderBy("fecha", "desc"),
-  );
-
-  onSnapshot(q, (snap) => {
-    const reclamos = [];
-    snap.forEach((d) => reclamos.push({ id: d.id, ...d.data() }));
-    _reclamosCache = reclamos;
-
-    if (!_reclamosPrimeraCarga) {
-      snap.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          sound?.play().catch(() => {});
-        }
-      });
-    }
-    _reclamosPrimeraCarga = false;
-
-    const pendientes = reclamos.filter(
-      (r) => (r.estado || "pendiente") === "pendiente",
-    ).length;
-    badge.style.display = pendientes > 0 ? "inline-flex" : "none";
-    badge.textContent = pendientes;
-
-    loadingEl.style.display = "none";
-    renderReclamos(filtroSelect.value, ordenSelect.value);
-
-    if (_reclamoSeleccionadoId) {
-      const actual = _reclamosCache.find(
-        (x) => x.id === _reclamoSeleccionadoId,
-      );
-      if (actual) pintarDrawer(actual);
-    }
-  });
+  loadingEl.style.display = "block";
 
   filtroSelect.addEventListener("change", () =>
     renderReclamos(filtroSelect.value, ordenSelect.value),
@@ -956,6 +946,55 @@ function initReclamos() {
       listEl.appendChild(node);
     });
   }
+
+  const q = query(
+    reclamacionesCol(_localidad, _negocioId),
+    orderBy("fecha", "desc"),
+  );
+
+  // Se cumple con la PRIMERA lectura (para el skeleton)
+  return new Promise((resolve) => {
+    onSnapshot(
+      q,
+      (snap) => {
+        const reclamos = [];
+        snap.forEach((d) => reclamos.push({ id: d.id, ...d.data() }));
+        _reclamosCache = reclamos;
+
+        if (!_reclamosPrimeraCarga) {
+          snap.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              sound?.play().catch(() => {});
+            }
+          });
+        }
+        _reclamosPrimeraCarga = false;
+
+        const pendientes = reclamos.filter(
+          (r) => (r.estado || "pendiente") === "pendiente",
+        ).length;
+        badge.style.display = pendientes > 0 ? "inline-flex" : "none";
+        badge.textContent = pendientes;
+
+        loadingEl.style.display = "none";
+        renderReclamos(filtroSelect.value, ordenSelect.value);
+
+        if (_reclamoSeleccionadoId) {
+          const actual = _reclamosCache.find(
+            (x) => x.id === _reclamoSeleccionadoId,
+          );
+          if (actual) pintarDrawer(actual);
+        }
+        resolve();
+      },
+      (e) => {
+        console.error(e);
+        loadingEl.style.display = "none";
+        emptyEl.style.display = "block";
+        resolve();
+      },
+    );
+  });
 }
 
 function pintarDrawer(r) {
@@ -1028,14 +1067,11 @@ function bindDrawerEvents() {
           .value.trim();
         let estado = document.getElementById("drawerEstadoSelect").value;
 
-        // Si escribiste una respuesta pero dejaste el estado en "pendiente",
-        // lo pasamos a "respondido" automáticamente.
+        // Si escribiste una respuesta pero dejaste "pendiente", pasa a "respondido"
         if (texto && estado === "pendiente") {
           estado = "respondido";
         }
 
-        // updateDoc() escribe en el mismo documento que lee la vista pública
-        // del consumidor, así que el cambio se refleja de inmediato.
         const payload = { estado };
         if (texto) {
           payload.respuesta_tienda = { texto, fecha: serverTimestamp() };
@@ -1060,17 +1096,15 @@ function bindDrawerEvents() {
 }
 
 // ══════════════════════════════════════════
-//  4) POLÍTICAS DE PRIVACIDAD / TÉRMINOS — título + párrafos
+//  4) POLÍTICAS / TÉRMINOS / COOKIES — título + párrafos
+//  (el mismo editor sirve para los tres)
 // ══════════════════════════════════════════
 function initEditorLegalTexto({ ref, prefix }) {
+  const P = capitalizar(prefix);
   const tituloInput = document.getElementById(`${prefix}Titulo`);
   const parrafosWrap = document.getElementById(`${prefix}Parrafos`);
-  const btnAgregar = document.getElementById(
-    `btnAgregarParrafo${prefix.charAt(0).toUpperCase() + prefix.slice(1)}`,
-  );
-  const btnGuardar = document.getElementById(
-    `btnGuardar${prefix.charAt(0).toUpperCase() + prefix.slice(1)}`,
-  );
+  const btnAgregar = document.getElementById(`btnAgregarParrafo${P}`);
+  const btnGuardar = document.getElementById(`btnGuardar${P}`);
   const hint = document.getElementById(`${prefix}SavedHint`);
 
   let parrafos = [];
@@ -1135,13 +1169,20 @@ function initEditorLegalTexto({ ref, prefix }) {
   }
   _editorLegalRefs[prefix] = { setContenido };
 
-  getDoc(ref).then((snap) => {
-    const d = snap.exists() ? snap.data() : {};
-    tituloInput.value = d.titulo || "";
-    parrafos =
-      Array.isArray(d.parrafos) && d.parrafos.length ? d.parrafos : [""];
-    render();
-  });
+  // Se cumple cuando llegan los datos (para el skeleton)
+  return getDoc(ref)
+    .then((snap) => {
+      const d = snap.exists() ? snap.data() : {};
+      tituloInput.value = d.titulo || "";
+      parrafos =
+        Array.isArray(d.parrafos) && d.parrafos.length ? d.parrafos : [""];
+      render();
+    })
+    .catch((e) => {
+      console.error(`Error cargando ${prefix}:`, e);
+      parrafos = [""];
+      render();
+    });
 }
 
 // ══════════════════════════════════════════
@@ -1160,29 +1201,23 @@ function bindTabs() {
 //  INIT
 // ══════════════════════════════════════════
 (async () => {
+  mostrarSkeleton();
   bindTabs();
   bindDrawerEvents();
 
+  // seguridad: si algo se cuelga, a los 12 s se quita el skeleton igual
+  const seguro = setTimeout(ocultarSkeleton, 12000);
+
   const negocio = await resolverNegocioActual();
-  if (!negocio) return; // el error ya se muestra en pantalla
+  if (!negocio) {
+    clearTimeout(seguro);
+    return; // el error ya se muestra en pantalla
+  }
 
   _localidad = negocio.localidad;
   _negocioId = negocio.id;
 
-  document.getElementById("legalLoadingBadge")?.remove();
-
-  initFooterConfig();
-  initLibroReclamaciones();
-  initReclamos();
-  initEditorLegalTexto({
-    ref: politicasPrivacidadDoc(_localidad, _negocioId),
-    prefix: "politicas",
-  });
-  initEditorLegalTexto({
-    ref: terminosCondicionesDoc(_localidad, _negocioId),
-    prefix: "terminos",
-  });
-
+  // botones de IA (libro, políticas, términos). Cookies NO tiene IA.
   document
     .getElementById("btnGenerarIALibro")
     ?.addEventListener("click", generarIALibro);
@@ -1196,4 +1231,26 @@ function bindTabs() {
     ?.addEventListener("click", () =>
       generarIASeccion("terminos", "terminos_condiciones"),
     );
+
+  // todo carga en paralelo; el skeleton se quita cuando TODO terminó
+  await Promise.allSettled([
+    initFooterConfig(),
+    initLibroReclamaciones(),
+    initReclamos(),
+    initEditorLegalTexto({
+      ref: politicasPrivacidadDoc(_localidad, _negocioId),
+      prefix: "politicas",
+    }),
+    initEditorLegalTexto({
+      ref: terminosCondicionesDoc(_localidad, _negocioId),
+      prefix: "terminos",
+    }),
+    initEditorLegalTexto({
+      ref: cookiesDocRef(_localidad, _negocioId),
+      prefix: "cookies",
+    }),
+  ]);
+
+  clearTimeout(seguro);
+  ocultarSkeleton();
 })();

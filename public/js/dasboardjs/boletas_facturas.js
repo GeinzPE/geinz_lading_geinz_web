@@ -8,6 +8,30 @@ import {
   pedidoDemo,
 } from "./comprobantes.js";
 
+const $ = (id) => document.getElementById(id);
+
+/* ══════════════════════════════════════════
+   Equipo lento / conexión lenta (Nokia, 2G, ahorro de datos)
+   → menos renders y más paciencia con la red
+   ══════════════════════════════════════════ */
+const conn = navigator.connection;
+const EQUIPO_LENTO =
+  (navigator.deviceMemory && navigator.deviceMemory <= 2) ||
+  (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2) ||
+  !!(conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || "")));
+const RETARDO_VISTA = EQUIPO_LENTO ? 350 : 140; // debounce de la vista previa
+const ESPERA_TIENDA = EQUIPO_LENTO ? 12000 : 7000; // cuánto esperar a que el panel mande la tienda
+
+/* ── Constantes ── */
+const QR_DEFAULT = location.origin + "/c/{codigo}"; // 👈 cambia /c/ por tu ruta real
+const FUENTES = {
+  arial: "Arial, Helvetica, sans-serif",
+  dmsans: "'DM Sans', sans-serif",
+  sora: "'Sora', sans-serif",
+  courier: "'Courier Prime', 'Courier New', monospace",
+  robotomono: "'Roboto Mono', monospace",
+};
+
 /* ── Datos de la tienda ──
    Orden: URL (?tienda=...&localidad=...) → sessionStorage → localStorage →
    postMessage del panel (DATOS_TIENDA). */
@@ -20,11 +44,19 @@ let TIENDA_ID =
 let LOCALIDAD = qs.get("localidad") || sessionStorage.getItem("localidad") || "";
 let NOMBRE_TIENDA = sessionStorage.getItem("nombreTienda") || "";
 
-const $ = (id) => document.getElementById(id);
 let cfg = JSON.parse(JSON.stringify(CONFIG_DEFAULT));
 let logoOriginal = "";
-let listo = false; // true cuando ya se cargó la config desde la caché/DB
+let listo = false; // config ya cargada desde la DB
+let iniciado = false; // ya se arrancó con una tienda válida
 let ultimoPayload = null; // último payload de tienda recibido por postMessage
+
+/* ── Aviso al HTML: "ya cargó todo" → quita el skeleton ── */
+let avisado = false;
+function senalListo() {
+  if (avisado) return;
+  avisado = true;
+  window.dispatchEvent(new Event("comprobante:listo"));
+}
 
 /* get/set por ruta "a.b.c" */
 const get = (o, p) => p.split(".").reduce((x, k) => x?.[k], o);
@@ -34,61 +66,143 @@ const set = (o, p, v) => {
   ks.reduce((x, k) => (x[k] ??= {}), o)[l] = v;
 };
 
+/* ══════════════════════════════════════════
+   Formulario
+   ══════════════════════════════════════════ */
+const CAMPOS = document.querySelectorAll("[data-k]");
+const elSinValor = document.querySelector('[data-k="documento.sinValorTributario"]');
+
 function pintarFormulario() {
-  document.querySelectorAll("[data-k]").forEach((el) => {
+  CAMPOS.forEach((el) => {
     const v = get(cfg, el.dataset.k);
-    if (el.type === "checkbox") el.checked = !!v;
-    else el.value = v ?? "";
+    if (el.type === "checkbox") {
+      const b = !!v;
+      if (el.checked !== b) el.checked = b;
+    } else {
+      const s = v ?? "";
+      if (el.value !== s) el.value = s; // evita saltos de cursor
+    }
   });
   pintarLogo();
 }
+
+let logoPintado = null;
 function pintarLogo() {
-  $("drop").innerHTML = cfg.negocio.logo
-    ? `<img src="${cfg.negocio.logo}" alt="logo">`
-    : "<span>Subir<br>logo</span>";
+  const src = cfg.negocio?.logo || "";
+  if (src === logoPintado) return;
+  logoPintado = src;
+  const drop = $("drop");
+  if (!src) {
+    drop.innerHTML = "<span>Subir<br>logo</span>";
+    return;
+  }
+  const img = new Image();
+  img.alt = "logo";
+  img.decoding = "async";
+  img.src = src;
+  drop.replaceChildren(img);
 }
 
-let t;
-function vista() {
-  clearTimeout(t);
-  t = setTimeout(async () => {
-    await renderComprobante($("ticket"), pedidoDemo(), cfg);
-    aplicarFuente();
-    revisarQr();
-  }, 120);
-}
+let msgActual = "";
 function mensaje(txt, ok = false, err = false) {
-  $("msg").textContent = txt;
-  $("msg").className = "msg" + (ok ? " ok" : "") + (err ? " err" : "");
+  const cls = "msg" + (ok ? " ok" : "") + (err ? " err" : "");
+  if (msgActual === txt + "|" + cls) return; // no tocar el DOM si no cambió
+  msgActual = txt + "|" + cls;
+  const el = $("msg");
+  el.textContent = txt;
+  el.className = cls;
 }
+
+/* ══════════════════════════════════════════
+   Vista previa (un render a la vez, sin pisarse)
+   ══════════════════════════════════════════ */
+const estiloFuente = document.createElement("style");
+document.head.appendChild(estiloFuente);
+let fuenteActual = null;
+
+function aplicarFuente() {
+  const clave = cfg.estilo?.fuente || "";
+  if (clave === fuenteActual) return;
+  fuenteActual = clave;
+  const f = FUENTES[clave];
+  estiloFuente.textContent = f ? `#ticket, #ticket * { font-family: ${f} !important; }` : "";
+}
+
+const elQr = document.querySelector('[data-k="qr.plantilla"]')?.closest("label")?.nextElementSibling;
+let qrAviso = "";
+function revisarQr() {
+  if (!elQr) return;
+  const url = (cfg.qr?.plantilla || "").trim();
+  const txt = !url
+    ? "Usa {codigo} para que cada venta tenga su propio QR."
+    : url.includes("{codigo}")
+      ? "✓ QR dinámico: cada venta genera un QR distinto."
+      : "⚠ Sin {codigo} el QR será el mismo en todas las ventas (estático).";
+  if (txt === qrAviso) return;
+  qrAviso = txt;
+  elQr.textContent = txt;
+}
+
+let renderizando = false;
+let pendiente = false;
+async function renderAhora() {
+  if (renderizando) {
+    pendiente = true; // se repite al terminar, con el último cfg
+    return;
+  }
+  renderizando = true;
+  try {
+    do {
+      pendiente = false;
+      await renderComprobante($("ticket"), pedidoDemo(), cfg);
+      aplicarFuente();
+      revisarQr();
+    } while (pendiente);
+  } catch (e) {
+    console.error("Error al dibujar el comprobante:", e);
+  } finally {
+    renderizando = false;
+  }
+}
+
+let tVista;
+function vista() {
+  clearTimeout(tVista);
+  tVista = setTimeout(renderAhora, RETARDO_VISTA);
+}
+
 document.addEventListener("input", (e) => {
   const el = e.target;
-  if (!el.dataset?.k) return;
+  const k = el.dataset?.k;
+  if (!k) return;
   let v = el.type === "checkbox" ? el.checked : el.value;
-  if (el.dataset.k === "negocio.ruc") {
+  if (k === "negocio.ruc") {
     v = v.replace(/\D/g, "");
-    el.value = v;
+    if (el.value !== v) el.value = v;
     set(cfg, "documento.sinValorTributario", !v); // sin RUC → sin valor tributario
-    document.querySelector('[data-k="documento.sinValorTributario"]').checked = !v;
+    if (elSinValor) elSinValor.checked = !v;
   }
-  set(cfg, el.dataset.k, v);
+  set(cfg, k, v);
   mensaje("Cambios sin guardar");
   vista();
 });
 
-/* Logo */
+/* ══════════════════════════════════════════
+   Logo
+   ══════════════════════════════════════════ */
 async function aplicarLogo() {
   if (!logoOriginal) {
     cfg.negocio.logo = "";
     pintarLogo();
     mensaje("Cambios sin guardar");
-    return vista();
+    vista();
+    return;
   }
   try {
     cfg.negocio.logo = await procesarLogo(logoOriginal, { bn: $("logoBw").checked });
     mensaje("Cambios sin guardar");
   } catch {
-    mensaje("No se pudo leer la imagen");
+    mensaje("No se pudo leer la imagen", false, true);
   }
   pintarLogo();
   vista();
@@ -113,7 +227,9 @@ $("logoBw").onchange = () => {
   if (logoOriginal) aplicarLogo();
 };
 
-/* Guardar / probar */
+/* ══════════════════════════════════════════
+   Guardar / probar impresión
+   ══════════════════════════════════════════ */
 $("btnSave").onclick = async () => {
   if (!listo || !TIENDA_ID || !LOCALIDAD) {
     mensaje("Aún no se identifica la tienda, espera un momento", false, true);
@@ -122,7 +238,6 @@ $("btnSave").onclick = async () => {
   const btn = $("btnSave");
   const textoOriginal = "Guardar cambios";
 
-  // estado: guardando
   btn.disabled = true;
   btn.classList.remove("listo", "fallo");
   btn.classList.add("cargando");
@@ -132,7 +247,7 @@ $("btnSave").onclick = async () => {
 
   let ok = false;
   try {
-    // mínimo 600 ms para que el cliente alcance a ver el progreso
+    // mínimo 600 ms para que se alcance a ver el progreso
     [ok] = await Promise.all([
       guardarConfigComprobante(TIENDA_ID, LOCALIDAD, cfg),
       new Promise((r) => setTimeout(r, 600)),
@@ -142,7 +257,6 @@ $("btnSave").onclick = async () => {
     ok = false;
   }
 
-  // estado: resultado
   $("prog").classList.remove("on");
   btn.classList.remove("cargando");
   btn.classList.add(ok ? "listo" : "fallo");
@@ -153,7 +267,6 @@ $("btnSave").onclick = async () => {
     !ok,
   );
 
-  // volver al estado normal
   setTimeout(() => {
     btn.classList.remove("listo", "fallo");
     btn.textContent = textoOriginal;
@@ -163,7 +276,9 @@ $("btnSave").onclick = async () => {
 };
 $("btnPrint").onclick = () => imprimirComprobante(pedidoDemo(), cfg);
 
-/* ── Autocompletar con los datos del perfil del negocio ── */
+/* ══════════════════════════════════════════
+   Autocompletar con los datos del perfil del negocio
+   ══════════════════════════════════════════ */
 function leerNegocio() {
   // Primero el estado del panel padre; si no está, el último payload recibido
   let t = null;
@@ -185,18 +300,34 @@ function leerNegocio() {
     "";
   const ig = mc.instagram?.nombre || "";
   return {
-    nombre: t.nombre_tienda || "",
+    nombre: t.nombre_tienda || t.nombre || "",
     telefono,
     direccion: ub["dirección"] || "",
     redes: ig ? (ig.startsWith("@") ? ig : "@" + ig) : "",
-    logo: t.logo_tienda || "",
+    logo: t.logo_tienda || t.img_tienda?.logo_tienda || "",
   };
 }
-// Descarga el logo y lo convierte a data URL (no contamina el canvas)
+
+// Descarga el logo y lo convierte a data URL (no contamina el canvas).
+// Primero usa la caché; si falla por CORS, reintenta saltándola.
 async function urlADataURL(url) {
-  const r = await fetch(url, { mode: "cors", cache: "reload" });
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  const blob = await r.blob();
+  async function intentar(opts) {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 10000); // no se queda colgado en redes lentas
+    try {
+      const r = await fetch(url, { mode: "cors", signal: ctl.signal, ...opts });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return await r.blob();
+    } finally {
+      clearTimeout(to);
+    }
+  }
+  let blob;
+  try {
+    blob = await intentar({});
+  } catch {
+    blob = await intentar({ cache: "reload" });
+  }
   return new Promise((res, rej) => {
     const fr = new FileReader();
     fr.onload = () => res(fr.result);
@@ -204,10 +335,29 @@ async function urlADataURL(url) {
     fr.readAsDataURL(blob);
   });
 }
-// forzar=false → solo llena lo que esté vacío; forzar=true → sobrescribe
+
+async function traerLogo(d, forzar) {
+  if (!d.logo) return;
+  if (!forzar && cfg.negocio.logo) return;
+  try {
+    logoOriginal = await urlADataURL(d.logo);
+    await aplicarLogo();
+  } catch (e) {
+    console.warn("No se pudo traer el logo:", e);
+    mensaje("No se pudo traer el logo del negocio", false, true);
+  }
+}
+
+// forzar=false → solo llena lo vacío; forzar=true → sobrescribe
+let huellaNegocio = "";
 async function aplicarNegocio(forzar = false) {
   const d = leerNegocio();
   if (!d) return false;
+
+  // Si el perfil no cambió desde la última vez, no repintar ni redibujar
+  const huella = JSON.stringify(d);
+  if (!forzar && huella === huellaNegocio) return true;
+  huellaNegocio = huella;
 
   const poner = (ruta, valor) => {
     if (!valor) return;
@@ -223,16 +373,11 @@ async function aplicarNegocio(forzar = false) {
   if (!(cfg.qr?.plantilla || "").trim()) set(cfg, "qr.plantilla", QR_DEFAULT);
 
   pintarFormulario();
-  vista();
-  if (d.logo && (forzar || !cfg.negocio.logo)) {
-    try {
-      logoOriginal = await urlADataURL(d.logo);
-      await aplicarLogo();
-    } catch (e) {
-      console.warn("No se pudo traer el logo:", e);
-      mensaje("No se pudo traer el logo del negocio");
-    }
-  }
+  await renderAhora();
+
+  // El logo baja en segundo plano: no frena la pantalla
+  const logo = traerLogo(d, forzar);
+  if (forzar) await logo;
   return true;
 }
 
@@ -243,37 +388,10 @@ $("btnTraerNegocio")?.addEventListener("click", async () => {
     ok,
   );
 });
-/* ── Fuente del comprobante ── */
-const FUENTES = {
-  arial: "Arial, Helvetica, sans-serif",
-  dmsans: "'DM Sans', sans-serif",
-  sora: "'Sora', sans-serif",
-  courier: "'Courier Prime', 'Courier New', monospace",
-  robotomono: "'Roboto Mono', monospace",
-};
-const estiloFuente = document.createElement("style");
-document.head.appendChild(estiloFuente);
 
-function aplicarFuente() {
-  const f = FUENTES[cfg.estilo?.fuente];
-  estiloFuente.textContent = f ? `#ticket, #ticket * { font-family: ${f} !important; }` : "";
-}
-
-/* ── QR dinámico ── */
-const QR_DEFAULT = location.origin + "/c/{codigo}"; // 👈 cambia /c/ por tu ruta real
-
-function revisarQr() {
-  const url = (cfg.qr?.plantilla || "").trim();
-  const h = document.querySelector('[data-k="qr.plantilla"]')
-    ?.closest("label")?.nextElementSibling; // el <p class="hint">
-  if (!h) return;
-  h.textContent = !url
-    ? "Usa {codigo} para que cada venta tenga su propio QR."
-    : url.includes("{codigo}")
-      ? "✓ QR dinámico: cada venta genera un QR distinto."
-      : "⚠ Sin {codigo} el QR será el mismo en todas las ventas (estático).";
-}
-/* ── Arranque ── */
+/* ══════════════════════════════════════════
+   Arranque
+   ══════════════════════════════════════════ */
 async function iniciar() {
   $("btnSave").disabled = true;
   mensaje("Cargando…");
@@ -283,34 +401,44 @@ async function iniciar() {
     mensaje("");
   } catch (e) {
     console.error(e);
-    mensaje("No se pudo cargar la configuración");
+    mensaje("No se pudo cargar la configuración", false, true);
   }
   $("btnSave").disabled = false;
-  pintarFormulario();
-  vista();
-  await aplicarNegocio(false); // rellena lo vacío con el perfil
+
+  try {
+    // Rellena lo vacío con el perfil y dibuja; si aún no hay perfil, dibuja la config tal cual
+    if (!(await aplicarNegocio(false))) {
+      pintarFormulario();
+      await renderAhora();
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  senalListo(); // → el HTML quita el skeleton
 }
 
-// Pinta ya el formulario con valores por defecto mientras se identifica la tienda
-pintarFormulario();
-vista();
-
-let resuelto = false;
-
-if (TIENDA_ID && LOCALIDAD) {
-  resuelto = true;
+function arrancar() {
+  if (iniciado || !TIENDA_ID || !LOCALIDAD) return false;
+  iniciado = true;
   iniciar();
-} else {
+  return true;
+}
+
+arrancar();
+
+if (!iniciado) {
+  // Esperamos a que el panel mande DATOS_TIENDA (en equipos lentos puede tardar)
   setTimeout(() => {
-    if (resuelto) return;
-    resuelto = true;
-    if (!TIENDA_ID || !LOCALIDAD) {
-      $("btnSave").disabled = true;
-      mensaje("No se encontró la tienda. Abre esta página desde el panel.");
-    } else {
-      iniciar();
-    }
-  }, 1200);
+    if (iniciado) return;
+    TIENDA_ID ||= sessionStorage.getItem("tiendaId") || "";
+    LOCALIDAD ||= sessionStorage.getItem("localidad") || "";
+    if (arrancar()) return;
+
+    $("btnSave").disabled = true;
+    mensaje("No se encontró la tienda. Abre esta página desde el panel.", false, true);
+    pintarFormulario();
+    renderAhora().then(senalListo);
+  }, ESPERA_TIENDA);
 }
 
 /* ── Mensajes del panel (un solo listener) ── */
@@ -323,12 +451,12 @@ window.addEventListener("message", (e) => {
   if (tipo === "DATOS_TIENDA") {
     if (d.payload) ultimoPayload = d.payload;
 
-    if (!resuelto) {
-      resuelto = true;
+    if (!iniciado) {
+      // también funciona si llega después del aviso de "no se encontró la tienda"
       TIENDA_ID = d.tiendaId || d.id || d.payload?.id_tienda || TIENDA_ID;
       LOCALIDAD = d.localidad || d.payload?.localidad || LOCALIDAD;
       NOMBRE_TIENDA = d.payload?.nombre_tienda || d.nombreTienda || NOMBRE_TIENDA;
-      iniciar();
+      arrancar();
     } else if (listo) {
       aplicarNegocio(false); // el perfil llegó tarde
     }

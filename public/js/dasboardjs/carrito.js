@@ -12,6 +12,10 @@ import {
   runTransaction,
   increment, // ← AGREGAR
   onSnapshot,
+    getCountFromServer,
+  query,
+  limit,
+  startAfter,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   tiendaDoc,
@@ -362,18 +366,32 @@ async function resolverParamsCarrito() {
     const match = path.match(/^\/perfil\/([^/]+)\/carrito(?:-oferta)?\/?$/);
     if (match) {
       const alias = decodeURIComponent(match[1]);
+      const k = "geinz_alias_" + alias;
       try {
-        const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
-        if (aliasSnap.exists()) {
-          const data = aliasSnap.data();
-          if (data.id && data.localidad) {
-            aliasNegocio = alias;
-            tiendaId = data.id;
-            localidad = data.localidad.trim().toLowerCase();
-          }
+        const c = JSON.parse(localStorage.getItem(k) || "null");
+        if (c && c.id && c.localidad) {
+          aliasNegocio = alias;
+          tiendaId = c.id;
+          localidad = c.localidad;
         }
-      } catch (e) {
-        console.error("No se pudo resolver el alias del negocio:", e);
+      } catch {}
+      if (!tiendaId) {
+        try {
+          const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
+          if (aliasSnap.exists()) {
+            const data = aliasSnap.data();
+            if (data.id && data.localidad) {
+              aliasNegocio = alias;
+              tiendaId = data.id;
+              localidad = data.localidad.trim().toLowerCase();
+              try {
+                localStorage.setItem(k, JSON.stringify({ id: tiendaId, localidad }));
+              } catch {}
+            }
+          }
+        } catch (e) {
+          console.error("No se pudo resolver el alias del negocio:", e);
+        }
       }
     }
   }
@@ -2591,119 +2609,205 @@ function getStockInfo(p, seleccion) {
 function getStockDisponible(p, seleccion) {
   return getStockInfo(p, seleccion).stock;
 }
-async function loadProductosCatalogo(bizOrPromise) {
-  const catRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos");
-  const [biz, catSnap] = await Promise.all([bizOrPromise, getDocs(catRef)]);
+/* ══════════════ Catálogo progresivo ══════════════ */
+const MAX_CATS_CON_TODOS = 5;
+let modoSinTodos = false;
+let catalogoPintado = false;
+let todoCargadoP = Promise.resolve();
+const _catsMeta = new Map();   // id -> { id, horarioCat }
+const _cargaCat = new Map();   // id -> Promise (cada categoría se lee UNA sola vez)
+const _catsListas = new Set(); // categorías ya cargadas
+const _catsVacias = new Set();
+const conteoCat = new Map();   // categoría -> cantidad
 
-  // Trae todas las categorías en paralelo (mucho más rápido con catálogos grandes)
-  const porCategoria = await Promise.all(
-    catSnap.docs.map(async (catDoc) => {
-      const categoria = catDoc.id;
-      const horarioCat = normalizarHorarioCategoria(
-        catDoc.data()?.horario_categoria,
-      );
-      const subRef = tiendaSubCol(
-        localidad,
-        "tiendas",
-        tiendaId,
-        "productos",
-        categoria,
-        categoria,
-      );
-      const subSnap = await getDocs(subRef);
-      const arr = [];
-      subSnap.forEach((pDoc) => {
-        const d = pDoc.data();
-        if (d.disponible === false) return;
-        const nombre = d.nombre || "Producto";
-
-        // Solo se traen las condiciones/opciones marcadas como activas (true)
-        // Config POR GRUPO (con respaldo a los interruptores viejos del producto)
-        const gruposRaw = (d.condiciones || []).map((c) => {
-          const multiple = c.tipo
-            ? c.tipo === "multiple"
-            : d.variantesMultiples === true;
-          return {
-            nombre: c.nombre,
-            multiple,
-            obligatoria:
-              c.obligatoria !== undefined
-                ? c.obligatoria !== false
-                : d.variantesObligatoria !== false,
-            conCantidad:
-              multiple &&
-              (c.conCantidad !== undefined
-                ? c.conCantidad === true
-                : d.variantesConCantidad === true),
-            max: Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
-            opciones: (c.opciones || [])
-              .filter(
-                (o) => o.activo && (typeof o.stock !== "number" || o.stock > 0),
-              )
-              .map((o) => ({
-                exclusiva: o.exclusiva === true,
-                todas: o.todas === true,
-                nombre: o.nombre,
-                descripcion: String(o.descripcion || "").trim(),
-                imagen: o.imagen?.url || "",
-                costoAdicional: Number(o.costoAdicional) || 0,
-                stock: typeof o.stock === "number" ? o.stock : null,
-                agotado: o.agotado === true,
-              })),
-          };
-        });
-        // Un grupo obligatorio sin opciones disponibles (o con todas agotadas) = producto sin stock
-        const grupoObligatorioAgotado = gruposRaw.some(
-          (g) =>
-            g.nombre &&
-            g.obligatoria &&
-            (!g.opciones.length || g.opciones.every((o) => o.agotado)),
-        );
-        const condiciones = gruposRaw.filter(
-          (g) => g.nombre && g.opciones.length > 0,
-        );
-
-        arr.push({
-          id: pDoc.id,
-          categoria,
-          categoriaNorm: normalizeText(categoria),
-          nombre,
-          nombreNorm: normalizeText(nombre),
-          descripcion: String(d.descripcion || "").trim(), // ← AGREGAR
-          precio: Number(d.precio) || 0,
-          imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
-          imagen: d.imagenes?.[0]?.url || "",
-          condiciones,
-          sugerencias: Array.isArray(d.sugerencias) ? d.sugerencias : [],
-          tuvoCondiciones: (d.condiciones || []).length > 0, // ← NUEVO
-          grupoObligatorioAgotado,
-          stock: typeof d.stock === "number" ? d.stock : null,
-          variantesObligatoria: d.variantesObligatoria !== false,
-          variantesMultiples: d.variantesMultiples === true,
-          variantesConCantidad:
-            d.variantesMultiples === true && d.variantesConCantidad === true,
-          puntos:
-            biz?.fidelizacion?.activo &&
-            d.puntos?.activo &&
-            d.puntos?.cantidad > 0
-              ? {
-                  cantidad: d.puntos.cantidad,
-                  descripcion: d.puntos.descripcion || "",
-                }
-              : null,
-          descuento: d.descuento || null,
-          horarioCat,
-          horarioProd:
-            d.disponibleDesde && d.disponibleHasta
-              ? { desde: d.disponibleDesde, hasta: d.disponibleHasta }
-              : null,
-        });
-      });
-      return arr;
+async function listarCategorias() {
+  const snap = await getDocs(
+    tiendaSubCol(localidad, "tiendas", tiendaId, "productos"),
+  );
+  snap.docs.forEach((d) =>
+    _catsMeta.set(d.id, {
+      id: d.id,
+      horarioCat: normalizarHorarioCategoria(d.data()?.horario_categoria),
     }),
   );
+  return [..._catsMeta.keys()];
+}
 
-  return porCategoria.flat();
+async function contarCategorias(ids) {
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const r = await getCountFromServer(
+          tiendaSubCol(localidad, "tiendas", tiendaId, "productos", id, id),
+        );
+        conteoCat.set(id, r.data().count);
+      } catch {
+        conteoCat.set(id, 0);
+      }
+    }),
+  );
+}
+
+function mapearProducto(pDoc, categoria, horarioCat, biz) {
+  const d = pDoc.data();
+  if (d.disponible === false) return null;
+  const nombre = d.nombre || "Producto";
+
+  const gruposRaw = (d.condiciones || []).map((c) => {
+    const multiple = c.tipo ? c.tipo === "multiple" : d.variantesMultiples === true;
+    return {
+      nombre: c.nombre,
+      multiple,
+      obligatoria:
+        c.obligatoria !== undefined
+          ? c.obligatoria !== false
+          : d.variantesObligatoria !== false,
+      conCantidad:
+        multiple &&
+        (c.conCantidad !== undefined
+          ? c.conCantidad === true
+          : d.variantesConCantidad === true),
+      max: Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
+      opciones: (c.opciones || [])
+        .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
+        .map((o) => ({
+          exclusiva: o.exclusiva === true,
+          todas: o.todas === true,
+          nombre: o.nombre,
+          descripcion: String(o.descripcion || "").trim(),
+          imagen: o.imagen?.url || "",
+          costoAdicional: Number(o.costoAdicional) || 0,
+          stock: typeof o.stock === "number" ? o.stock : null,
+          agotado: o.agotado === true,
+        })),
+    };
+  });
+  const grupoObligatorioAgotado = gruposRaw.some(
+    (g) =>
+      g.nombre &&
+      g.obligatoria &&
+      (!g.opciones.length || g.opciones.every((o) => o.agotado)),
+  );
+  const condiciones = gruposRaw.filter((g) => g.nombre && g.opciones.length > 0);
+
+  return {
+    id: pDoc.id,
+    categoria,
+    categoriaNorm: normalizeText(categoria),
+    nombre,
+    nombreNorm: normalizeText(nombre),
+    descripcion: String(d.descripcion || "").trim(),
+    precio: Number(d.precio) || 0,
+    imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
+    imagen: d.imagenes?.[0]?.url || "",
+    condiciones,
+    sugerencias: Array.isArray(d.sugerencias) ? d.sugerencias : [],
+    tuvoCondiciones: (d.condiciones || []).length > 0,
+    grupoObligatorioAgotado,
+    stock: typeof d.stock === "number" ? d.stock : null,
+    variantesObligatoria: d.variantesObligatoria !== false,
+    variantesMultiples: d.variantesMultiples === true,
+    variantesConCantidad:
+      d.variantesMultiples === true && d.variantesConCantidad === true,
+    puntos:
+      biz?.fidelizacion?.activo && d.puntos?.activo && d.puntos?.cantidad > 0
+        ? { cantidad: d.puntos.cantidad, descripcion: d.puntos.descripcion || "" }
+        : null,
+    descuento: d.descuento || null,
+    horarioCat,
+    horarioProd:
+      d.disponibleDesde && d.disponibleHasta
+        ? { desde: d.disponibleDesde, hasta: d.disponibleHasta }
+        : null,
+  };
+}
+
+const PRIMERA_PAGINA = 24;
+const _catsCompletas = new Set();
+let bizListaP = Promise.resolve(); // mapearProducto necesita bizData (puntos)
+
+// Devuelve { primera, completa }: primera = 24 productos (pinta ya), completa = el resto
+function asegurarCategoria(id) {
+  if (!_catsMeta.has(id))
+    return { primera: Promise.resolve(), completa: Promise.resolve() };
+  if (_cargaCat.has(id)) return _cargaCat.get(id);
+
+  const colRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos", id, id);
+  const horarioCat = _catsMeta.get(id)?.horarioCat || null;
+  const mapear = (snap) => {
+    const arr = [];
+    snap.forEach((d) => {
+      const p = mapearProducto(d, id, horarioCat, bizData);
+      if (p) arr.push(p);
+    });
+    return arr;
+  };
+
+  const primera = getDocs(query(colRef, limit(PRIMERA_PAGINA))).then(async (snap) => {
+    await bizListaP;
+    const arr = mapear(snap);
+    _catsListas.add(id);
+    if (!arr.length && snap.size < PRIMERA_PAGINA) _catsVacias.add(id);
+    registrarProductos(arr);
+    return snap;
+  });
+
+  const completa = primera.then(async (snap) => {
+    if (snap.size >= PRIMERA_PAGINA) {
+      const resto = await getDocs(
+        query(colRef, startAfter(snap.docs[snap.docs.length - 1])),
+      );
+      registrarProductos(mapear(resto));
+    }
+    _catsCompletas.add(id);
+    if (!productosGlobal.some((p) => p.categoria === id)) {
+      _catsVacias.add(id);
+      if (catalogoPintado) renderFiltros();
+    }
+  });
+
+  const fallo = (e) => {
+    console.warn("Categoría falló:", id, e.message);
+    _cargaCat.delete(id); // permite reintentar
+  };
+  const entrada = { primera: primera.catch(fallo), completa: completa.catch(fallo) };
+  _cargaCat.set(id, entrada);
+  return entrada;
+}
+
+function registrarProductos(arr) {
+  if (arr.length) {
+    productosGlobal.push(...arr);
+    arr.forEach((p) => productosPorId.set(p.id, p));
+  }
+  actualizarCatalogoGlobal();
+  if (!catalogoPintado) return; // antes del primer pintado no se toca el DOM
+
+  document.getElementById("totalCount").textContent = catalogoGlobal.length;
+  renderFiltros();
+
+  // Con búsqueda activa, o si la lista estaba vacía, se recalcula normal
+  if (filtroTexto || !renderedCount) {
+    applyFilters();
+    return;
+  }
+  // Si no: se AGREGAN al final, sin reiniciar la lista ni mover el scroll
+  const extra = arr.filter(
+    (p) => filtroCategoria === "Todos" || p.categoria === filtroCategoria,
+  );
+  if (!extra.length) return;
+  listaFiltrada = listaFiltrada.concat(extra);
+  if (sentinelEl) sentinelEl.style.display = "block";
+  reobservarSentinel();
+}
+
+// Carga lo que falta en segundo plano, 3 categorías a la vez
+function cargarResto(ids) {
+  const pend = ids.filter((id) => !_cargaCat.has(id));
+  const worker = async () => {
+    while (pend.length) await asegurarCategoria(pend.shift()).completa;
+  };
+  return Promise.all([worker(), worker(), worker()]);
 }
 
 /* ══════════════ Render tienda (logo + color) ══════════════ */
@@ -3295,25 +3399,6 @@ function getBizWhatsapp() {
 }
 
 /* ══════════════ Filtros (categoría) ══════════════ */
-function renderFiltros(productos) {
-  const categorias = [...new Set(productos.map((p) => p.categoria))];
-  const wrap = document.getElementById("filtros");
-  wrap.innerHTML = "";
-
-  const makeChip = (label) => {
-    const b = document.createElement("button");
-    b.textContent = label;
-    b.className = "chip";
-    b.dataset.cat = label;
-    b.onclick = () => setActiveCategoria(label);
-    wrap.appendChild(b);
-    return b;
-  };
-
-  makeChip("Todos");
-  categorias.forEach((c) => makeChip(c));
-  paintActiveChip();
-}
 
 function paintActiveChip() {
   document.querySelectorAll("#filtros .chip").forEach((b) => {
@@ -3323,11 +3408,7 @@ function paintActiveChip() {
   });
 }
 
-function setActiveCategoria(cat) {
-  filtroCategoria = cat;
-  paintActiveChip();
-  applyFilters();
-}
+
 
 /* ══════════════ Búsqueda inteligente (debounced, sin tildes, por palabras) ══════════════ */
 const searchInput = document.getElementById("searchInput");
@@ -3339,6 +3420,9 @@ searchInput.addEventListener("input", () => {
   searchDebounce = setTimeout(() => {
     filtroTexto = normalizeText(searchInput.value);
     applyFilters();
+    todoCargadoP.then(() => {
+      if (filtroTexto) applyFilters();
+    });
   }, 120);
 });
 searchClear.addEventListener("click", () => {
@@ -3349,11 +3433,54 @@ searchClear.addEventListener("click", () => {
   searchInput.focus();
 });
 
-/* ══════════════ Aplicar filtros combinados (categoría + texto) ══════════════ */
+function renderFiltros() {
+  const wrap = document.getElementById("filtros");
+  wrap.innerHTML = "";
+
+  let cats = [
+    ...new Set([...promosGlobal.map((p) => p.categoria), ..._catsMeta.keys()]),
+  ].filter((c) => !_catsVacias.has(c));
+
+  if (modoSinTodos) {
+    cats.sort((a, b) => (conteoCat.get(b) || 0) - (conteoCat.get(a) || 0));
+    if (!cats.includes(filtroCategoria) && cats.length) filtroCategoria = cats[0];
+  }
+
+  const makeChip = (label) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.className = "chip";
+    b.dataset.cat = label;
+    b.onclick = () => setActiveCategoria(label);
+    wrap.appendChild(b);
+  };
+
+  if (!modoSinTodos) makeChip("Todos");
+  cats.forEach(makeChip);
+  paintActiveChip();
+}
+
+async function setActiveCategoria(cat) {
+  filtroCategoria = cat;
+  paintActiveChip();
+
+  // Si esa categoría aún no llegó: skeleton y se pide al instante
+  if (_catsMeta.has(cat) && !_catsListas.has(cat)) {
+    const lista = document.getElementById("lista");
+    lista.classList.remove("hidden");
+    lista.innerHTML = '<div class="sk"></div>'.repeat(6);
+    await asegurarCategoria(cat).primera;
+    if (filtroCategoria !== cat) return; // el cliente ya cambió de categoría
+  }
+  applyFilters();
+}
+
 function applyFilters() {
   let resultado = catalogoGlobal;
 
-  if (filtroCategoria !== "Todos") {
+  // Con texto de búsqueda y sin "Todos", se busca en todo el catálogo cargado
+  const ignorarCat = modoSinTodos && !!filtroTexto;
+  if (filtroCategoria !== "Todos" && !ignorarCat) {
     resultado = resultado.filter((p) => p.categoria === filtroCategoria);
   }
   if (filtroTexto) {
@@ -3365,13 +3492,12 @@ function applyFilters() {
     });
   }
   const resultCountEl = document.getElementById("resultCount");
-  if (filtroTexto || filtroCategoria !== "Todos") {
+  if (filtroTexto || (filtroCategoria !== "Todos" && !modoSinTodos)) {
     resultCountEl.textContent = `${resultado.length} resultado(s)`;
     resultCountEl.classList.remove("hidden");
   } else {
     resultCountEl.classList.add("hidden");
   }
-
   renderLista(resultado);
 }
 
@@ -3389,7 +3515,7 @@ function renderSiguienteBloque() {
   const fin = Math.min(renderedCount + BLOQUE_CARDS, listaFiltrada.length);
   for (let i = renderedCount; i < fin; i++) {
     const p = listaFiltrada[i];
-    const card = productoCard(p, i - renderedCount); // delay de animación relativo al bloque
+const card = productoCard(p, i - renderedCount, i < 6);
     cardElements.set(p.id, card);
     frag.appendChild(card);
   }
@@ -3570,7 +3696,7 @@ function closeProductLightbox() {
     ?.classList.contains("show");
   if (!hayModalAbierto) document.body.style.overflow = "";
 }
-function productoCard(p, index = 0) {
+function productoCard(p, index = 0, prioritaria = false) {
   const card = document.createElement("div");
   card.id = `card-${p.id}`;
   card.className =
@@ -3587,13 +3713,19 @@ function productoCard(p, index = 0) {
 
   const imgWrap = document.createElement("div");
   imgWrap.className = "prod-img-wrap";
-  if (p.imagen) {
+   if (p.imagen) {
+    imgWrap.classList.add("img-loading");
     const img = document.createElement("img");
     img.alt = p.nombre;
-    img.loading = "lazy";
+    img.loading = prioritaria ? "eager" : "lazy";
     img.decoding = "async";
-    img.onload = () => img.classList.add("loaded");
+    if (prioritaria) img.fetchPriority = "high";
+    img.onload = () => {
+      img.classList.add("loaded");
+      imgWrap.classList.remove("img-loading");
+    };
     img.onerror = () => {
+      imgWrap.classList.remove("img-loading");
       imgWrap.innerHTML = "";
       imgWrap.classList.add("no-img");
       imgWrap.appendChild(createLogoPlaceholderEl());
@@ -8847,55 +8979,47 @@ async function init() {
   }
   capturarCampana();
 
-  // ── Todas las lecturas salen a la vez ──
+  // ══ WAVE 1: todo sale a la vez ══
   const bizP = loadTienda();
-  const tipoP = loadTipoTienda();
-  const ofertasP = loadOfertasActivas();
-  const productosP = loadProductosCatalogo(bizP);
-  const pedidoP = loadPedidoMesa();
-  const usuarioP = cargarUsuarioLogeado();
+  bizListaP = bizP.then((b) => { bizData = b; });
+  const catsP = listarCategorias();
+  const usuarioP = cargarUsuarioLogeado(); // NO bloquea el pintado
+  const tipoP = loadTipoTienda();          // NO bloquea
+  loadPedidoMesa();                        // solo hace algo en mesa; NO bloquea
 
-  const biz = await bizP;
-  const ofertasActivas = await ofertasP;
+  const [biz, catIds] = await Promise.all([bizP, catsP]);
+
+  // ══ WAVE 2: ofertas + primera página de las 3 primeras categorías, a la vez ══
+  modoSinTodos = false; // "Todos" siempre visible
+  const primerasIds = catIds.slice(0, 3);
+  const primerasP = primerasIds.map((id) => asegurarCategoria(id).primera);
+  const ofertasActivas = await loadOfertasActivas(); // ya ve bizData
+
   promosGlobal = [...normalizarPromociones(biz), ...ofertasActivas];
   promosGlobal.sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
-  const [productos, pedidoMesa] = await Promise.all([
-    productosP,
-    pedidoP,
-    usuarioP,
-  ]);
-  if (esCampana() && !(await iniciarCampana())) return;
-  productosGlobal = productos;
-  productosPorId = new Map(productos.map((p) => [p.id, p]));
   promosGlobal.forEach((p) => productosPorId.set(p.id, p));
+
+  // Solo la PRIMERA PÁGINA de esas categorías bloquea el pintado
+  await Promise.all(primerasP);
+
+  if (esCampana()) {
+    await usuarioP;
+    if (!(await iniciarCampana())) return;
+  }
+
   actualizarCatalogoGlobal();
   document.getElementById("totalCount").textContent = catalogoGlobal.length;
   bindCuponInputs();
-  tipoTiendaFisica = await tipoP;
-
   await renderTienda(biz);
-  if (cuponParam) await buscarYAplicarCupon(cuponParam, { desdeLink: true });
-  if (cuponParam) {
-    const u = new URL(location.href);
-    u.searchParams.delete("cupon");
-    history.replaceState(null, "", u.pathname + u.search + u.hash);
-  }
-  adicionalesGlobal = await loadAdicionales();
-  adicionalesGlobal.forEach((a) => productosPorId.set(a.id, a));
-  if (urlTieneBannerCupon()) await aplicarCuponBanner();
   aplicarComportamientoBotonAtras();
-  aplicarModeloNegocio(biz);
-  aplicarDisponibilidadDelivery();
-  aplicarPuntoEntrega();
   renderMetodosPago(biz);
   montarChipsVuelto();
   aplicarModoCampana();
   horarioEstado = evaluarHorarioNegocio(bizData, new Date());
   pintarBannerHorario(horarioEstado);
-
   if (mesaId) iniciarSeguimientoMesa();
 
-  if (!productos.length && !promosGlobal.length) {
+  if (!catIds.length && !promosGlobal.length) {
     document.getElementById("lista").innerHTML = "";
     document.getElementById("emptyMsg").classList.remove("hidden");
     document.getElementById("emptyMsg").classList.add("flex");
@@ -8903,30 +9027,60 @@ async function init() {
     return;
   }
 
-  // ── Se restaura el carrito ANTES de pintar, y se pinta UNA sola vez ──
-  const carritoRestaurado = await restaurarCarritoTrasLogin();
-  if (!carritoRestaurado) await restaurarCarritoPersistido();
-
-  if (catalogoGlobal.length) {
-    renderFiltros(catalogoGlobal);
-    buildAllCards(catalogoGlobal);
-    applyFilters();
-    // montarBotonJuego();
-  } else {
-    document.getElementById("lista").innerHTML = "";
-  }
+  // ══ PINTADO ══
+  renderFiltros();
+  buildAllCards();
+  catalogoPintado = true;
+  applyFilters();
   updateCartUI();
   hidePageLoader();
+  if (biz?.img_tienda?.logo_tienda) setFaviconCircular(biz.img_tienda.logo_tienda);
 
-  // Favicon con los datos que ya tenemos (sin otra lectura a Firestore)
-  if (biz?.img_tienda?.logo_tienda)
-    setFaviconCircular(biz.img_tienda.logo_tienda);
+  // ══ Todo lo demás, ya con la pantalla visible ══
+  todoCargadoP = Promise.all([
+    ...primerasIds.map((id) => asegurarCategoria(id).completa),
+    cargarResto(catIds),
+  ]);
+
+  tipoP.then((t) => {
+    tipoTiendaFisica = t;
+    aplicarModeloNegocio(biz);
+    aplicarDisponibilidadDelivery();
+    aplicarPuntoEntrega();
+    actualizarDireccionPorEntrega();
+  });
+  usuarioP.then(() => updateCartUI());
+  loadAdicionales().then((a) => {
+    adicionalesGlobal = a;
+    a.forEach((x) => productosPorId.set(x.id, x));
+    updateCartUI();
+  });
 
   iniciarValidacionHorarioEnVivo();
   iniciarValidacionOfertasEnVivo();
   iniciarValidacionDescuentosEnVivo();
   refrescarDisponibilidadCategorias();
   setInterval(refrescarDisponibilidadCategorias, 30000);
+
+  // ── Lo que sí necesita usuario / catálogo completo ──
+  await usuarioP;
+  if (urlTieneBannerCupon()) await aplicarCuponBanner();
+  await todoCargadoP;
+  if (!productosGlobal.length && !promosGlobal.length) {
+    document.getElementById("lista").innerHTML = "";
+    document.getElementById("emptyMsg").classList.remove("hidden");
+    document.getElementById("emptyMsg").classList.add("flex");
+  }
+  if (cuponParam) {
+    await buscarYAplicarCupon(cuponParam, { desdeLink: true });
+    const u = new URL(location.href);
+    u.searchParams.delete("cupon");
+    history.replaceState(null, "", u.pathname + u.search + u.hash);
+  }
+  const carritoRestaurado = await restaurarCarritoTrasLogin();
+  if (!carritoRestaurado) await restaurarCarritoPersistido();
+  updateCartUI();
+  productosGlobal.forEach((p) => syncMainListCard(p.id));
 
   const carritoDesdePerfil = await aplicarCarritoDesdePerfil();
   if (carritoDesdePerfil) {

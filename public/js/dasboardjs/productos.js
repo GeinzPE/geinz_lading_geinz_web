@@ -6,6 +6,7 @@ import {
   query,
   orderBy,
   limit,
+  startAfter,
   where,
   setDoc,
   updateDoc,
@@ -13,6 +14,7 @@ import {
   serverTimestamp,
   writeBatch,
   getDocs,
+  getCountFromServer,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   ref as storageRef,
@@ -282,7 +284,9 @@ window.addEventListener("message", (e) => {
   }
 
   actualizarVisibilidadCarta();
-  iniciarInsumos();
+  (window.requestIdleCallback
+    ? requestIdleCallback(iniciarInsumos, { timeout: 2500 })
+    : setTimeout(iniciarInsumos, 1200));
 });
 const TIENDA_ID_STORAGE = tiendaId;
 const tiendaDocRef = tiendaDoc(localidad, "tiendas", tiendaId);
@@ -785,7 +789,9 @@ document.getElementById("btn-rec-usar-precio").addEventListener("click", () => {
   toast("Precio sugerido aplicado.");
 });
 
-iniciarInsumos();
+(window.requestIdleCallback
+  ? requestIdleCallback(iniciarInsumos, { timeout: 2500 })
+  : setTimeout(iniciarInsumos, 1200));
 /* ---------------- Súper avanzado: costo por variante ---------------- */
 const CLS_VAR_INPUT =
   "rounded-lg bg-[#05040a] border border-purple-900/30 px-2 py-1.5 text-xs text-purple-100 outline-none focus:border-violet-600";
@@ -1292,6 +1298,7 @@ function activarTabProducto(targetId) {
     .querySelectorAll(".tab-panel-form")
     .forEach((p) => p.classList.toggle("active-tab-panel", p.id === targetId));
   if (targetId === "tab-super") {
+    iniciarInsumos();
     renderRecVariantes();
     calcRecetaUI();
   }
@@ -1331,36 +1338,13 @@ document
     }
   });
 
-/* ---------------- Splash Screen Control ---------------- */
-const splashGallery = document.getElementById("splash-gallery");
-const splashTotalImgs = document.getElementById("splash-total-imgs");
-const splashTotalProds = document.getElementById("splash-total-prods");
+/* ---------------- Skeleton inicial ---------------- */
 const loadedImageUrls = new Set();
-let splashDismissed = false;
-
+function quitarSkeletonInicial() {
+  document.getElementById("skeleton-inicial")?.remove();
+}
 function updateSplashAndCheckDismiss() {
-  if (splashDismissed) return;
-
-  if (loadedImageUrls.size > 0) {
-    splashGallery.innerHTML = "";
-    const sliceImgs = Array.from(loadedImageUrls).slice(-5);
-    sliceImgs.forEach((url) => {
-      const img = document.createElement("img");
-      img.src = url;
-      img.loading = "lazy";
-      img.className =
-        "w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-2xl border border-purple-800/40 shadow-xl transition-all duration-300 animate-fadeIn";
-      splashGallery.appendChild(img);
-    });
-  }
-
-  setTimeout(() => {
-    const splash = document.getElementById("splash-screen");
-    if (splash && !splashDismissed) {
-      splashDismissed = true;
-      splash.classList.add("hide");
-    }
-  }, 500);
+  quitarSkeletonInicial();
 }
 
 /* ---------------- Estado de Filtros (Todos, Activos, Agotados, Stock bajo, Categorias) ---------------- */
@@ -1376,6 +1360,7 @@ const btnCategorias = document.getElementById("btn-filter-categorias");
 const btnDescuento = document.getElementById("btn-filter-descuento");
 const btnCarrito = document.getElementById("btn-filter-carrito");
 function setFiltroEstado(nuevoEstado) {
+  if (nuevoEstado !== "todos" && nuevoEstado !== "categorias") cargarTodo();
   filtroEstadoActual = nuevoEstado;
   const mapa = {
     todos: [btnTodos, "ring-violet-500"],
@@ -2787,7 +2772,11 @@ function abrirModalNuevoProducto(
   categoriaNombre,
   codigoPrefill = "",
 ) {
-  const usados = categoriaCardsMap[categoriaId]?.size || 0;
+  const usados = Number(
+    document.getElementById("cat-" + categoriaId)?.dataset.totalReal ??
+      categoriaCardsMap[categoriaId]?.size ??
+      0,
+  );
   if (usados >= PLAN_PRODUCTOS.maxProductosPorColeccion) {
     toast(
       `Esta categoría ya tiene el máximo de ${PLAN_PRODUCTOS.maxProductosPorColeccion} productos de tu plan.`,
@@ -3309,6 +3298,7 @@ document
         }
 
         toast(`"${nombre}" guardado.`);
+        programarConteos(500);
       }
 
       closeOverlay("overlay-producto");
@@ -3333,15 +3323,13 @@ async function eliminarProducto(categoriaId, productoId, nombre, imagenes) {
 }
 
 function skeletonCardHTML() {
-  return `
-    <div class="skeleton-card">
-      <div class="skeleton-img"></div>
-      <div class="skeleton-line" style="width:70%"></div>
-      <div class="skeleton-line" style="width:40%"></div>
-      <div class="skeleton-line" style="width:55%;margin-top:16px;"></div>
-    </div>`;
+  return `<div class="sk-card"><div class="sk" style="aspect-ratio:1;border-radius:0"></div>
+    <div style="padding:14px"><div class="sk" style="height:12px;width:70%"></div>
+    <div class="sk" style="height:10px;width:90%;margin-top:10px"></div>
+    <div class="sk" style="height:18px;width:40%;margin-top:16px"></div>
+    <div style="display:flex;gap:8px;margin-top:14px"><div class="sk" style="height:24px;width:80px"></div><div class="sk" style="height:24px;width:70px"></div></div></div></div>`;
 }
-function renderSkeletons(grid, count = 8) {
+function renderSkeletons(grid, count = 4) {
   grid.innerHTML = Array.from({ length: count }, skeletonCardHTML).join("");
 }
 function textoVigenciaDescuento(d, info) {
@@ -3417,12 +3405,15 @@ function renderProductoCard(categoriaId, productoId, data) {
     "relative w-full aspect-square bg-[#05040a] overflow-hidden border-b border-purple-900/20";
   imgWrap.innerHTML = `
     <div class="img-placeholder-fallback">
-      <img src="../img/logo geinz.png" alt="">
+      <img src="../img/logo geinz.png" alt="" loading="lazy" decoding="async">
     </div>`;
   if (imagenes.length) {
     const imgEl = document.createElement("img");
     imgEl.src = imagenes[0].url;
     imgEl.loading = "lazy";
+    imgEl.decoding = "async";
+    imgEl.style.opacity = "0";
+    imgEl.onload = () => (imgEl.style.opacity = "1");
     imgEl.className =
       "img-real-foto w-full h-full object-cover block group-hover:scale-105 transition-transform duration-300";
     imgEl.onerror = () => imgEl.classList.add("is-broken");
@@ -3692,113 +3683,174 @@ const emptyGlobal = document.getElementById("empty-global");
 const emptySearch = document.getElementById("empty-search");
 const categoriaListeners = {};
 
-// Escalabilidad: en vez de traer TODOS los productos de una categoría de golpe
-// (lo cual se vuelve lento con miles de productos), se pide un límite inicial y se agrega
-// un botón "Cargar más" que amplía el límite bajo demanda.
-const PRODUCTOS_POR_PAGINA = 60;
+// Carga progresiva: se piden pocos productos al inicio y 12 más al llegar al final
+// de cada categoría. Al buscar o filtrar se carga todo (hasta LIMITE_TODO por categoría).
+const PRODUCTOS_INICIAL = 12;
+const PRODUCTOS_PASO = 12;
+const LIMITE_TODO = 1000;
+let modoCompleto = false;
 const categoriaLimite = {}; // categoriaId -> límite actual de productos cargados
 
 const categoriaCardsMap = {}; // categoriaId -> Map(productoId -> elemento tarjeta)
 
+let conteosGlobales = null;
+let conteosTimer = null;
+async function cargarConteos() {
+  const ids = [...categoriasLista.keys()];
+  if (!ids.length) return;
+  const n = async (q) => (await getCountFromServer(q)).data().count;
+  try {
+    const filas = await Promise.all(ids.map(async (id) => {
+      const c = productosRef(id);
+      const [t, a, h, b] = await Promise.all([
+        n(c),
+        n(query(c, where("disponible", "==", true))),
+        n(query(c, where("agotadoHoy", "==", true))),
+        n(query(c, where("stock", "<", STOCK_BAJO_UMBRAL))),
+      ]);
+      const sec = document.getElementById("cat-" + id);
+      if (sec) { sec.dataset.totalReal = String(t); pintarContadorCategoria(sec); }
+      return { t, a, h, b };
+    }));
+    conteosGlobales = filas.reduce(
+      (s, f) => ({ total: s.total + f.t, activos: s.activos + f.a, agotadoHoy: s.agotadoHoy + f.h, stockBajo: s.stockBajo + f.b }),
+      { total: 0, activos: 0, agotadoHoy: 0, stockBajo: 0 },
+    );
+    aplicarFiltroYMetricas();
+  } catch (e) { console.warn("conteos:", e); }
+}
+function programarConteos(ms = 800) {
+  clearTimeout(conteosTimer);
+  conteosTimer = setTimeout(cargarConteos, ms);
+}
+
+let _filtroRaf = 0;
+function programarFiltro() {
+  if (_filtroRaf) return;
+  _filtroRaf = requestAnimationFrame(() => { _filtroRaf = 0; aplicarFiltroYMetricas(); });
+}
+
+// Observa cada categoría: solo carga sus productos cuando está cerca de la pantalla
+const obsCategorias = "IntersectionObserver" in window
+  ? new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (!en.isIntersecting) return;
+        const s = en.target;
+        obsCategorias.unobserve(s);
+        suscribirProductos(s.id.replace("cat-", ""), s.querySelector(".productos-grid"), s);
+      });
+    }, { rootMargin: "700px 0px" })
+  : null;
+
+// Al llegar abajo de una categoría, trae 12 más
+const obsMas = "IntersectionObserver" in window
+  ? new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (!en.isIntersecting) return;
+        const el = en.target;
+        obsMas.unobserve(el);
+        const id = el.dataset.categoriaId;
+        const s = document.getElementById("cat-" + id);
+        if (!s) return;
+        categoriaLimite[id] = (categoriaLimite[id] || PRODUCTOS_INICIAL) + PRODUCTOS_PASO;
+        suscribirProductos(id, s.querySelector(".productos-grid"), s);
+      });
+    }, { rootMargin: "500px 0px" })
+  : null;
+
+// Búsqueda o filtro: ahora sí se carga todo, una categoría a la vez
+function cargarTodo() {
+  if (modoCompleto) return;
+  modoCompleto = true;
+  document.querySelectorAll(".categoria").forEach((s, i) => {
+    obsCategorias?.unobserve(s);
+    setTimeout(() => suscribirProductos(s.id.replace("cat-", ""), s.querySelector(".productos-grid"), s), i * 120);
+  });
+}
+
 function suscribirProductos(categoriaId, grid, seccion) {
   if (categoriaListeners[categoriaId]) categoriaListeners[categoriaId]();
-
-  if (!seccion.dataset.cargado) {
-    renderSkeletons(grid, 8);
-  }
-
-  if (!categoriaCardsMap[categoriaId])
-    categoriaCardsMap[categoriaId] = new Map();
+  if (!seccion.dataset.cargado) renderSkeletons(grid, 4);
+  if (!categoriaCardsMap[categoriaId]) categoriaCardsMap[categoriaId] = new Map();
   const cardsMap = categoriaCardsMap[categoriaId];
 
-  const lim = categoriaLimite[categoriaId] || PRODUCTOS_POR_PAGINA;
-  const q = query(
-    productosRef(categoriaId),
-    orderBy("createdAt", "desc"),
-    limit(lim),
-  );
+  const lim = modoCompleto ? LIMITE_TODO : categoriaLimite[categoriaId] || PRODUCTOS_INICIAL;
+  categoriaLimite[categoriaId] = lim;
+  const q = query(productosRef(categoriaId), orderBy("createdAt", "desc"), limit(lim));
 
-  categoriaListeners[categoriaId] = onSnapshot(
-    q,
-    (snap) => {
-      const primeraCarga = !seccion.dataset.cargado;
-      seccion.dataset.cargado = "1";
+  categoriaListeners[categoriaId] = onSnapshot(q, (snap) => {
+    const primeraCarga = !seccion.dataset.cargado;
+    seccion.dataset.cargado = "1";
 
-      if (primeraCarga) {
-        grid.innerHTML = "";
-        cardsMap.clear();
+    if (primeraCarga) {
+      grid.innerHTML = "";
+      cardsMap.clear();
+      const addCard = document.createElement("div");
+      addCard.className = "btn-card-add group flex flex-col items-center justify-center gap-2 min-h-[260px] rounded-2xl border border-dashed border-purple-900/30 hover:border-violet-600 hover:bg-violet-950/10 cursor-pointer transition-all text-purple-400/50 hover:text-purple-200";
+      addCard.innerHTML = `
+        <div class="w-10 h-10 rounded-full bg-violet-950/50 group-hover:bg-violet-900/50 flex items-center justify-center transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <span class="text-xs font-medium">Nuevo Producto</span>`;
+      addCard.addEventListener("click", () => abrirModalNuevoProducto(categoriaId, seccion.dataset.catNombre));
+      grid.appendChild(addCard);
 
-        const addCard = document.createElement("div");
-        addCard.className =
-          "btn-card-add group flex flex-col items-center justify-center gap-2 min-h-[260px] rounded-2xl border border-dashed border-purple-900/30 hover:border-violet-600 hover:bg-violet-950/10 cursor-pointer transition-all text-purple-400/50 hover:text-purple-200";
-        addCard.innerHTML = `
-          <div class="w-10 h-10 rounded-full bg-violet-950/50 group-hover:bg-violet-900/50 flex items-center justify-center transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
-          </div>
-          <span class="text-xs font-medium">Nuevo Producto</span>`;
-        addCard.addEventListener("click", () =>
-          abrirModalNuevoProducto(categoriaId, seccion.dataset.catNombre),
-        );
-        grid.appendChild(addCard);
+      const frag = document.createDocumentFragment();
+      snap.forEach((prodDoc) => {
+        const d = prodDoc.data();
+        const card = renderProductoCard(categoriaId, prodDoc.id, d);
+        card._sig = JSON.stringify(d);
+        cardsMap.set(prodDoc.id, card);
+        frag.appendChild(card);
+      });
+      grid.appendChild(frag);
+    } else {
+      const sentinel = grid.querySelector(".sentinel-mas");
+      snap.docChanges().forEach((change) => {
+        const id = change.doc.id;
+        if (change.type === "removed") {
+          cardsMap.get(id)?.remove();
+          cardsMap.delete(id);
+          programarConteos();
+          return;
+        }
+        const d = change.doc.data();
+        const sig = JSON.stringify(d);
+        const anterior = cardsMap.get(id);
+        if (anterior && anterior._sig === sig) return; // sin cambios: no se redibuja
+        const nueva = renderProductoCard(categoriaId, id, d);
+        nueva._sig = sig;
+        if (anterior) {
+          anterior.replaceWith(nueva);
+          programarConteos();
+        } else {
+          const ref = grid.children[change.newIndex + 1];
+          if (ref && ref !== sentinel) grid.insertBefore(nueva, ref);
+          else grid.insertBefore(nueva, sentinel || null);
+        }
+        cardsMap.set(id, nueva);
+      });
+    }
 
-        snap.forEach((prodDoc) => {
-          const card = renderProductoCard(
-            categoriaId,
-            prodDoc.id,
-            prodDoc.data(),
-          );
-          cardsMap.set(prodDoc.id, card);
-          grid.appendChild(card);
-        });
-      } else {
-        // Solo tocamos lo que realmente cambió: nada de parpadeo ni recarga de imágenes
-        snap.docChanges().forEach((change) => {
-          const id = change.doc.id;
-          if (change.type === "removed") {
-            cardsMap.get(id)?.remove();
-            cardsMap.delete(id);
-            return;
-          }
-          const nuevaCard = renderProductoCard(
-            categoriaId,
-            id,
-            change.doc.data(),
-          );
-          const anterior = cardsMap.get(id);
-          if (anterior) {
-            anterior.replaceWith(nuevaCard);
-          } else {
-            grid.appendChild(nuevaCard);
-          }
-          cardsMap.set(id, nuevaCard);
-        });
-      }
+    grid.querySelector(".sentinel-mas")?.remove();
+    if (!modoCompleto && snap.size >= lim) {
+      const s = document.createElement("div");
+      s.className = "sentinel-mas col-span-full flex justify-center py-3";
+      s.dataset.categoriaId = categoriaId;
+      s.innerHTML = '<span class="spinner" style="opacity:.5"></span>';
+      grid.appendChild(s);
+      obsMas?.observe(s);
+    }
 
-      grid.querySelector(".btn-cargar-mas")?.remove();
-      if (snap.size >= lim) {
-        const masBtn = document.createElement("button");
-        masBtn.type = "button";
-        masBtn.className =
-          "btn-cargar-mas col-span-full mt-2 mx-auto rounded-xl px-4 py-2 text-xs font-medium text-violet-300 bg-violet-950/30 hover:bg-violet-900/40 border border-violet-800/30 transition-all";
-        masBtn.textContent = "Cargar más productos";
-        masBtn.addEventListener("click", () => {
-          categoriaLimite[categoriaId] = lim + PRODUCTOS_POR_PAGINA;
-          suscribirProductos(categoriaId, grid, seccion);
-        });
-        grid.appendChild(masBtn);
-      }
-
-      seccion.dataset.total = String(snap.size);
-      seccion.dataset.hayMas = snap.size >= lim ? "1" : "0";
-      pintarContadorCategoria(seccion);
-      aplicarFiltroYMetricas();
-      updateSplashAndCheckDismiss();
-    },
-    (err) => {
-      console.error(err);
-      toast("Error al cargar productos.", "error");
-    },
-  );
+    seccion.dataset.total = String(snap.size);
+    seccion.dataset.hayMas = snap.size >= lim ? "1" : "0";
+    pintarContadorCategoria(seccion);
+    programarFiltro();
+    updateSplashAndCheckDismiss();
+  }, (err) => {
+    console.error(err);
+    toast("Error al cargar productos.", "error");
+  });
 }
 
 function renderCategoriaShell(categoriaId, data) {
@@ -3873,7 +3925,8 @@ function renderCategoriaShell(categoriaId, data) {
       });
 
     const grid = seccion.querySelector(".productos-grid");
-    suscribirProductos(categoriaId, grid, seccion);
+    if (modoCompleto || !obsCategorias) suscribirProductos(categoriaId, grid, seccion);
+    else { renderSkeletons(grid, 4); obsCategorias.observe(seccion); }
   }
 
   seccion.dataset.catNombre = (data.nombre || "").toLowerCase();
@@ -3888,15 +3941,14 @@ function renderCategoriaShell(categoriaId, data) {
 /* ---------------- Filtro Combinado Avanzado ---------------- */
 // "6 / 20 productos" (o "6 productos" si el plan no tiene límite)
 function pintarContadorCategoria(seccion) {
-  const total = Number(seccion.dataset.total || 0);
-  const mas = seccion.dataset.hayMas === "1" ? "+" : "";
+  const total = Number(seccion.dataset.totalReal ?? seccion.dataset.total ?? 0);
   const max = PLAN_PRODUCTOS.maxProductosPorColeccion;
   const el = seccion.querySelector(".categoria-count");
   if (!el) return;
   const finito = Number.isFinite(max);
   el.textContent = finito
-    ? `${total}${mas} / ${max} productos`
-    : `${total}${mas} ${total === 1 ? "producto" : "productos"}`;
+    ? `${total} / ${max} productos`
+    : `${total} ${total === 1 ? "producto" : "productos"}`;
   el.style.color = finito && total >= max ? "#fda4af" : "";
 }
 
@@ -3916,17 +3968,18 @@ const inputBusqueda = document.getElementById("input-busqueda");
 let debounceTimer = null;
 inputBusqueda.addEventListener("input", () => {
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(aplicarFiltroYMetricas, 180); // debounce para no recalcular en cada tecla con catálogos grandes
+  debounceTimer = setTimeout(() => { if (inputBusqueda.value.trim()) cargarTodo(); aplicarFiltroYMetricas(); }, 180); // debounce para no recalcular en cada tecla con catálogos grandes
 });
 function mostrarCard(card) {
-  if (card.style.display === "none") card.style.display = "";
-  requestAnimationFrame(() => card.classList.remove("filtro-oculto"));
+  if (card.style.display === "none" || card.classList.contains("filtro-oculto")) {
+    card.style.display = "";
+    requestAnimationFrame(() => card.classList.remove("filtro-oculto"));
+  }
 }
 function ocultarCard(card) {
+  if (card.classList.contains("filtro-oculto")) return;
   card.classList.add("filtro-oculto");
-  setTimeout(() => {
-    if (card.classList.contains("filtro-oculto")) card.style.display = "none";
-  }, 220);
+  setTimeout(() => { if (card.classList.contains("filtro-oculto")) card.style.display = "none"; }, 220);
 }
 function animarContador(el, nuevoValor) {
   if (!el) return;
@@ -3950,14 +4003,15 @@ function animarContador(el, nuevoValor) {
 }
 
 function mostrarCategoria(cat) {
-  if (cat.style.display === "none") cat.style.display = "";
-  requestAnimationFrame(() => cat.classList.remove("categoria-oculta"));
+  if (cat.style.display === "none" || cat.classList.contains("categoria-oculta")) {
+    cat.style.display = "";
+    requestAnimationFrame(() => cat.classList.remove("categoria-oculta"));
+  }
 }
 function ocultarCategoria(cat) {
+  if (cat.classList.contains("categoria-oculta")) return;
   cat.classList.add("categoria-oculta");
-  setTimeout(() => {
-    if (cat.classList.contains("categoria-oculta")) cat.style.display = "none";
-  }, 220);
+  setTimeout(() => { if (cat.classList.contains("categoria-oculta")) cat.style.display = "none"; }, 220);
 }
 function aplicarFiltroYMetricas() {
   const queryText = inputBusqueda.value.trim().toLowerCase();
@@ -4058,19 +4112,15 @@ function aplicarFiltroYMetricas() {
   });
 
   // Métricas
-  splashTotalProds.textContent = totalProductosProcesados;
-  splashTotalImgs.textContent = loadedImageUrls.size;
-
-  animarContador(document.getElementById("stat-activos"), totalActivos);
-  animarContador(document.getElementById("stat-agotados"), totalAgotados);
-  animarContador(document.getElementById("stat-stockbajo"), totalStockBajo);
-  animarContador(document.getElementById("stat-agotadohoy"), totalAgotadoHoy);
-  animarContador(
-    document.getElementById("stat-categorias"),
-    totalCategoriasVisibles,
-  );
+  const G = conteosGlobales;
+  const usarG = !!G && !modoCompleto;
+  animarContador(document.getElementById("stat-activos"), usarG ? G.activos : totalActivos);
+  animarContador(document.getElementById("stat-agotados"), usarG ? G.total - G.activos : totalAgotados);
+  animarContador(document.getElementById("stat-stockbajo"), usarG ? G.stockBajo : totalStockBajo);
+  animarContador(document.getElementById("stat-agotadohoy"), usarG ? G.agotadoHoy : totalAgotadoHoy);
+  animarContador(document.getElementById("stat-categorias"), totalCategoriasVisibles);
   animarContador(document.getElementById("stat-descuento"), totalDescuento);
-  animarContador(document.getElementById("stat-carrito"), totalCarrito);
+  animarContador(document.getElementById("stat-carrito"), usarG ? carritoPerfilActual.length : totalCarrito);
   pintarMaxCategorias();
   const hayCategorias = categorias.length > 0;
   if (hayCategorias && !algunElementoVisibleTotal) {
@@ -4095,6 +4145,7 @@ const qCategorias = query(categoriasRef, orderBy("createdAt", "asc"));
 onSnapshot(
   qCategorias,
   (snap) => {
+    quitarSkeletonInicial();
     emptyGlobal.style.display = snap.empty ? "block" : "none";
 
     if (snap.empty) {
@@ -4106,6 +4157,7 @@ onSnapshot(
       idsActuales.add(catDoc.id);
       renderCategoriaShell(catDoc.id, catDoc.data());
     });
+    programarConteos(300);
 
     document.querySelectorAll(".categoria").forEach((el) => {
       const id = el.id.replace("cat-", "");
@@ -4130,45 +4182,73 @@ onSnapshot(
 
 let cartaColecciones = {};
 let cartaLoaded = false;
+let cartaTotal = null, cartaAbierta = false, cartaUltimoDoc = null, cartaHayMas = false, cartaCargando = false;
+const CARTA_PAGINA = 20;
+const cartaCantidad = () => cartaTotal ?? Object.keys(cartaColecciones).length;
+const sentinelCartaHTML = `<div data-carta-mas class="flex justify-center py-3"><span class="spinner" style="opacity:.5"></span></div>`;
 
-function cartaRef() {
-  return tiendaSubCol(localidad, "tiendas", tiendaId, "carta");
-}
-function cartaDocRef(id) {
-  return tiendaSubDoc(localidad, "tiendas", tiendaId, "carta", id);
-}
+const obsCartaMas = "IntersectionObserver" in window
+  ? new IntersectionObserver((es) => es.forEach((en) => {
+      if (en.isIntersecting) { obsCartaMas.unobserve(en.target); cargarCartaColecciones(); }
+    }), { rootMargin: "200px" })
+  : null;
 
+function pintarSubCarta() {
+  const sub = document.getElementById("carta-sub");
+  if (sub) sub.textContent = `${cartaCantidad()} de ${CARTA_MAX_COLECCIONES} colecciones`;
+}
+async function contarCarta() {
+  try { cartaTotal = (await getCountFromServer(cartaRef())).data().count; pintarSubCarta(); }
+  catch (e) { console.warn(e); }
+}
 function actualizarVisibilidadCarta() {
   const section = document.getElementById("carta-digital-section");
   if (!section) return;
   if (esRestaurante && PLAN_PRODUCTOS.carta) {
     section.classList.remove("hidden");
-    if (!cartaLoaded) {
-      cartaLoaded = true;
-      cargarCartaColecciones();
-    }
-  } else {
-    section.classList.add("hidden");
-  }
+    if (!cartaLoaded) { cartaLoaded = true; contarCarta(); }
+  } else section.classList.add("hidden");
 }
-
 async function cargarCartaColecciones() {
+  if (cartaCargando) return;
+  cartaCargando = true;
   try {
-    const snap = await getDocs(cartaRef());
-    cartaColecciones = {};
+    const q = cartaUltimoDoc
+      ? query(cartaRef(), orderBy("nombre"), startAfter(cartaUltimoDoc), limit(CARTA_PAGINA))
+      : query(cartaRef(), orderBy("nombre"), limit(CARTA_PAGINA));
+    const snap = await getDocs(q);
+    const nuevos = [];
     snap.forEach((d) => {
       const data = d.data() || {};
+      if (!cartaColecciones[d.id]) nuevos.push(d.id);
       cartaColecciones[d.id] = {
         nombre: data.nombre || d.id,
         imagenes: Array.isArray(data.imagenes) ? data.imagenes : [],
         texto: data.texto || "",
       };
     });
-    renderCartaColecciones();
+    cartaUltimoDoc = snap.docs[snap.docs.length - 1] || cartaUltimoDoc;
+    cartaHayMas = snap.size >= CARTA_PAGINA;
+    const list = document.getElementById("carta-colecciones-list");
+    if (!list.querySelector("[data-carta-id]")) renderCartaColecciones();
+    else {
+      list.querySelector("[data-carta-mas]")?.remove();
+      list.insertAdjacentHTML("beforeend",
+        nuevos.map((id) => htmlColeccion(id, cartaColecciones[id])).join("") + (cartaHayMas ? sentinelCartaHTML : ""));
+      const mas = list.querySelector("[data-carta-mas]");
+      if (mas) obsCartaMas?.observe(mas);
+    }
   } catch (err) {
     console.error(err);
     toast("No se pudo cargar la carta digital.", "error");
-  }
+  } finally { cartaCargando = false; }
+}
+
+function cartaRef() {
+  return tiendaSubCol(localidad, "tiendas", tiendaId, "carta");
+}
+function cartaDocRef(id) {
+  return tiendaSubDoc(localidad, "tiendas", tiendaId, "carta", id);
 }
 
 // Construye todo el HTML de una vez como string (mucho más rápido que crear
@@ -4223,30 +4303,19 @@ function renderCartaGridHTML(collId) {
   return urls.map((url, i) => htmlFotoSlot(collId, i, url)).join("");
 }
 
+// Ya no pinta las fotos de cada colección al inicio; las pinta al abrirla.
 function renderCartaColecciones() {
   const list = document.getElementById("carta-colecciones-list");
-  const sub = document.getElementById("carta-sub");
   if (!list) return;
-
+  pintarSubCarta();
   const ids = Object.keys(cartaColecciones);
-  if (sub)
-    sub.textContent = `${ids.length} de ${CARTA_MAX_COLECCIONES} colecciones`;
-
   if (!ids.length) {
     list.innerHTML = `<p class="text-purple-300/40 text-xs italic py-2">Aún no tienes colecciones. Crea la primera con el botón de abajo.</p>`;
     return;
   }
-
-  // Una sola escritura al DOM (un solo reflow) en vez de ir agregando nodo por nodo
-  list.innerHTML = ids
-    .map((id) => htmlColeccion(id, cartaColecciones[id]))
-    .join("");
-  ids.forEach((id) => {
-    const grid = list.querySelector(
-      `[data-carta-id="${id}"] [data-carta-grid]`,
-    );
-    if (grid) grid.innerHTML = renderCartaGridHTML(id);
-  });
+  list.innerHTML = ids.map((id) => htmlColeccion(id, cartaColecciones[id])).join("") + (cartaHayMas ? sentinelCartaHTML : "");
+  const mas = list.querySelector("[data-carta-mas]");
+  if (mas) obsCartaMas?.observe(mas);
 }
 
 function actualizarContadorColeccion(collId) {
@@ -4384,7 +4453,9 @@ async function eliminarColeccionCarta(collId) {
       }),
     );
     await deleteDoc(cartaDocRef(collId));
+    const prev = cartaCantidad();
     delete cartaColecciones[collId];
+    cartaTotal = Math.max(0, prev - 1);
     renderCartaColecciones();
     toast("Colección eliminada.");
   } catch (err) {
@@ -4395,15 +4466,22 @@ async function eliminarColeccionCarta(collId) {
 
 /* ---- Toggle del acordeón principal ---- */
 document.getElementById("carta-toggle")?.addEventListener("click", () => {
-  document.getElementById("carta-body").classList.toggle("open");
+  const body = document.getElementById("carta-body");
+  body.classList.toggle("open");
   document.getElementById("carta-chevron").classList.toggle("open");
+  if (body.classList.contains("open") && !cartaAbierta) {
+    cartaAbierta = true;
+    document.getElementById("carta-colecciones-list").innerHTML =
+      '<p class="text-purple-300/40 text-xs italic py-2">Cargando…</p>';
+    cargarCartaColecciones();
+  }
 });
 
 /* ---- Nueva colección ---- */
 document
   .getElementById("btn-nueva-coleccion")
   ?.addEventListener("click", () => {
-    if (Object.keys(cartaColecciones).length >= CARTA_MAX_COLECCIONES) {
+    if (cartaCantidad() >= CARTA_MAX_COLECCIONES) {
       toast(`Máximo ${CARTA_MAX_COLECCIONES} colecciones.`, "error");
       return;
     }
@@ -4426,7 +4504,7 @@ document.getElementById("form-carta")?.addEventListener("submit", async (e) => {
   const input = document.getElementById("input-carta-nombre");
   const nombre = input.value.trim();
   if (!nombre) return;
-  if (Object.keys(cartaColecciones).length >= CARTA_MAX_COLECCIONES) {
+  if (cartaCantidad() >= CARTA_MAX_COLECCIONES) {
     toast(`Máximo ${CARTA_MAX_COLECCIONES} colecciones.`, "error");
     return;
   }
@@ -4448,7 +4526,9 @@ document.getElementById("form-carta")?.addEventListener("submit", async (e) => {
   label.innerHTML = '<span class="spinner"></span>';
   try {
     await setDoc(cartaDocRef(slug), { nombre, imagenes: [], texto: "" });
+    const prev = cartaCantidad();
     cartaColecciones[slug] = { nombre, imagenes: [], texto: "" };
+    cartaTotal = prev + 1;
     renderCartaColecciones();
     input.value = "";
     closeOverlay("overlay-carta");
@@ -4468,6 +4548,7 @@ document.getElementById("form-carta")?.addEventListener("submit", async (e) => {
 const cartaListaEl = document.getElementById("carta-colecciones-list");
 
 cartaListaEl?.addEventListener("click", (e) => {
+  if (e.target.closest("[data-carta-mas]")) return;
   const card = e.target.closest("[data-carta-id]");
   if (!card) return;
   const collId = card.dataset.cartaId;
@@ -4520,6 +4601,10 @@ cartaListaEl?.addEventListener("click", (e) => {
     const body = card.querySelector(".carta-coleccion-body");
     body.classList.toggle("open");
     head.classList.toggle("open");
+    if (body.classList.contains("open")) {
+      const g = card.querySelector("[data-carta-grid]");
+      if (g && !g.children.length) g.innerHTML = renderCartaGridHTML(collId);
+    }
   }
 });
 
@@ -4855,7 +4940,7 @@ function actualizarVisibilidadAdicionales() {
   sec.classList.toggle("hidden", !ver);
   if (ver && tiendaId && !adicionalesUnsub) {
     adicionalesUnsub = onSnapshot(
-      query(adCol(), orderBy("createdAt", "asc")),
+      query(adCol(), orderBy("createdAt", "asc"), limit(100)),
       (snap) => {
         adicionalesMap.clear();
         snap.forEach((d) => adicionalesMap.set(d.id, d.data()));
