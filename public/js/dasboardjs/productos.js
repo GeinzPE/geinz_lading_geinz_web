@@ -67,32 +67,56 @@ const tabInicialProducto = () =>
 function aplicarPlanProductos(s) {
   if (!s) return;
   const P = PLAN_PRODUCTOS;
-  const r = (k) => _nodo(s, `${RAIZ_PRODUCTOS}.${k}`);
 
+  // Busca en produtos.carta.<k> y, si no existe, en produtos.<k>
+  const r = (k) => {
+    const a = _nodo(s, `${RAIZ_PRODUCTOS}.carta.${k}`);
+    return a !== undefined ? a : _nodo(s, `${RAIZ_PRODUCTOS}.${k}`);
+  };
+  // 999999 o más = "sin límite"
+  const lim = (v, def) => {
+    const n = _num(v, def);
+    return n >= 999999 ? Infinity : n;
+  };
+
+  // Escáneres
   P.camara = _flag(s, `${RAIZ_PRODUCTOS}.uso_camara_scaner`, true);
   P.celular = _flag(s, `${RAIZ_PRODUCTOS}.uso_celular_scaner`, true);
-  P.modoBasico = _flag(s, `${RAIZ_PRODUCTOS}.modo_basico`, true);
-  P.modoAvanzado = _flag(s, `${RAIZ_PRODUCTOS}.modo_avanzado`, true);
-  P.superAvanzado = _flag(s, `${RAIZ_PRODUCTOS}.modo_super_avanzado`, true);
+
+  // Modos (aceptan ambos nombres del super avanzado)
+  P.modoBasico = _on(r("modo_basico"), true);
+  P.modoAvanzado = _on(r("modo_avanzado"), true);
+  P.superAvanzado = _on(r("super_avanzado") ?? r("modo_super_avanzado"), true);
+
+  // Límites
   P.carta = _flag(s, `${RAIZ_PRODUCTOS}.carta.activo`, false);
-  P.maxColecciones = _num(r("max_colecciones"), Infinity);
-  P.maxProductosPorColeccion = _num(
-    r("max_productos_por_colecciones"),
+  P.maxColecciones = lim(
+    r("config_avanzado.max_colecciones") ?? r("max_colecciones"),
+    Infinity,
+  );
+  P.maxProductosPorColeccion = lim(
+    r("config_avanzado.max_productos_por_colecciones") ??
+      r("max_productos_por_colecciones"),
     Infinity,
   );
   P.maxVariantes = _num(r("config_avanzado.variantes_maximas"), 5);
-  CARTA_MAX_COLECCIONES = _num(r("carta.colecciones"), 5);
-  CARTA_MAX_FOTOS = _num(r("carta.cantidad_imagenes_colecciones"), 5);
+
+  // Carta digital (se queda en número para que el texto no diga "Infinity")
+  CARTA_MAX_COLECCIONES = lim(r("colecciones"), 5);
+  CARTA_MAX_FOTOS = Math.min(_num(r("cantidad_imagenes_colecciones"), 5), 20);
+
+  // Adicionales
   P.adicionales = _flag(s, `${RAIZ_PRODUCTOS}.adicionales.activo`, false);
-  ADIC_MAX = _num(r("adicionales.cantidad_adicionales"), 5);
+
   actualizarVisibilidadAdicionales();
   if (typeof renderAdicionales === "function") renderAdicionales();
-  // Escáneres
+
+  // Escáneres (visibilidad de botones)
   _ocultar(document.getElementById("btn-celular-scanner"), !P.celular);
   _ocultar(document.getElementById("btn-prod-scan-cam"), !P.camara);
   _ocultar(document.getElementById("scan-btn-cam"), !P.camara);
 
-  // Modo básico / avanzado / súper avanzado
+  // Pestañas Básico / Avanzado / Súper avanzado
   const verBasico = P.modoBasico || (!P.modoAvanzado && !P.superAvanzado);
   const verAvanzado = P.modoAvanzado;
   const verSuper = P.superAvanzado;
@@ -117,7 +141,11 @@ function aplicarPlanProductos(s) {
   aplicarTextosPorCategoria();
   const ayuda = document.getElementById("carta-ayuda");
   if (ayuda)
-    ayuda.textContent = `Crea colecciones para tu carta digital (ej: Platos fuertes, Bebidas, Combos, Postres). Hasta ${CARTA_MAX_COLECCIONES} colecciones, con hasta ${CARTA_MAX_FOTOS} fotos cada una.`;
+    ayuda.textContent = `Crea colecciones para tu carta digital (ej: Platos fuertes, Bebidas, Combos, Postres). ${
+      Number.isFinite(CARTA_MAX_COLECCIONES)
+        ? `Hasta ${CARTA_MAX_COLECCIONES} colecciones`
+        : "Colecciones ilimitadas"
+    }, con hasta ${CARTA_MAX_FOTOS} fotos cada una.`;
 
   // Carta: solo si es restaurante Y el plan la tiene activa
   actualizarVisibilidadCarta();
@@ -284,9 +312,9 @@ window.addEventListener("message", (e) => {
   }
 
   actualizarVisibilidadCarta();
-  (window.requestIdleCallback
+  window.requestIdleCallback
     ? requestIdleCallback(iniciarInsumos, { timeout: 2500 })
-    : setTimeout(iniciarInsumos, 1200));
+    : setTimeout(iniciarInsumos, 1200);
 });
 const TIENDA_ID_STORAGE = tiendaId;
 const tiendaDocRef = tiendaDoc(localidad, "tiendas", tiendaId);
@@ -789,9 +817,9 @@ document.getElementById("btn-rec-usar-precio").addEventListener("click", () => {
   toast("Precio sugerido aplicado.");
 });
 
-(window.requestIdleCallback
+window.requestIdleCallback
   ? requestIdleCallback(iniciarInsumos, { timeout: 2500 })
-  : setTimeout(iniciarInsumos, 1200));
+  : setTimeout(iniciarInsumos, 1200);
 /* ---------------- Súper avanzado: costo por variante ---------------- */
 const CLS_VAR_INPUT =
   "rounded-lg bg-[#05040a] border border-purple-900/30 px-2 py-1.5 text-xs text-purple-100 outline-none focus:border-violet-600";
@@ -1414,7 +1442,9 @@ document
   .forEach((b) => b.addEventListener("click", () => setVista(b.dataset.vista)));
 let vistaGuardada = "grande";
 try {
-  vistaGuardada = localStorage.getItem("vistaProductos") || "grande";
+  vistaGuardada =
+    localStorage.getItem("vistaProductos") ||
+    (matchMedia("(max-width:640px)").matches ? "mediano" : "grande");
 } catch {}
 setVista(vistaGuardada);
 
@@ -2686,13 +2716,16 @@ function abrirModalCasoMasivo(categoriaId, data) {
   casoMasivoAplicar.variantes = true;
   document.getElementById("caso-masivo-hint").textContent =
     `Se aplicará a todos los productos de "${data.nombre}".`;
-  document.querySelector(
-    'input[name="caso-masivo"][value="mayus"]',
-  ).checked = true;
+  document.querySelector('input[name="caso-masivo"][value="mayus"]').checked =
+    true;
   const chips = document.getElementById("caso-masivo-chips");
   chips.innerHTML = "";
   chips.append(
-    chipCheck("Nombre del producto", true, (v) => (casoMasivoAplicar.nombre = v)),
+    chipCheck(
+      "Nombre del producto",
+      true,
+      (v) => (casoMasivoAplicar.nombre = v),
+    ),
     chipCheck("Descripción", true, (v) => (casoMasivoAplicar.descripcion = v)),
     chipCheck(
       "Variantes (grupos y opciones)",
@@ -3700,24 +3733,36 @@ async function cargarConteos() {
   if (!ids.length) return;
   const n = async (q) => (await getCountFromServer(q)).data().count;
   try {
-    const filas = await Promise.all(ids.map(async (id) => {
-      const c = productosRef(id);
-      const [t, a, h, b] = await Promise.all([
-        n(c),
-        n(query(c, where("disponible", "==", true))),
-        n(query(c, where("agotadoHoy", "==", true))),
-        n(query(c, where("stock", "<", STOCK_BAJO_UMBRAL))),
-      ]);
-      const sec = document.getElementById("cat-" + id);
-      if (sec) { sec.dataset.totalReal = String(t); pintarContadorCategoria(sec); }
-      return { t, a, h, b };
-    }));
+    const filas = await Promise.all(
+      ids.map(async (id) => {
+        const c = productosRef(id);
+        const [t, a, h, b] = await Promise.all([
+          n(c),
+          n(query(c, where("disponible", "==", true))),
+          n(query(c, where("agotadoHoy", "==", true))),
+          n(query(c, where("stock", "<", STOCK_BAJO_UMBRAL))),
+        ]);
+        const sec = document.getElementById("cat-" + id);
+        if (sec) {
+          sec.dataset.totalReal = String(t);
+          pintarContadorCategoria(sec);
+        }
+        return { t, a, h, b };
+      }),
+    );
     conteosGlobales = filas.reduce(
-      (s, f) => ({ total: s.total + f.t, activos: s.activos + f.a, agotadoHoy: s.agotadoHoy + f.h, stockBajo: s.stockBajo + f.b }),
+      (s, f) => ({
+        total: s.total + f.t,
+        activos: s.activos + f.a,
+        agotadoHoy: s.agotadoHoy + f.h,
+        stockBajo: s.stockBajo + f.b,
+      }),
       { total: 0, activos: 0, agotadoHoy: 0, stockBajo: 0 },
     );
     aplicarFiltroYMetricas();
-  } catch (e) { console.warn("conteos:", e); }
+  } catch (e) {
+    console.warn("conteos:", e);
+  }
 }
 function programarConteos(ms = 800) {
   clearTimeout(conteosTimer);
@@ -3727,36 +3772,52 @@ function programarConteos(ms = 800) {
 let _filtroRaf = 0;
 function programarFiltro() {
   if (_filtroRaf) return;
-  _filtroRaf = requestAnimationFrame(() => { _filtroRaf = 0; aplicarFiltroYMetricas(); });
+  _filtroRaf = requestAnimationFrame(() => {
+    _filtroRaf = 0;
+    aplicarFiltroYMetricas();
+  });
 }
 
 // Observa cada categoría: solo carga sus productos cuando está cerca de la pantalla
-const obsCategorias = "IntersectionObserver" in window
-  ? new IntersectionObserver((entries) => {
-      entries.forEach((en) => {
-        if (!en.isIntersecting) return;
-        const s = en.target;
-        obsCategorias.unobserve(s);
-        suscribirProductos(s.id.replace("cat-", ""), s.querySelector(".productos-grid"), s);
-      });
-    }, { rootMargin: "700px 0px" })
-  : null;
+const obsCategorias =
+  "IntersectionObserver" in window
+    ? new IntersectionObserver(
+        (entries) => {
+          entries.forEach((en) => {
+            if (!en.isIntersecting) return;
+            const s = en.target;
+            obsCategorias.unobserve(s);
+            suscribirProductos(
+              s.id.replace("cat-", ""),
+              s.querySelector(".productos-grid"),
+              s,
+            );
+          });
+        },
+        { rootMargin: "700px 0px" },
+      )
+    : null;
 
 // Al llegar abajo de una categoría, trae 12 más
-const obsMas = "IntersectionObserver" in window
-  ? new IntersectionObserver((entries) => {
-      entries.forEach((en) => {
-        if (!en.isIntersecting) return;
-        const el = en.target;
-        obsMas.unobserve(el);
-        const id = el.dataset.categoriaId;
-        const s = document.getElementById("cat-" + id);
-        if (!s) return;
-        categoriaLimite[id] = (categoriaLimite[id] || PRODUCTOS_INICIAL) + PRODUCTOS_PASO;
-        suscribirProductos(id, s.querySelector(".productos-grid"), s);
-      });
-    }, { rootMargin: "500px 0px" })
-  : null;
+const obsMas =
+  "IntersectionObserver" in window
+    ? new IntersectionObserver(
+        (entries) => {
+          entries.forEach((en) => {
+            if (!en.isIntersecting) return;
+            const el = en.target;
+            obsMas.unobserve(el);
+            const id = el.dataset.categoriaId;
+            const s = document.getElementById("cat-" + id);
+            if (!s) return;
+            categoriaLimite[id] =
+              (categoriaLimite[id] || PRODUCTOS_INICIAL) + PRODUCTOS_PASO;
+            suscribirProductos(id, s.querySelector(".productos-grid"), s);
+          });
+        },
+        { rootMargin: "500px 0px" },
+      )
+    : null;
 
 // Búsqueda o filtro: ahora sí se carga todo, una categoría a la vez
 function cargarTodo() {
@@ -3764,93 +3825,115 @@ function cargarTodo() {
   modoCompleto = true;
   document.querySelectorAll(".categoria").forEach((s, i) => {
     obsCategorias?.unobserve(s);
-    setTimeout(() => suscribirProductos(s.id.replace("cat-", ""), s.querySelector(".productos-grid"), s), i * 120);
+    setTimeout(
+      () =>
+        suscribirProductos(
+          s.id.replace("cat-", ""),
+          s.querySelector(".productos-grid"),
+          s,
+        ),
+      i * 120,
+    );
   });
 }
 
 function suscribirProductos(categoriaId, grid, seccion) {
   if (categoriaListeners[categoriaId]) categoriaListeners[categoriaId]();
   if (!seccion.dataset.cargado) renderSkeletons(grid, 4);
-  if (!categoriaCardsMap[categoriaId]) categoriaCardsMap[categoriaId] = new Map();
+  if (!categoriaCardsMap[categoriaId])
+    categoriaCardsMap[categoriaId] = new Map();
   const cardsMap = categoriaCardsMap[categoriaId];
 
-  const lim = modoCompleto ? LIMITE_TODO : categoriaLimite[categoriaId] || PRODUCTOS_INICIAL;
+  const lim = modoCompleto
+    ? LIMITE_TODO
+    : categoriaLimite[categoriaId] || PRODUCTOS_INICIAL;
   categoriaLimite[categoriaId] = lim;
-  const q = query(productosRef(categoriaId), orderBy("createdAt", "desc"), limit(lim));
+  const q = query(
+    productosRef(categoriaId),
+    orderBy("createdAt", "desc"),
+    limit(lim),
+  );
 
-  categoriaListeners[categoriaId] = onSnapshot(q, (snap) => {
-    const primeraCarga = !seccion.dataset.cargado;
-    seccion.dataset.cargado = "1";
+  categoriaListeners[categoriaId] = onSnapshot(
+    q,
+    (snap) => {
+      const primeraCarga = !seccion.dataset.cargado;
+      seccion.dataset.cargado = "1";
 
-    if (primeraCarga) {
-      grid.innerHTML = "";
-      cardsMap.clear();
-      const addCard = document.createElement("div");
-      addCard.className = "btn-card-add group flex flex-col items-center justify-center gap-2 min-h-[260px] rounded-2xl border border-dashed border-purple-900/30 hover:border-violet-600 hover:bg-violet-950/10 cursor-pointer transition-all text-purple-400/50 hover:text-purple-200";
-      addCard.innerHTML = `
+      if (primeraCarga) {
+        grid.innerHTML = "";
+        cardsMap.clear();
+        const addCard = document.createElement("div");
+        addCard.className =
+          "btn-card-add group flex flex-col items-center justify-center gap-2 min-h-[260px] rounded-2xl border border-dashed border-purple-900/30 hover:border-violet-600 hover:bg-violet-950/10 cursor-pointer transition-all text-purple-400/50 hover:text-purple-200";
+        addCard.innerHTML = `
         <div class="w-10 h-10 rounded-full bg-violet-950/50 group-hover:bg-violet-900/50 flex items-center justify-center transition-colors">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
         </div>
         <span class="text-xs font-medium">Nuevo Producto</span>`;
-      addCard.addEventListener("click", () => abrirModalNuevoProducto(categoriaId, seccion.dataset.catNombre));
-      grid.appendChild(addCard);
+        addCard.addEventListener("click", () =>
+          abrirModalNuevoProducto(categoriaId, seccion.dataset.catNombre),
+        );
+        grid.appendChild(addCard);
 
-      const frag = document.createDocumentFragment();
-      snap.forEach((prodDoc) => {
-        const d = prodDoc.data();
-        const card = renderProductoCard(categoriaId, prodDoc.id, d);
-        card._sig = JSON.stringify(d);
-        cardsMap.set(prodDoc.id, card);
-        frag.appendChild(card);
-      });
-      grid.appendChild(frag);
-    } else {
-      const sentinel = grid.querySelector(".sentinel-mas");
-      snap.docChanges().forEach((change) => {
-        const id = change.doc.id;
-        if (change.type === "removed") {
-          cardsMap.get(id)?.remove();
-          cardsMap.delete(id);
-          programarConteos();
-          return;
-        }
-        const d = change.doc.data();
-        const sig = JSON.stringify(d);
-        const anterior = cardsMap.get(id);
-        if (anterior && anterior._sig === sig) return; // sin cambios: no se redibuja
-        const nueva = renderProductoCard(categoriaId, id, d);
-        nueva._sig = sig;
-        if (anterior) {
-          anterior.replaceWith(nueva);
-          programarConteos();
-        } else {
-          const ref = grid.children[change.newIndex + 1];
-          if (ref && ref !== sentinel) grid.insertBefore(nueva, ref);
-          else grid.insertBefore(nueva, sentinel || null);
-        }
-        cardsMap.set(id, nueva);
-      });
-    }
+        const frag = document.createDocumentFragment();
+        snap.forEach((prodDoc) => {
+          const d = prodDoc.data();
+          const card = renderProductoCard(categoriaId, prodDoc.id, d);
+          card._sig = JSON.stringify(d);
+          cardsMap.set(prodDoc.id, card);
+          frag.appendChild(card);
+        });
+        grid.appendChild(frag);
+      } else {
+        const sentinel = grid.querySelector(".sentinel-mas");
+        snap.docChanges().forEach((change) => {
+          const id = change.doc.id;
+          if (change.type === "removed") {
+            cardsMap.get(id)?.remove();
+            cardsMap.delete(id);
+            programarConteos();
+            return;
+          }
+          const d = change.doc.data();
+          const sig = JSON.stringify(d);
+          const anterior = cardsMap.get(id);
+          if (anterior && anterior._sig === sig) return; // sin cambios: no se redibuja
+          const nueva = renderProductoCard(categoriaId, id, d);
+          nueva._sig = sig;
+          if (anterior) {
+            anterior.replaceWith(nueva);
+            programarConteos();
+          } else {
+            const ref = grid.children[change.newIndex + 1];
+            if (ref && ref !== sentinel) grid.insertBefore(nueva, ref);
+            else grid.insertBefore(nueva, sentinel || null);
+          }
+          cardsMap.set(id, nueva);
+        });
+      }
 
-    grid.querySelector(".sentinel-mas")?.remove();
-    if (!modoCompleto && snap.size >= lim) {
-      const s = document.createElement("div");
-      s.className = "sentinel-mas col-span-full flex justify-center py-3";
-      s.dataset.categoriaId = categoriaId;
-      s.innerHTML = '<span class="spinner" style="opacity:.5"></span>';
-      grid.appendChild(s);
-      obsMas?.observe(s);
-    }
+      grid.querySelector(".sentinel-mas")?.remove();
+      if (!modoCompleto && snap.size >= lim) {
+        const s = document.createElement("div");
+        s.className = "sentinel-mas col-span-full flex justify-center py-3";
+        s.dataset.categoriaId = categoriaId;
+        s.innerHTML = '<span class="spinner" style="opacity:.5"></span>';
+        grid.appendChild(s);
+        obsMas?.observe(s);
+      }
 
-    seccion.dataset.total = String(snap.size);
-    seccion.dataset.hayMas = snap.size >= lim ? "1" : "0";
-    pintarContadorCategoria(seccion);
-    programarFiltro();
-    updateSplashAndCheckDismiss();
-  }, (err) => {
-    console.error(err);
-    toast("Error al cargar productos.", "error");
-  });
+      seccion.dataset.total = String(snap.size);
+      seccion.dataset.hayMas = snap.size >= lim ? "1" : "0";
+      pintarContadorCategoria(seccion);
+      programarFiltro();
+      updateSplashAndCheckDismiss();
+    },
+    (err) => {
+      console.error(err);
+      toast("Error al cargar productos.", "error");
+    },
+  );
 }
 
 function renderCategoriaShell(categoriaId, data) {
@@ -3888,7 +3971,13 @@ function renderCategoriaShell(categoriaId, data) {
       <div class="productos-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
     `;
     categoriasContainer.appendChild(seccion);
-
+    if (matchMedia("(max-width:640px)").matches)
+      seccion.classList.add("cat-cerrada");
+    seccion
+      .querySelector(".categoria-titulo")
+      .parentElement.addEventListener("click", () => {
+        seccion.classList.toggle("cat-cerrada");
+      });
     seccion
       .querySelector(".btn-add-producto")
       .addEventListener("click", () =>
@@ -3925,8 +4014,12 @@ function renderCategoriaShell(categoriaId, data) {
       });
 
     const grid = seccion.querySelector(".productos-grid");
-    if (modoCompleto || !obsCategorias) suscribirProductos(categoriaId, grid, seccion);
-    else { renderSkeletons(grid, 4); obsCategorias.observe(seccion); }
+    if (modoCompleto || !obsCategorias)
+      suscribirProductos(categoriaId, grid, seccion);
+    else {
+      renderSkeletons(grid, 4);
+      obsCategorias.observe(seccion);
+    }
   }
 
   seccion.dataset.catNombre = (data.nombre || "").toLowerCase();
@@ -3968,10 +4061,16 @@ const inputBusqueda = document.getElementById("input-busqueda");
 let debounceTimer = null;
 inputBusqueda.addEventListener("input", () => {
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => { if (inputBusqueda.value.trim()) cargarTodo(); aplicarFiltroYMetricas(); }, 180); // debounce para no recalcular en cada tecla con catálogos grandes
+  debounceTimer = setTimeout(() => {
+    if (inputBusqueda.value.trim()) cargarTodo();
+    aplicarFiltroYMetricas();
+  }, 180); // debounce para no recalcular en cada tecla con catálogos grandes
 });
 function mostrarCard(card) {
-  if (card.style.display === "none" || card.classList.contains("filtro-oculto")) {
+  if (
+    card.style.display === "none" ||
+    card.classList.contains("filtro-oculto")
+  ) {
     card.style.display = "";
     requestAnimationFrame(() => card.classList.remove("filtro-oculto"));
   }
@@ -3979,7 +4078,9 @@ function mostrarCard(card) {
 function ocultarCard(card) {
   if (card.classList.contains("filtro-oculto")) return;
   card.classList.add("filtro-oculto");
-  setTimeout(() => { if (card.classList.contains("filtro-oculto")) card.style.display = "none"; }, 220);
+  setTimeout(() => {
+    if (card.classList.contains("filtro-oculto")) card.style.display = "none";
+  }, 220);
 }
 function animarContador(el, nuevoValor) {
   if (!el) return;
@@ -4003,7 +4104,10 @@ function animarContador(el, nuevoValor) {
 }
 
 function mostrarCategoria(cat) {
-  if (cat.style.display === "none" || cat.classList.contains("categoria-oculta")) {
+  if (
+    cat.style.display === "none" ||
+    cat.classList.contains("categoria-oculta")
+  ) {
     cat.style.display = "";
     requestAnimationFrame(() => cat.classList.remove("categoria-oculta"));
   }
@@ -4011,10 +4115,70 @@ function mostrarCategoria(cat) {
 function ocultarCategoria(cat) {
   if (cat.classList.contains("categoria-oculta")) return;
   cat.classList.add("categoria-oculta");
-  setTimeout(() => { if (cat.classList.contains("categoria-oculta")) cat.style.display = "none"; }, 220);
+  setTimeout(() => {
+    if (cat.classList.contains("categoria-oculta")) cat.style.display = "none";
+  }, 220);
+}
+/* ---------------- Resaltar coincidencias (como Ctrl+F) ---------------- */
+let _ultimaBusquedaPintada = "";
+const escHtmlBusq = (s) =>
+  String(s).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+
+function resaltarBusqueda(q) {
+  const cambio = q !== _ultimaBusquedaPintada;
+  const re = q
+    ? new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi")
+    : null;
+
+  document
+    .querySelectorAll(".categoria-titulo, .pc-nombre, .pc-desc, .pc-code")
+    .forEach((el) => {
+      if (el._orig === undefined) el._orig = el.textContent;
+      if (el._pintado === q) return; // ya está pintado con este texto
+      el._pintado = q;
+      if (!re) {
+        el.textContent = el._orig;
+      } else if (re.test(el._orig)) {
+        re.lastIndex = 0;
+        el.innerHTML = escHtmlBusq(el._orig).replace(
+          new RegExp(
+            escHtmlBusq(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+            "gi",
+          ),
+          (m) => `<mark class="buscar-hit">${m}</mark>`,
+        );
+      } else {
+        re.lastIndex = 0;
+        el.textContent = el._orig;
+      }
+    });
+
+  _ultimaBusquedaPintada = q;
+
+  // baja hasta la primera coincidencia visible
+  if (cambio && q) {
+    clearTimeout(resaltarBusqueda._t);
+    resaltarBusqueda._t = setTimeout(() => {
+      const primera = [...document.querySelectorAll("mark.buscar-hit")].find(
+        (m) => m.offsetParent !== null,
+      );
+      primera?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 320);
+  }
 }
 function aplicarFiltroYMetricas() {
   const queryText = inputBusqueda.value.trim().toLowerCase();
+  resaltarBusqueda(queryText);
+  document.body.classList.toggle(
+    "filtrando",
+    queryText.length > 0 || filtroEstadoActual !== "todos",
+  );
   const categorias = document.querySelectorAll(".categoria");
 
   let totalActivos = 0;
@@ -4114,13 +4278,31 @@ function aplicarFiltroYMetricas() {
   // Métricas
   const G = conteosGlobales;
   const usarG = !!G && !modoCompleto;
-  animarContador(document.getElementById("stat-activos"), usarG ? G.activos : totalActivos);
-  animarContador(document.getElementById("stat-agotados"), usarG ? G.total - G.activos : totalAgotados);
-  animarContador(document.getElementById("stat-stockbajo"), usarG ? G.stockBajo : totalStockBajo);
-  animarContador(document.getElementById("stat-agotadohoy"), usarG ? G.agotadoHoy : totalAgotadoHoy);
-  animarContador(document.getElementById("stat-categorias"), totalCategoriasVisibles);
+  animarContador(
+    document.getElementById("stat-activos"),
+    usarG ? G.activos : totalActivos,
+  );
+  animarContador(
+    document.getElementById("stat-agotados"),
+    usarG ? G.total - G.activos : totalAgotados,
+  );
+  animarContador(
+    document.getElementById("stat-stockbajo"),
+    usarG ? G.stockBajo : totalStockBajo,
+  );
+  animarContador(
+    document.getElementById("stat-agotadohoy"),
+    usarG ? G.agotadoHoy : totalAgotadoHoy,
+  );
+  animarContador(
+    document.getElementById("stat-categorias"),
+    totalCategoriasVisibles,
+  );
   animarContador(document.getElementById("stat-descuento"), totalDescuento);
-  animarContador(document.getElementById("stat-carrito"), usarG ? carritoPerfilActual.length : totalCarrito);
+  animarContador(
+    document.getElementById("stat-carrito"),
+    usarG ? carritoPerfilActual.length : totalCarrito,
+  );
   pintarMaxCategorias();
   const hayCategorias = categorias.length > 0;
   if (hayCategorias && !algunElementoVisibleTotal) {
@@ -4182,31 +4364,53 @@ onSnapshot(
 
 let cartaColecciones = {};
 let cartaLoaded = false;
-let cartaTotal = null, cartaAbierta = false, cartaUltimoDoc = null, cartaHayMas = false, cartaCargando = false;
+let cartaTotal = null,
+  cartaAbierta = false,
+  cartaUltimoDoc = null,
+  cartaHayMas = false,
+  cartaCargando = false;
 const CARTA_PAGINA = 20;
 const cartaCantidad = () => cartaTotal ?? Object.keys(cartaColecciones).length;
 const sentinelCartaHTML = `<div data-carta-mas class="flex justify-center py-3"><span class="spinner" style="opacity:.5"></span></div>`;
 
-const obsCartaMas = "IntersectionObserver" in window
-  ? new IntersectionObserver((es) => es.forEach((en) => {
-      if (en.isIntersecting) { obsCartaMas.unobserve(en.target); cargarCartaColecciones(); }
-    }), { rootMargin: "200px" })
-  : null;
+const obsCartaMas =
+  "IntersectionObserver" in window
+    ? new IntersectionObserver(
+        (es) =>
+          es.forEach((en) => {
+            if (en.isIntersecting) {
+              obsCartaMas.unobserve(en.target);
+              cargarCartaColecciones();
+            }
+          }),
+        { rootMargin: "200px" },
+      )
+    : null;
 
 function pintarSubCarta() {
   const sub = document.getElementById("carta-sub");
-  if (sub) sub.textContent = `${cartaCantidad()} de ${CARTA_MAX_COLECCIONES} colecciones`;
+  if (!sub) return;
+  sub.textContent = Number.isFinite(CARTA_MAX_COLECCIONES)
+    ? `${cartaCantidad()} de ${CARTA_MAX_COLECCIONES} colecciones`
+    : `${cartaCantidad()} colecciones`;
 }
 async function contarCarta() {
-  try { cartaTotal = (await getCountFromServer(cartaRef())).data().count; pintarSubCarta(); }
-  catch (e) { console.warn(e); }
+  try {
+    cartaTotal = (await getCountFromServer(cartaRef())).data().count;
+    pintarSubCarta();
+  } catch (e) {
+    console.warn(e);
+  }
 }
 function actualizarVisibilidadCarta() {
   const section = document.getElementById("carta-digital-section");
   if (!section) return;
   if (esRestaurante && PLAN_PRODUCTOS.carta) {
     section.classList.remove("hidden");
-    if (!cartaLoaded) { cartaLoaded = true; contarCarta(); }
+    if (!cartaLoaded) {
+      cartaLoaded = true;
+      contarCarta();
+    }
   } else section.classList.add("hidden");
 }
 async function cargarCartaColecciones() {
@@ -4214,7 +4418,12 @@ async function cargarCartaColecciones() {
   cartaCargando = true;
   try {
     const q = cartaUltimoDoc
-      ? query(cartaRef(), orderBy("nombre"), startAfter(cartaUltimoDoc), limit(CARTA_PAGINA))
+      ? query(
+          cartaRef(),
+          orderBy("nombre"),
+          startAfter(cartaUltimoDoc),
+          limit(CARTA_PAGINA),
+        )
       : query(cartaRef(), orderBy("nombre"), limit(CARTA_PAGINA));
     const snap = await getDocs(q);
     const nuevos = [];
@@ -4233,15 +4442,20 @@ async function cargarCartaColecciones() {
     if (!list.querySelector("[data-carta-id]")) renderCartaColecciones();
     else {
       list.querySelector("[data-carta-mas]")?.remove();
-      list.insertAdjacentHTML("beforeend",
-        nuevos.map((id) => htmlColeccion(id, cartaColecciones[id])).join("") + (cartaHayMas ? sentinelCartaHTML : ""));
+      list.insertAdjacentHTML(
+        "beforeend",
+        nuevos.map((id) => htmlColeccion(id, cartaColecciones[id])).join("") +
+          (cartaHayMas ? sentinelCartaHTML : ""),
+      );
       const mas = list.querySelector("[data-carta-mas]");
       if (mas) obsCartaMas?.observe(mas);
     }
   } catch (err) {
     console.error(err);
     toast("No se pudo cargar la carta digital.", "error");
-  } finally { cartaCargando = false; }
+  } finally {
+    cartaCargando = false;
+  }
 }
 
 function cartaRef() {
@@ -4282,8 +4496,8 @@ function htmlColeccion(id, coleccion) {
 function htmlFotoSlot(collId, i, url) {
   if (url) {
     return `
-      <div class="carta-photo-item" data-carta-slot="${i}" data-carta-coll="${collId}">
-        <img src="${url}" loading="lazy" decoding="async">
+      <div class="carta-photo-item carga" data-carta-slot="${i}" data-carta-coll="${collId}">
+        <img src="${url}" loading="lazy" decoding="async" onload="this.parentElement.classList.remove('carga');this.parentElement.classList.add('cargada')" onerror="this.parentElement.classList.remove('carga')">
         <button type="button" class="carta-photo-del" data-carta-foto-del title="Eliminar foto">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
@@ -4313,7 +4527,9 @@ function renderCartaColecciones() {
     list.innerHTML = `<p class="text-purple-300/40 text-xs italic py-2">Aún no tienes colecciones. Crea la primera con el botón de abajo.</p>`;
     return;
   }
-  list.innerHTML = ids.map((id) => htmlColeccion(id, cartaColecciones[id])).join("") + (cartaHayMas ? sentinelCartaHTML : "");
+  list.innerHTML =
+    ids.map((id) => htmlColeccion(id, cartaColecciones[id])).join("") +
+    (cartaHayMas ? sentinelCartaHTML : "");
   const mas = list.querySelector("[data-carta-mas]");
   if (mas) obsCartaMas?.observe(mas);
 }
@@ -4920,7 +5136,8 @@ let adEditId = null;
 let adFile = null;
 let adImgActual = null;
 let adQuitarFoto = false;
-
+let adicAbierto = false;
+let adicCargado = false;
 const adCol = () => tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales");
 const adDoc = (id) =>
   tiendaSubDoc(localidad, "tiendas", tiendaId, "adicionales", id);
@@ -4944,6 +5161,7 @@ function actualizarVisibilidadAdicionales() {
       (snap) => {
         adicionalesMap.clear();
         snap.forEach((d) => adicionalesMap.set(d.id, d.data()));
+        adicCargado = true;
         renderAdicionales();
       },
       (err) => console.error(err),
@@ -4956,7 +5174,16 @@ function renderAdicionales() {
   const sub = document.getElementById("adic-sub");
   if (!list) return;
   if (sub)
-    sub.textContent = `${adicionalesMap.size} de ${ADIC_MAX} adicionales`;
+    sub.textContent = Number.isFinite(ADIC_MAX)
+      ? `${adicionalesMap.size} de ${ADIC_MAX} adicionales`
+      : `${adicionalesMap.size} adicionales · ilimitados`;
+  if (!adicCargado) {
+    list.innerHTML = Array.from(
+      { length: 3 },
+      () => `<div class="sk" style="height:62px;border-radius:12px"></div>`,
+    ).join("");
+    return;
+  }
   if (!adicionalesMap.size) {
     list.innerHTML = `<p class="text-purple-300/40 text-xs italic py-2">Aún no tienes adicionales.</p>`;
     return;
@@ -4966,7 +5193,7 @@ function renderAdicionales() {
       ([id, a]) => `
       <div class="flex items-center gap-3 rounded-xl bg-[#05040a] border border-amber-500/15 p-2.5" data-ad-id="${id}">
         <div class="w-10 h-10 rounded-lg bg-[#0d0a17] overflow-hidden flex items-center justify-center shrink-0 text-lg">
-          ${a.imagen?.url ? `<img src="${escAd(a.imagen.url)}" class="w-full h-full object-cover" loading="lazy">` : "🛍️"}
+          ${a.imagen?.url && adicAbierto ? `<img src="${escAd(a.imagen.url)}" class="w-full h-full object-cover" style="opacity:0;transition:opacity .35s" onload="this.style.opacity=1" loading="lazy">` : "🛍️"}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold text-white truncate">${escAd(a.nombre)}</p>
@@ -5021,6 +5248,10 @@ document
     document.getElementById("input-adic-foto").click(),
   );
 document.getElementById("adic-toggle")?.addEventListener("click", () => {
+  if (!adicAbierto) {
+    adicAbierto = true;
+    renderAdicionales();
+  }
   document.getElementById("adic-body").classList.toggle("open");
   document.getElementById("adic-chevron").classList.toggle("open");
 });

@@ -9,28 +9,155 @@
 
   <!-- Skeleton + fondo negro EN LÍNEA: se pinta al instante, sin esperar fuentes ni scripts -->
   <style>
-    html,body{margin:0;background:#08080a}
-    #skel{position:fixed;inset:0;z-index:200;overflow:hidden;color:#f4f4f6;transition:opacity .35s ease;
-      background:radial-gradient(900px 380px at 85% -10%,rgba(139,92,246,.13),transparent 60%),#08080a}
-    #skel.out{opacity:0;pointer-events:none}
-    #skel *{box-sizing:border-box}
-    #skel .w{max-width:1380px;margin:0 auto;padding:32px 28px 48px}
-    #skel .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px}
-    #skel .hr{display:flex;gap:10px;flex-wrap:wrap}
-    #skel .g{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:22px;align-items:start}
-    #skel .pn{background:#101013;border:1px solid rgba(255,255,255,.07);border-radius:20px;overflow:hidden}
-    #skel .pn-h{padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;align-items:center;gap:12px}
-    #skel .rw{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.05)}
-    #skel .fl{padding:16px 20px 8px;display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
-    #skel .ch{display:flex;gap:8px;flex-wrap:wrap;padding:8px 20px 16px;border-bottom:1px solid rgba(255,255,255,.07)}
-    #skel .tr{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.05)}
-    #skel .sk{position:relative;overflow:hidden;background:#16161a;border:1px solid rgba(255,255,255,.05);border-radius:12px}
-    #skel .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
-      background:linear-gradient(90deg,transparent,rgba(139,92,246,.2),transparent);animation:skm 1.6s infinite}
-    @keyframes skm{100%{transform:translateX(100%)}}
-    @media(max-width:1000px){#skel .g{grid-template-columns:1fr}#skel .pn.l{display:none}}
-    @media(max-width:620px){#skel .w{padding:20px 14px 40px}#skel .hide-s{display:none}}
-    @media(prefers-reduced-motion:reduce){#skel .sk::after{animation:none}}
+    html,
+    body {
+      margin: 0;
+      background: #08080a
+    }
+
+    #skel {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      overflow: hidden;
+      color: #f4f4f6;
+      transition: opacity .35s ease;
+      background: radial-gradient(900px 380px at 85% -10%, rgba(139, 92, 246, .13), transparent 60%), #08080a
+    }
+
+    #skel.out {
+      opacity: 0;
+      pointer-events: none
+    }
+
+    #skel * {
+      box-sizing: border-box
+    }
+
+    #skel .w {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 32px 28px 48px
+    }
+
+    #skel .hd {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 26px
+    }
+
+    #skel .hr {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    #skel .g {
+      display: grid;
+      grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+      gap: 22px;
+      align-items: start
+    }
+
+    #skel .pn {
+      background: #101013;
+      border: 1px solid rgba(255, 255, 255, .07);
+      border-radius: 20px;
+      overflow: hidden
+    }
+
+    #skel .pn-h {
+      padding: 18px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, .07);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px
+    }
+
+    #skel .rw {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 15px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, .05)
+    }
+
+    #skel .fl {
+      padding: 16px 20px 8px;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 10px
+    }
+
+    #skel .ch {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 8px 20px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, .07)
+    }
+
+    #skel .tr {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, .05)
+    }
+
+    #skel .sk {
+      position: relative;
+      overflow: hidden;
+      background: #16161a;
+      border: 1px solid rgba(255, 255, 255, .05);
+      border-radius: 12px
+    }
+
+    #skel .sk::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(139, 92, 246, .2), transparent);
+      animation: skm 1.6s infinite
+    }
+
+    @keyframes skm {
+      100% {
+        transform: translateX(100%)
+      }
+    }
+
+    @media(max-width:1000px) {
+      #skel .g {
+        grid-template-columns: 1fr
+      }
+
+      #skel .pn.l {
+        display: none
+      }
+    }
+
+    @media(max-width:620px) {
+      #skel .w {
+        padding: 20px 14px 40px
+      }
+
+      #skel .hide-s {
+        display: none
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce) {
+      #skel .sk::after {
+        animation: none
+      }
+    }
   </style>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1907,11 +2034,29 @@
       background: #2a2a2f;
       border-radius: 8px
     }
+
+    /* ===== Control por plan ===== */
+    body.plan-sin-chat .modes,
+    body.plan-sin-chat #vistaChats,
+    body.plan-sin-chat #chatToggle,
+    body.plan-sin-chat .btn-chat,
+    body.plan-sin-chat #chipValidos,
+    body.plan-sin-chat .nbub,
+    body.plan-sin-chat #chatModal,
+    body.plan-sin-campa #sndBtn,
+    body.plan-sin-campa #chTono,
+    body.plan-sin-costos #statsBtn,
+    body.plan-sin-usuarios .grid,
+    body.plan-sin-usuarios .modes,
+    body.plan-sin-usuarios #vistaChats,
+    body.plan-sin-usuarios #datosToggle {
+      display: none !important
+    }
   </style>
   <script type="module" src="../js/dasboardjs/usuarios.js"></script>
 </head>
 
-<body>
+<body class="plan-sin-chat plan-sin-campa plan-sin-costos">
 
   <!-- ============ SKELETON DARK (pantalla completa) ============ -->
   <div id="skel" aria-busy="true" aria-label="Cargando usuarios">
@@ -1938,16 +2083,37 @@
             <div class="sk" style="height:18px;width:150px"></div>
             <div class="sk" style="height:30px;width:100px;border-radius:10px"></div>
           </div>
-          <div class="rw"><div class="sk" style="height:16px;width:120px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
-          <div class="rw"><div class="sk" style="height:16px;width:150px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
-          <div class="rw"><div class="sk" style="height:16px;width:100px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
-          <div class="rw"><div class="sk" style="height:16px;width:130px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
-          <div class="rw"><div class="sk" style="height:16px;width:140px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
-          <div class="rw"><div class="sk" style="height:16px;width:110px"></div><div class="sk" style="height:26px;width:46px;border-radius:26px"></div></div>
+          <div class="rw">
+            <div class="sk" style="height:16px;width:120px"></div>
+            <div class="sk" style="height:26px;width:46px;border-radius:26px"></div>
+          </div>
+          <div class="rw">
+            <div class="sk" style="height:16px;width:150px"></div>
+            <div class="sk" style="height:26px;width:46px;border-radius:26px"></div>
+          </div>
+          <div class="rw">
+            <div class="sk" style="height:16px;width:100px"></div>
+            <div class="sk" style="height:26px;width:46px;border-radius:26px"></div>
+          </div>
+          <div class="rw">
+            <div class="sk" style="height:16px;width:130px"></div>
+            <div class="sk" style="height:26px;width:46px;border-radius:26px"></div>
+          </div>
+          <div class="rw">
+            <div class="sk" style="height:16px;width:140px"></div>
+            <div class="sk" style="height:26px;width:46px;border-radius:26px"></div>
+          </div>
+          <div class="rw">
+            <div class="sk" style="height:16px;width:110px"></div>
+            <div class="sk" style="height:26px;width:46px;border-radius:26px"></div>
+          </div>
         </div>
 
         <div class="pn">
-          <div class="pn-h"><div class="sk" style="height:18px;width:180px"></div><div class="sk" style="height:12px;width:90px"></div></div>
+          <div class="pn-h">
+            <div class="sk" style="height:18px;width:180px"></div>
+            <div class="sk" style="height:12px;width:90px"></div>
+          </div>
           <div class="fl">
             <div class="sk" style="height:42px;grid-column:span 6"></div>
             <div class="sk" style="height:42px;grid-column:span 3"></div>
@@ -1962,12 +2128,36 @@
             <div class="sk" style="height:28px;width:90px;border-radius:999px"></div>
             <div class="sk" style="height:28px;width:150px;border-radius:999px"></div>
           </div>
-          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
-          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
-          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
-          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
-          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
-          <div class="tr"><div class="sk" style="height:34px;width:34px;border-radius:50%"></div><div class="sk" style="height:16px;flex:1"></div><div class="sk" style="height:32px;width:130px;border-radius:11px"></div></div>
+          <div class="tr">
+            <div class="sk" style="height:34px;width:34px;border-radius:50%"></div>
+            <div class="sk" style="height:16px;flex:1"></div>
+            <div class="sk" style="height:32px;width:130px;border-radius:11px"></div>
+          </div>
+          <div class="tr">
+            <div class="sk" style="height:34px;width:34px;border-radius:50%"></div>
+            <div class="sk" style="height:16px;flex:1"></div>
+            <div class="sk" style="height:32px;width:130px;border-radius:11px"></div>
+          </div>
+          <div class="tr">
+            <div class="sk" style="height:34px;width:34px;border-radius:50%"></div>
+            <div class="sk" style="height:16px;flex:1"></div>
+            <div class="sk" style="height:32px;width:130px;border-radius:11px"></div>
+          </div>
+          <div class="tr">
+            <div class="sk" style="height:34px;width:34px;border-radius:50%"></div>
+            <div class="sk" style="height:16px;flex:1"></div>
+            <div class="sk" style="height:32px;width:130px;border-radius:11px"></div>
+          </div>
+          <div class="tr">
+            <div class="sk" style="height:34px;width:34px;border-radius:50%"></div>
+            <div class="sk" style="height:16px;flex:1"></div>
+            <div class="sk" style="height:32px;width:130px;border-radius:11px"></div>
+          </div>
+          <div class="tr">
+            <div class="sk" style="height:34px;width:34px;border-radius:50%"></div>
+            <div class="sk" style="height:16px;flex:1"></div>
+            <div class="sk" style="height:32px;width:130px;border-radius:11px"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -2385,7 +2575,7 @@
     let soundOn = true, audioCtx = null;
     const ctxAudio = () => audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
     function sonar(preset) {
-      if (!soundOn) return;
+   if (!soundOn || document.body.classList.contains('plan-sin-campa')) return;
       try {
         const c = ctxAudio(); if (c.state === 'suspended') c.resume(); const n0 = c.currentTime;
         (TONOS[preset] || TONOS.default).forEach(n => {
@@ -2577,7 +2767,8 @@
     }
     const obs = new MutationObserver(() => refrescar());
     function refrescar() { obs.disconnect(); prepararFilas(); llenarNacionalidades(); contador.textContent = [...tbody.children].filter(esFila).length; aplicar(); obs.observe(tbody, { childList: true }); }
-    async function verStats() {
+  async function verStats() {
+      if (document.body.classList.contains('plan-sin-costos')) return;
       $('modalStats').classList.add('show'); $('stBody').textContent = 'Cargando…';
       try {
         const r = (await resumenWA({ dias: +$('stDias').value })).data;
@@ -2871,7 +3062,10 @@
     }
     $('nuGo').addEventListener('click', abrirNumeroNuevo);
     ['nuNum', 'nuNom'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); abrirNumeroNuevo(); } }));
-    (async function iniciarFirebase() {
+  let fbIniciado = false;
+    async function iniciarFirebase() {
+      if (fbIniciado) return;
+      fbIniciado = true;
       try {
         const [A, F, N] = await Promise.all([import(FB + 'firebase-app.js'), import(FB + 'firebase-firestore.js'), import(FB + 'firebase-functions.js')]);
         const app = A.getApps().length ? A.getApp() : A.initializeApp(FIREBASE_CFG);
@@ -2885,8 +3079,25 @@
         /* Las plantillas llaman a una Cloud Function (lenta). Se piden con calma,
            sin competir con la carga de usuarios; igual se piden al abrir un chat. */
         setTimeout(() => cargarPlantillas(), 3000);
-      } catch (e) { console.error('Firebase no cargó:', e); toast('Chat sin conexión: ' + e.message); }
-    })();
+       } catch (e) { console.error('Firebase no cargó:', e); toast('Chat sin conexión: ' + e.message); }
+    }
+        function aplicarPlan(p) {
+      const b = document.body;
+      b.classList.toggle('plan-sin-chat', !p.chats);
+      b.classList.toggle('plan-sin-campa', !p.campa);
+      b.classList.toggle('plan-sin-costos', !p.entrega_costos);
+      b.classList.toggle('plan-sin-usuarios', !p.mis_usuarios);
+
+      if (!p.chats) {
+        b.classList.add('sin-chat'); cerrarChat(); setModo('registro');
+      } else {
+        let v = '1'; try { v = localStorage.getItem('usuarios_chat_visible') || '1'; } catch (e) { }
+        b.classList.toggle('sin-chat', v === '0'); chatTgl.classList.toggle('on', v !== '0');
+        iniciarFirebase();
+      }
+    }
+    window.addEventListener('plan-usuarios', e => aplicarPlan(e.detail));
+    if (window.UsuariosUI.plan) aplicarPlan(window.UsuariosUI.plan);
   </script>
   <script src="../js/dasboardjs/crm_whatsap.js"></script>
   <script src="../js/dasboardjs/crm_pro.js"></script>

@@ -100,7 +100,7 @@ export async function obtenerConfigComprobante(
   localidad,
   defaults = {},
 ) {
-  let c = leerCache(tiendaId);
+let c = null; // siempre lee lo último guardado (1 lectura por impresión, es barato)
   if (!c) {
     let raw = null;
     try {
@@ -203,7 +203,7 @@ async function esperarFuente(w, cfg) {
 }
 
 /* ------------- PERFIL DEL NEGOCIO + LINK DE SEGUIMIENTO (QR) ------------- */
-const LS_PERFIL = "apr_comprobante_perfil_v1_";
+const LS_PERFIL = "apr_comprobante_perfil_v2_";
 function leerLS(key) {
   try {
     const c = JSON.parse(localStorage.getItem(key) || "null");
@@ -232,6 +232,7 @@ export function negocioDesdeTienda(t) {
     telefono: String(tel || ""),
     direccion: ub["dirección"] || ub.direccion || "",
     redes: ig ? (ig.startsWith("@") ? ig : "@" + ig) : "",
+        logo: t.logo || t.logo_url || t.logoUrl || t.foto_logo || t.imagen || "",
   };
 }
 

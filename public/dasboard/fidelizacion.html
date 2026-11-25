@@ -2222,7 +2222,11 @@
         </nav>
       </div>
 
-      <main>
+<main style="visibility:hidden">
+  <div id="sinPermisoFidelizacion" class="card" style="display:none;">
+    <h3>Función no disponible</h3>
+    <p class="hint">Tu plan actual no incluye Cupones y Puntos.</p>
+  </div>
 
         <!-- ===== ESTADO Y VENCIMIENTO (unidos) ===== -->
         <section class="panel active" id="panel-estado">
@@ -2237,7 +2241,7 @@
                   <div class="t-sub">Visible en la app y en caja para este distrito</div>
                 </div>
                 <label class="switch">
-                  <input type="checkbox" id="toggleActivo" checked>
+           <input type="checkbox" id="toggleActivo">
                   <span class="slider"></span>
                 </label>
               </div>
@@ -2290,7 +2294,7 @@
 
               <div class="actions-row">
                 <button class="btn btn-primary" data-save="estado">Guardar cambios</button>
-                <span class="badge on" id="estadoBadge">Activa</span>
+             <span class="badge off" id="estadoBadge">Inactiva</span>
               </div>
             </div>
 

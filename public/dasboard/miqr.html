@@ -162,6 +162,31 @@
         #qrColoresCard [data-modo]:disabled {
             opacity: .4
         }
+
+        /* ===== Scroll responsive de modales ===== */
+        html.modal-lock,
+        html.modal-lock body {
+            overflow: hidden !important;
+        }
+
+        .modal-sheet {
+            max-height: 94vh;
+            max-height: 94dvh;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+            padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)) !important;
+        }
+
+        /* En celular: deja aire extra abajo para que los botones
+   nunca queden tapados por la barra del navegador o el botón flotante */
+        @media (max-width: 639px) {
+            .modal-sheet {
+                max-height: 88dvh;
+                padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)) !important;
+            }
+        }
     </style>
 </head>
 

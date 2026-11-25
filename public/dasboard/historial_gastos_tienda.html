@@ -121,6 +121,19 @@
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="../style/dasboardcss/insumos.css">
+
+  <!-- Estilos nuevos (vista por día). Van después del CSS para poder ajustarlos -->
+  <style>
+    [hidden] { display: none !important; }
+    .top-actions { flex-wrap: wrap; justify-content: flex-end; }
+    .daynav { display: flex; align-items: center; gap: 6px; }
+    .daynav .btn { padding-left: 12px; padding-right: 12px; }
+    #cuadreBox { margin-bottom: 18px; }
+    #cuadreBox tr[data-dia] { cursor: pointer; }
+    #cuadreBox tr[data-dia]:hover td { background: rgba(136, 85, 255, .08); }
+    #cuadreBox tfoot td { font-weight: 800; border-top: 1px solid #221b35; }
+  </style>
+
   <script type="module" src="../js/dasboardjs/insumos.js"></script>
 </head>
 
@@ -174,17 +187,27 @@
           <p class="sub" id="subMes">Todo lo que gastas, en un solo lugar.</p>
         </div>
         <div class="top-actions">
-          <input type="month" id="mesSel" title="Mes">
+          <div class="seg" id="vistaSel" role="group" aria-label="Ver por">
+            <button class="on" data-v="dia">Por día</button>
+            <button data-v="mes">Por mes</button>
+          </div>
+          <div class="daynav" id="navDia">
+            <button class="btn" id="diaPrev" aria-label="Día anterior" title="Día anterior">‹</button>
+            <input type="date" id="diaSel" title="Día">
+            <button class="btn" id="diaNext" aria-label="Día siguiente" title="Día siguiente">›</button>
+            <button class="btn" id="diaHoy">Hoy</button>
+          </div>
+          <input type="month" id="mesSel" title="Mes" hidden>
           <button class="btn go" id="btnNuevoGasto">+ Anotar gasto</button>
         </div>
       </div>
 
       <div class="kpis">
-        <div class="kpi big"><small>Te quedó este mes</small><b id="kMesQueda">…</b>
+        <div class="kpi big"><small id="kLblQueda">Te quedó hoy</small><b id="kMesQueda">…</b>
           <em>lo que vendiste menos lo que gastó el negocio</em></div>
-        <div class="kpi"><small>Vendiste este mes</small><b id="kMesVentas">…</b>
+        <div class="kpi"><small id="kLblVentas">Vendiste hoy</small><b id="kMesVentas">…</b>
           <button class="link" id="btnRefCaja">↻ Actualizar ventas</button></div>
-        <div class="kpi"><small>Gastó el negocio este mes</small><b id="kMesGastos">…</b>
+        <div class="kpi"><small id="kLblGastos">Gastó el negocio hoy</small><b id="kMesGastos">…</b>
           <em>sale de la caja</em></div>
         <div class="kpi"><small>Caja total</small><b id="chipCaja">…</b>
           <em>todo lo vendido − todo lo gastado, de siempre</em></div>
@@ -198,9 +221,12 @@
     <section class="pane" id="pane-gas">
       <div class="guide" id="guide" hidden>
         <b>Empieza aquí</b>
-        <p>1. Toca <b>“+ Anotar gasto”</b> y escribe lo que pagaste (pollo, luz, gaseosas…).<br>2. Mira cómo baja tu caja y cuánto te queda este mes.<br>3. Si ya tenías plata en caja antes de usar esto, anótala como <b>“Saldo inicial”</b>.</p>
+        <p>1. Toca <b>“+ Anotar gasto”</b> y escribe lo que pagaste (pollo, luz, gaseosas…).<br>2. Mira cómo baja tu caja y cuánto te queda cada día.<br>3. Si ya tenías plata en caja antes de usar esto, anótala como <b>“Saldo inicial”</b>.</p>
       </div>
       <div class="tiles" id="gastoTiles"></div>
+
+      <!-- Solo en "Por mes": cuadre de cada día -->
+      <div id="cuadreBox" hidden></div>
 
       <div class="filters">
         <div class="seg" id="fTipo">

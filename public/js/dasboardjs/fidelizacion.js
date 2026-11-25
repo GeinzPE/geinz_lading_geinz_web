@@ -2435,21 +2435,21 @@ async function loadConfig() {
   if (!tiendaId) return;
   try {
     const snap = await getDoc(currentConfigDoc());
-    if (!snap.exists()) return;
-    const d = snap.data().fidelizacion || {};
-    if (typeof d.activo === "boolean") {
-      document.getElementById("toggleActivo").checked = d.activo;
-      document.getElementById("estadoBadge").textContent = d.activo
-        ? "Activa"
-        : "Inactiva";
-      document.getElementById("estadoBadge").className =
-        "badge " + (d.activo ? "on" : "off");
-    }
+    // Si no existe el doc o no tiene "fidelizacion", todo queda como apagado
+    const d = snap.exists() ? snap.data().fidelizacion || {} : {};
+
+    const activo = d.activo === true; // solo true si fue guardado como true
+    document.getElementById("toggleActivo").checked = activo;
+    document.getElementById("estadoBadge").textContent = activo
+      ? "Activa"
+      : "Inactiva";
+    document.getElementById("estadoBadge").className =
+      "badge " + (activo ? "on" : "off");
+
     if (d.mensajeInactivo)
       document.getElementById("mensajeInactivo").value = d.mensajeInactivo;
-    if (typeof d.vencimientoActivo === "boolean")
-      document.getElementById("toggleVencimiento").checked =
-        d.vencimientoActivo;
+    document.getElementById("toggleVencimiento").checked =
+      d.vencimientoActivo === true;
     if (d.diasVencimiento != null)
       document.getElementById("diasVencimiento").value = d.diasVencimiento;
     if (d.diasAviso != null)
@@ -2458,7 +2458,6 @@ async function loadConfig() {
     console.error("No se pudo cargar la configuración:", err);
   }
 }
-
 function escapeHtml(str) {
   return String(str).replace(
     /[&<>"']/g,
@@ -3096,7 +3095,9 @@ window.addEventListener("message", (ev) => {
     ev.data?.type !== "permisos_fidelizacion"
   )
     return;
-  const { programa, cupones, maximo } = ev.data;
+  const programa = ev.data.programa === true;
+  const cupones = ev.data.cupones === true;
+  const maximo = ev.data.maximo;
 const permiso = {
   estado: programa,
   descuentos: programa,
@@ -3104,17 +3105,36 @@ const permiso = {
   historial: programa,
   cupones: cupones,   // solo creacion_cupones, NO depende de "activo"
 };
+  const btnGuardarEstado = document.querySelector('[data-save="estado"]');
+  if (btnGuardarEstado) {
+    btnGuardarEstado.disabled = !programa;
+    btnGuardarEstado.style.display = programa ? "" : "none";
+  }
 
   document.querySelectorAll(".nav-item[data-panel]").forEach((n) => {
     n.style.display = permiso[n.dataset.panel] ? "" : "none";
   });
 
-  const activa = document.querySelector(".nav-item.active");
-  if (!activa || activa.style.display === "none") {
+  const hayVisibles = [...document.querySelectorAll(".nav-item[data-panel]")].some(
+    (n) => n.style.display !== "none",
+  );
+  const sinPermiso = document.getElementById("sinPermisoFidelizacion");
+  if (sinPermiso) sinPermiso.style.display = hayVisibles ? "none" : "block";
+
+  if (!hayVisibles) {
     document
-      .querySelector('.nav-item[data-panel]:not([style*="none"])')
-      ?.click();
+      .querySelectorAll(".panel")
+      .forEach((p) => p.classList.remove("active"));
+  } else {
+    const activa = document.querySelector(".nav-item.active");
+    if (!activa || activa.style.display === "none") {
+      document
+        .querySelector('.nav-item[data-panel]:not([style*="none"])')
+        ?.click();
+    }
   }
+
+  document.querySelector("main").style.visibility = "visible";
 
   window.MAX_CUPONES = maximo;
   window.refrescarLimiteCupones?.();
@@ -3142,3 +3162,7 @@ function initApp() {
   loadHistorial();
 }
 initApp();
+setTimeout(() => {
+  const m = document.querySelector("main");
+  if (m && m.style.visibility === "hidden") m.style.visibility = "visible";
+}, 3000);

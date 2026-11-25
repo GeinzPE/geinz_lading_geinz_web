@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" style="background:#07070b">
+<html lang="es" style="background:#000">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,26 +10,56 @@
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#07070b;--s:#100f18;--s2:#171626;--line:#24223b;--ink:#eceaf5;--mut:#8b88a3;--p1:#7c4dff;--p2:#6236ee;--red:#ff5d5d;--grn:#35d49a}
+:root{--bg:#000;--s:#0a0a0b;--s2:#121214;--line:#1f1f22;--ink:#f0eff5;--mut:#8a8a94;--p1:#7c4dff;--p2:#6236ee;--red:#ff5d5d;--grn:#35d49a;--ease:cubic-bezier(.22,1,.36,1);--pad:16px}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 "Bricolage Grotesque",system-ui,sans-serif}
-.wrap{max-width:1500px;margin:0 auto;padding:18px 16px 60px}
-p.hint{color:var(--mut);margin:0 0 14px;max-width:760px}
-p.hint b{color:#fff}
-.bar{display:flex;gap:10px;margin-bottom:14px}
-input{flex:1;font:inherit;color:var(--ink);background:var(--s);border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+html,body{margin:0;background:#000;color:var(--ink);font:400 15px/1.45 "Bricolage Grotesque",system-ui,sans-serif}
+.wrap{max-width:1500px;margin:0 auto;padding:18px var(--pad) 110px}
+input{font:inherit;color:var(--ink);background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;transition:border-color .2s,box-shadow .2s}
+input:focus{outline:none;border-color:var(--p1);box-shadow:0 0 0 3px rgba(124,77,255,.22)}
 input:focus-visible,button:focus-visible{outline:2px solid var(--p1);outline-offset:2px}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+
+/* ===== Cabecera y stats ===== */
+.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+h1{margin:0;font:800 clamp(24px,5vw,42px)/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.sub{color:var(--mut);margin:5px 0 0;font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
 .stat{background:var(--s);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
 .stat b{display:block;font:800 28px/1.1 "Bricolage Grotesque",sans-serif}
-.stat span{color:var(--mut);font-size:13px}
+.stat span{color:var(--mut);font-size:13px;white-space:nowrap}
 .stat.hot b{color:var(--red)}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.chips button{border:1px solid var(--line);background:var(--s);color:var(--mut);font:600 13px inherit;font-family:inherit;padding:7px 14px;border-radius:999px;cursor:pointer}
+.stat.money b{color:var(--grn);font-size:24px;font-variant-numeric:tabular-nums}
+
+/* ===== Panel de gastos ===== */
+.gbox{background:var(--s);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
+.ghead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px 28px;flex-wrap:wrap}
+.gtot small{display:block;color:var(--mut);font-size:13px;font-weight:600;margin-bottom:5px}
+.big{display:block;font:800 clamp(30px,8vw,46px)/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;color:#c9b8ff;font-variant-numeric:tabular-nums}
+.cnt{display:block;color:var(--mut);font-size:13px;font-weight:600;margin-top:5px}
+.gctl{display:grid;gap:10px;flex:1;min-width:min(100%,300px);max-width:520px}
+.dates{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dates label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin:0 0 4px}
+.dbtn{width:100%;display:flex;align-items:center;gap:9px;background:var(--s2);border:1px solid var(--line);color:var(--ink);font:inherit;font-weight:600;font-size:14px;padding:11px 12px;border-radius:12px;cursor:pointer;text-align:left;transition:border-color .2s,background .2s}
+.dbtn:hover{border-color:#3a3a40}
+.dbtn svg{flex:none;color:var(--p1)}
+.dbtn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbtn.vacio span{color:var(--mut);font-weight:500}
+.dias{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:2px 22px;overflow:hidden;max-height:0;opacity:0;transition:max-height .4s var(--ease),opacity .3s,margin .3s}
+.dias.on{max-height:420px;opacity:1;margin-top:12px;overflow:auto}
+.dayrow{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.dayrow b{color:#c9b8ff;font-variant-numeric:tabular-nums}
+
+/* ===== Chips ===== */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chips button{border:1px solid var(--line);background:var(--s);color:var(--mut);font-family:inherit;font-weight:600;font-size:13px;padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:background .25s,color .25s,border-color .25s,transform .12s}
+.chips button:hover{color:var(--ink);border-color:#3a3a40}
+.chips button:active{transform:scale(.95)}
 .chips button[aria-pressed="true"]{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-color:transparent}
+
+/* ===== Lista ===== */
 ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.item{background:var(--s);border:1px solid var(--line);border-left:5px solid var(--p1);border-radius:14px;padding:14px 16px;display:grid;gap:8px}
-.item.urg{border-left-color:var(--red)}.item.done{border-left-color:var(--grn);opacity:.65}.item.gone{border-left-color:var(--mut);opacity:.55}
+.item{background:var(--s);border:1px solid var(--line);border-left:5px solid var(--p1);border-radius:14px;padding:14px 16px;display:grid;gap:9px;transition:border-color .25s,background .25s}
+.item.urg{border-left-color:var(--red)}.item.done{border-left-color:var(--grn)}.item.gone{border-left-color:var(--mut);opacity:.55}
+.item.done .top,.item.done .meta{opacity:.7}
 .item.done .nm{text-decoration:line-through}
 .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .nm{font:700 18px "Bricolage Grotesque",sans-serif;letter-spacing:-.01em}
@@ -38,45 +68,201 @@ ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .who{display:inline-flex;align-items:center;gap:7px}
 .av{width:26px;height:26px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-weight:700;font-size:11px;flex:none}
 .tag{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--red);color:#fff}
-.tag.g{background:var(--grn);color:#04281c}.tag.x{background:#4a4860}
+.tag.g{background:var(--grn);color:#04281c}.tag.x{background:#3a3a42}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
-.b{border:1px solid var(--line);background:var(--s2);color:var(--ink);font:600 13px inherit;font-family:inherit;padding:8px 13px;border-radius:10px;cursor:pointer}
+.b{border:1px solid var(--line);background:var(--s2);color:var(--ink);font-family:inherit;font-weight:600;font-size:13px;padding:9px 14px;border-radius:10px;cursor:pointer;transition:transform .12s,filter .2s,background .25s,color .25s}
+.b:hover{filter:brightness(1.2)}
+.b:active{transform:scale(.95)}
 .b.ok{background:linear-gradient(135deg,var(--p1),var(--p2));border-color:transparent;color:#fff}
 .b.dng{color:var(--red)}
-.empty{text-align:center;color:var(--mut);padding:34px 12px;border:1.5px dashed var(--line);border-radius:16px}
+.b:disabled{cursor:default;filter:none}
+
+/* Monto + casilla "Repuesto" en una sola fila. Un solo borde: el del contenedor (.pf) */
+.pf{display:flex;align-items:center;gap:6px;padding:4px 4px 4px 12px;background:var(--s2);border:1px solid var(--line);border-radius:14px;transition:border-color .25s,box-shadow .25s}
+.pf:focus-within{border-color:var(--p1);box-shadow:0 0 0 3px rgba(124,77,255,.2)}
+.pf.has{border-color:rgba(53,212,154,.4)}
+.pf .cur{color:var(--grn);font-weight:800;font-size:15px;flex:none}
+.pf input,.pf input:focus,.pf input:focus-visible{flex:1;min-width:0;width:100%;background:transparent;border:0;border-radius:0;box-shadow:none;outline:none;padding:10px 4px;font:700 16px "Bricolage Grotesque",sans-serif;font-variant-numeric:tabular-nums;color:var(--ink)}
+.pf input::placeholder{color:#5c5c66;font-weight:500;font-size:14px}
+.pf input.bad{animation:shake .4s}
+.chk{flex:none;display:inline-flex;align-items:center;gap:8px;border:0;background:rgba(255,255,255,.05);color:var(--mut);font:700 13px "Bricolage Grotesque",sans-serif;padding:0 14px 0 9px;min-height:40px;border-radius:10px;cursor:pointer;transition:background .25s,color .25s,transform .12s}
+.chk:hover{background:rgba(255,255,255,.09);color:var(--ink)}
+.chk:active{transform:scale(.95)}
+.chk .bx{width:22px;height:22px;border-radius:7px;border:2px solid #4a4a54;display:grid;place-items:center;color:transparent;transition:background .2s,border-color .2s,color .2s}
+.chk[aria-checked="true"]{background:rgba(53,212,154,.12);color:var(--grn)}
+.chk[aria-checked="true"] .bx{background:var(--grn);border-color:var(--grn);color:#04281c}
+.chk:disabled{opacity:.6;cursor:default}
+.sub-row{display:grid;gap:7px;padding:10px 0;border-top:1px solid var(--line)}
+.sub-row:first-of-type{border-top:0}
+.sub-row .meta{justify-content:space-between}
+
+.empty{text-align:center;color:var(--mut);padding:30px 12px;border:1.5px dashed var(--line);border-radius:16px}
+.lnk{background:none;border:0;color:var(--mut);font:600 12px "Bricolage Grotesque",sans-serif;text-decoration:underline;cursor:pointer;padding:0;margin:0 0 12px}
+.lnk:hover{color:var(--ink)}
 .live{display:none}
 .live h2{font:700 17px "Bricolage Grotesque",sans-serif;margin:0 0 12px;display:flex;align-items:center;gap:8px}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--grn)}
-@media(prefers-reduced-motion:no-preference){.dot{animation:pl 1.8s infinite}@keyframes pl{50%{opacity:.25}}}
 .fi{display:flex;gap:10px;align-items:flex-start;background:var(--s);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .fi.done,.fi.gone{opacity:.55}
 @media(min-width:1000px){.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:26px;align-items:start}
-.list ul{grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
-.live{display:block;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:var(--s2);border:1px solid var(--line);border-radius:18px;padding:16px}
+.list ul{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+.live{display:block;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:var(--s);border:1px solid var(--line);border-radius:18px;padding:16px}
 .live ul{grid-template-columns:1fr}}
-.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-h1{margin:0;font:800 clamp(28px,5vw,42px)/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
-.sub{color:var(--mut);margin:6px 0 0}
-.send{border:0;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;font:700 15px "Bricolage Grotesque",sans-serif;padding:12px 22px;border-radius:12px;cursor:pointer;box-shadow:0 6px 20px rgba(124,77,255,.35)}
+
+.send{border:0;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;font:700 15px "Bricolage Grotesque",sans-serif;padding:12px 22px;border-radius:12px;cursor:pointer;box-shadow:0 6px 20px rgba(124,77,255,.3);transition:transform .12s,filter .2s;white-space:nowrap}
+.send:hover{filter:brightness(1.1)}.send:active{transform:scale(.96)}
 dialog{background:var(--s);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:22px;width:min(460px,92vw)}
-dialog::backdrop{background:rgba(0,0,0,.65)}
+dialog::backdrop{background:rgba(0,0,0,.75)}
 dialog h3{margin:0 0 6px;font-size:20px}dialog p{margin:0 0 14px;color:var(--mut);font-size:14px}
 dialog input{width:100%;margin-bottom:14px}
 .row2{display:flex;gap:8px;flex-wrap:wrap}
-.sk{border-radius:14px;background:linear-gradient(90deg,var(--s2) 25%,#222036 37%,var(--s2) 63%);background-size:800px 100%;animation:sh 1.5s ease-in-out infinite}
-@keyframes sh{0%{background-position:-400px 0}100%{background-position:400px 0}}
-@media(prefers-reduced-motion:reduce){.sk{animation:none}}
-.btn,.b,.send{transition:transform .12s ease}.btn:active,.b:active,.send:active{transform:scale(.96)}
+/* Diálogo de advertencia "sin monto" */
+#sinov .warn{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+#sinov .warn .ic{flex:none;width:38px;height:38px;border-radius:12px;background:rgba(255,93,93,.14);color:var(--red);display:grid;place-items:center;font-weight:800;font-size:20px}
+#sinov .warn h3{margin:0 0 4px}
+#sinov .warn p{margin:0}
+#sinov .nomore{display:flex;align-items:center;gap:10px;margin:0 0 16px;font-size:14px;color:var(--ink);cursor:pointer}
+#sinov .nomore input{width:20px;height:20px;margin:0;padding:0;accent-color:var(--p1);flex:none;cursor:pointer}
 
-/* ===== Skeleton de PANTALLA COMPLETA ===== */
-#skel{position:fixed;inset:0;z-index:100;background:var(--bg);overflow:hidden;transition:opacity .35s ease}
+/* ===== Pasar a gastos ===== */
+.allb{width:100%;padding:12px 14px;font-size:14px;line-height:1.25}
+.allb:disabled{opacity:.55;cursor:default;background:var(--s2);color:var(--mut);border-color:var(--line)}
+.b.saved{background:rgba(53,212,154,.1);border-color:rgba(53,212,154,.35);color:var(--grn)}
+#gasov .ah{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+#gasov .ic{flex:none;width:40px;height:40px;border-radius:12px;background:rgba(53,212,154,.14);color:var(--grn);display:grid;place-items:center;font:800 14px "Bricolage Grotesque",sans-serif}
+#gasov h3{margin:0 0 4px;font:800 20px "Bricolage Grotesque",sans-serif}
+#gasov p{margin:0;color:var(--mut);font-size:14px}
+#gasov .gopt{width:100%;text-align:left;display:grid;gap:2px;border:1px solid var(--line);background:var(--s2);color:var(--ink);font:600 15px "Bricolage Grotesque",sans-serif;padding:13px 15px;border-radius:14px;cursor:pointer;margin-bottom:8px;transition:border-color .2s,background .2s,transform .12s}
+#gasov .gopt:hover{border-color:var(--p1);background:rgba(124,77,255,.08)}
+#gasov .gopt:active{transform:scale(.98)}
+#gasov .gopt small{color:var(--mut);font-weight:500;font-size:12.5px}
+#gasov .b{width:100%;margin-top:4px}
+
+.allb.okdone:disabled{background:rgba(53,212,154,.08);border-color:rgba(53,212,154,.28);color:var(--grn);opacity:1}
+@media(max-width:700px){.gtot .allb{width:100%;margin-top:10px}}
+@media(min-width:701px){
+  .gbox{padding:26px 30px}
+  .ghead{align-items:stretch;gap:22px 48px}
+  .gtot{display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
+  .big{font-size:clamp(42px,4.4vw,60px)}
+  .cnt{margin-top:8px}
+  .gtot .allb{width:auto;margin-top:18px;padding:12px 22px;font-size:14px;border-radius:12px}
+  .gctl{align-content:center;gap:14px}
+}
+@media(min-width:1000px){
+  .gctl{padding-left:48px;border-left:1px solid var(--line)}
+}
+
+/* ===== Agregar insumo (admin) ===== */
+.hbtns{display:flex;gap:8px;align-items:center}
+.addb{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(124,77,255,.45);background:rgba(124,77,255,.1);color:#d6c9ff;font:700 15px "Bricolage Grotesque",sans-serif;padding:12px 18px;border-radius:12px;cursor:pointer;white-space:nowrap;transition:transform .12s,background .2s,border-color .2s}
+.addb:hover{background:rgba(124,77,255,.18);border-color:var(--p1)}
+.addb:active{transform:scale(.96)}
+#addov .box{width:min(460px,100%);padding:22px;max-height:calc(100vh - 32px);overflow:auto}
+#addov .ah{display:flex;gap:12px;align-items:center;margin-bottom:18px}
+#addov .ah .ic{flex:none;width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;display:grid;place-items:center;box-shadow:0 6px 18px rgba(124,77,255,.35)}
+#addov h3{margin:0;font:800 20px "Bricolage Grotesque",sans-serif;letter-spacing:-.02em}
+#addov .ah p{margin:2px 0 0;color:var(--mut);font-size:13px}
+#addov .fld{display:grid;gap:6px;margin-bottom:14px}
+#addov .fld>span{font-size:12px;font-weight:600;color:var(--mut)}
+#addov .fld input{width:100%;font:600 16px "Bricolage Grotesque",sans-serif;padding:12px 14px}
+#addov .uni{display:flex;flex-wrap:wrap;gap:7px}
+#addov .uni button{border:1px solid var(--line);background:var(--s2);color:var(--mut);font:600 13px "Bricolage Grotesque",sans-serif;padding:8px 13px;border-radius:999px;cursor:pointer;transition:background .2s,color .2s,border-color .2s,transform .12s}
+#addov .uni button:hover{color:var(--ink);border-color:#3a3a40}
+#addov .uni button:active{transform:scale(.95)}
+#addov .uni button[aria-pressed="true"]{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-color:transparent}
+#addov .utg{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);background:var(--s2);color:var(--ink);font:600 14px "Bricolage Grotesque",sans-serif;padding:12px 14px;border-radius:14px;cursor:pointer;margin-bottom:18px;transition:background .2s,border-color .2s}
+#addov .utg .sw{flex:none;width:38px;height:22px;border-radius:999px;background:#2a2a30;position:relative;transition:background .2s}
+#addov .utg .sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s var(--ease)}
+#addov .utg small{display:block;color:var(--mut);font-weight:500;font-size:12px}
+#addov .utg[aria-pressed="true"]{border-color:rgba(255,93,93,.5);background:rgba(255,93,93,.08)}
+#addov .utg[aria-pressed="true"] .sw{background:var(--red)}
+#addov .utg[aria-pressed="true"] .sw::after{transform:translateX(16px)}
+#addov .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#addov .acts .send{grid-column:1/-1;width:100%}
+#addov .acts .b{padding:12px 14px;font-size:14px}
+#addov .acts button:disabled{opacity:.6;cursor:default}
+
+/* ===== Calendario propio ===== */
+.calov{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;padding:16px}
+.calov.on{display:flex}
+.cal{width:min(330px,100%);background:var(--s);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 30px 70px -20px rgba(0,0,0,.9)}
+.calh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calh b{font:700 16px "Bricolage Grotesque",sans-serif;text-transform:capitalize}
+.cb{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--s2);color:var(--ink);font-size:18px;cursor:pointer;transition:background .2s}
+.cb:hover:not(:disabled){background:#1c1c20}
+.cb:disabled{opacity:.3;cursor:default}
+.calw,.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.calw span{font-size:11px;font-weight:700;color:var(--mut);padding:4px 0}
+.cd{aspect-ratio:1;border:0;border-radius:50%;background:transparent;color:var(--ink);font:600 14px inherit;font-family:inherit;cursor:pointer;transition:background .15s,color .15s}
+.cd:hover:not(:disabled){background:#1f1f24}
+.cd.td{box-shadow:inset 0 0 0 1.5px var(--p1)}
+.cd.sel{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;box-shadow:none}
+.cd:disabled{color:#3c3c44;cursor:default}
+.calf{display:flex;gap:8px;margin-top:12px}
+.calf .b{flex:1}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,24px);background:var(--s2);border:1px solid var(--line);padding:12px 18px;border-radius:14px;opacity:0;pointer-events:none;transition:transform .35s var(--ease),opacity .3s;z-index:200;box-shadow:0 12px 32px -10px rgba(0,0,0,.9);font-weight:600;font-size:14px;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* Animaciones (suaves y cortas) */
+@keyframes shake{20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+@media(prefers-reduced-motion:no-preference){
+  .dot{animation:pl 1.8s infinite}@keyframes pl{50%{opacity:.25}}
+  .item.n,.fi.n{animation:in .3s var(--ease) both}
+  @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .item.fl{animation:flash 1s ease-out}
+  @keyframes flash{0%{box-shadow:0 0 0 0 rgba(53,212,154,.6)}100%{box-shadow:0 0 0 14px rgba(53,212,154,0)}}
+  .cal{animation:pop .22s var(--ease)}
+  @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+}
+@media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+/* ===== MÓVIL: compacto, sin scroll de más ===== */
+@media(max-width:700px){
+  :root{--pad:14px}
+  .wrap{padding-top:14px}
+  .head{margin-bottom:12px}
+  .sub{font-size:12.5px}
+  .send{padding:10px 14px;font-size:13.5px}
+  .addb{padding:10px 13px;font-size:13.5px}
+  .hbtns{gap:6px}
+  .stats,.chips{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;margin-left:calc(var(--pad)*-1);margin-right:calc(var(--pad)*-1);padding:0 var(--pad) 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .stats::-webkit-scrollbar,.chips::-webkit-scrollbar{display:none}
+  .stats{margin-bottom:10px}
+  .stat{flex:none;min-width:104px;padding:9px 12px;border-radius:12px}
+  .stat b{font-size:21px}.stat.money b{font-size:18px}
+  .stat span{font-size:12px}
+  .chips button{flex:none;padding:7px 13px;font-size:12.5px}
+  .gbox{padding:14px;border-radius:16px;margin-bottom:10px}
+  .gbox .chips{margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px}
+  .ghead{gap:12px;align-items:stretch}
+  .gtot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;width:100%;flex-wrap:wrap}
+  .gtot small{width:100%;margin-bottom:2px}
+  .big{font-size:30px}
+  .cnt{margin-top:0}
+  .gctl{gap:8px;max-width:none}
+  .dbtn{padding:10px 11px;font-size:13.5px}
+  .item{padding:12px 13px;border-radius:13px;gap:8px}
+  .nm{font-size:16px}
+  .btns .b{padding:8px 12px}
+}
+@media(max-width:380px){.dates{gap:8px}.dbtn svg{display:none}}
+
+/* Skeleton */
+.sk{border-radius:14px;background:linear-gradient(90deg,#101012 25%,#1a1a1d 37%,#101012 63%);background-size:800px 100%;animation:sh 1.5s ease-in-out infinite}
+@keyframes sh{0%{background-position:-400px 0}100%{background-position:400px 0}}
+#skel{position:fixed;inset:0;z-index:100;background:#000;overflow:hidden;transition:opacity .35s ease}
 #skel.out{opacity:0;pointer-events:none}
-#skel .sk{border:1px solid #1a1830}
+#skel .sk{border:1px solid #161618}
 #skel .head{align-items:center}
-#skel .pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-#skel .pills .sk{height:32px;border-radius:999px}
-#skel .li{height:104px}
+#skel .li{height:130px}
 #skel .lv{height:56px;border-radius:12px}
+#skel .pills{display:flex;gap:8px;overflow:hidden;margin-bottom:12px}
+#skel .pills .sk{height:32px;border-radius:999px;flex:none}
+#skel .st{display:flex;gap:8px;overflow:hidden;margin-bottom:12px}
+#skel .st .sk{height:64px;flex:1;min-width:104px}
 </style>
 </head>
 <body>
@@ -85,68 +271,135 @@ dialog input{width:100%;margin-bottom:14px}
 <div id="skel" aria-busy="true" aria-label="Cargando avisos de insumos">
   <div class="wrap">
     <header class="head">
-      <div>
-        <div class="sk" style="height:38px;width:min(340px,70vw)"></div>
-        <div class="sk" style="height:14px;width:min(300px,60vw);margin-top:12px"></div>
-      </div>
-      <div class="sk" style="height:46px;width:140px;border-radius:12px"></div>
+      <div style="flex:1"><div class="sk" style="height:32px;width:min(340px,70%)"></div><div class="sk" style="height:14px;width:min(300px,60%);margin-top:10px"></div></div>
+      <div class="sk" style="height:44px;width:110px;border-radius:12px"></div>
     </header>
-
-    <div class="stats">
-      <div class="sk" style="height:76px"></div>
-      <div class="sk" style="height:76px"></div>
-      <div class="sk" style="height:76px"></div>
-    </div>
-
-    <div class="pills">
-      <div class="sk" style="width:120px"></div>
-      <div class="sk" style="width:110px"></div>
-      <div class="sk" style="width:104px"></div>
-      <div class="sk" style="width:104px"></div>
-      <div class="sk" style="width:96px"></div>
-    </div>
-
+    <div class="st"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+    <div class="sk" style="height:120px;margin-bottom:12px"></div>
+    <div class="pills"><div class="sk" style="width:110px"></div><div class="sk" style="width:100px"></div><div class="sk" style="width:96px"></div><div class="sk" style="width:96px"></div></div>
     <div class="layout">
-      <div class="list">
-        <ul>
-          <li class="sk li"></li><li class="sk li"></li><li class="sk li"></li>
-          <li class="sk li"></li><li class="sk li"></li><li class="sk li"></li>
-        </ul>
-      </div>
-      <aside class="live">
-        <div class="sk" style="height:22px;width:170px;margin-bottom:14px"></div>
-        <ul>
-          <li class="sk lv"></li><li class="sk lv"></li><li class="sk lv"></li>
-          <li class="sk lv"></li><li class="sk lv"></li>
-        </ul>
-      </aside>
+      <div class="list"><ul><li class="sk li"></li><li class="sk li"></li><li class="sk li"></li></ul></div>
+      <aside class="live"><div class="sk" style="height:22px;width:170px;margin-bottom:14px"></div><ul><li class="sk lv"></li><li class="sk lv"></li><li class="sk lv"></li></ul></aside>
     </div>
   </div>
 </div>
 
 <div class="wrap">
-  <header class="head"><div><h1>Faltantes de cocina</h1><p class="sub">Lo que tu equipo avisa que falta, en tiempo real.</p></div><button class="send" id="sendLink">Enviar link</button></header>
-  <div class="stats" id="stats"></div>
+  <header class="head"><div><h1>Faltantes de cocina</h1><p class="sub">Lo que tu equipo avisa que falta, en tiempo real.</p></div><div class="hbtns"><button class="addb" id="addBtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar</button><button class="send" id="sendLink">Enviar link</button></div></header>
+
+  <div class="stats">
+    <div class="stat"><b id="sPend">0</b><span>Pendientes</span></div>
+    <div class="stat hot"><b id="sUrg">0</b><span>Urgentes</span></div>
+    <div class="stat"><b id="sDone">0</b><span>Repuestos</span></div>
+    <div class="stat money"><b id="sHoy">S/ 0.00</b><span>Gastado hoy</span></div>
+  </div>
+
+  <!-- Gastos: total + filtro por fechas -->
+  <section class="gbox">
+    <div class="ghead">
+      <div class="gtot"><small>Total gastado</small><span class="big" id="gTot">S/ 0.00</span><span class="cnt" id="gCnt">0 compras</span><button type="button" class="b ok allb" id="allGas" disabled>Pasar todo a gastos</button></div>
+      <div class="gctl">
+        <div class="chips" id="gChips" role="group" aria-label="Rango rápido" style="margin-bottom:0">
+          <button data-pre="hoy" aria-pressed="true">Hoy</button>
+          <button data-pre="ayer" aria-pressed="false">Ayer</button>
+          <button data-pre="7d" aria-pressed="false">7 días</button>
+          <button data-pre="mes" aria-pressed="false">Este mes</button>
+          <button data-pre="todo" aria-pressed="false">Todo</button>
+        </div>
+        <div class="dates">
+          <div><label>Desde</label>
+            <button type="button" class="dbtn" id="bD" data-pick="gD"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span id="tD">Sin límite</span></button></div>
+          <div><label>Hasta</label>
+            <button type="button" class="dbtn" id="bH" data-pick="gH"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span id="tH">Sin límite</span></button></div>
+        </div>
+        <input type="hidden" id="gD"><input type="hidden" id="gH">
+      </div>
+    </div>
+    <div class="dias" id="gDias"></div>
+  </section>
+
   <div class="chips" id="chips" role="group" aria-label="Filtro"></div>
+  <button class="lnk" id="reAviso" type="button" hidden>Volver a activar la advertencia de “sin monto”</button>
   <div class="layout">
     <div class="list" id="list"></div>
     <aside class="live"><h2><span class="dot"></span>Actividad en vivo</h2><ul id="feed"></ul></aside>
   </div>
 </div>
 
+<!-- Calendario -->
+<div class="calov" id="calov">
+  <div class="cal" role="dialog" aria-label="Elegir fecha">
+    <div class="calh"><button type="button" class="cb" data-cal="prev" aria-label="Mes anterior">‹</button><b id="calT"></b><button type="button" class="cb" data-cal="next" aria-label="Mes siguiente">›</button></div>
+    <div class="calw"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+    <div class="calg" id="calG"></div>
+    <div class="calf"><button type="button" class="b" data-cal="clear">Limpiar</button><button type="button" class="b" data-cal="hoy">Hoy</button><button type="button" class="b" data-cal="close">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- Pasar a gastos: ¿quién pagó? -->
+<div class="calov" id="gasov" style="z-index:300">
+  <div class="cal" role="dialog" aria-modal="true" aria-label="Pasar a gastos" style="width:min(440px,100%);padding:22px">
+    <div class="ah"><div class="ic" aria-hidden="true">S/</div><div><h3 id="gasTit">Pasar al historial de gastos</h3><p id="gasTxt"></p></div></div>
+    <button type="button" class="gopt" data-p="negocio"><span>El negocio pagó</span><small>Se descuenta de la caja.</small></button>
+    <button type="button" class="gopt" data-p="bolsillo"><span>Lo pagué yo, con mi plata</span><small>No baja la caja. Se anota como lo que pusiste tú.</small></button>
+    <button type="button" class="b" id="gasNo">Cancelar</button>
+  </div>
+</div>
+
+<!-- Agregar insumo (admin) -->
+<div class="calov" id="addov" style="z-index:250">
+  <div class="cal box" role="dialog" aria-modal="true" aria-label="Agregar insumo">
+    <div class="ah">
+      <div class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      <div><h3>Agregar insumo</h3><p>Anota lo que falta o quieres comprar.</p></div>
+    </div>
+    <label class="fld"><span>¿Qué falta?</span><input type="text" id="aNom" maxlength="60" placeholder="Ej: Aceite, arroz, servilletas…" autocomplete="off"></label>
+    <label class="fld"><span>Cantidad <em style="font-style:normal;opacity:.7">(opcional)</em></span><input type="text" id="aCan" inputmode="decimal" maxlength="9" placeholder="Ej: 5" autocomplete="off"></label>
+    <div class="fld"><span>Unidad <em style="font-style:normal;opacity:.7">(opcional)</em></span>
+      <div class="uni" id="aUni">
+        <button type="button" data-u="unid" aria-pressed="false">Unid</button><button type="button" data-u="kg" aria-pressed="false">kg</button><button type="button" data-u="g" aria-pressed="false">g</button><button type="button" data-u="L" aria-pressed="false">L</button><button type="button" data-u="ml" aria-pressed="false">ml</button><button type="button" data-u="paq" aria-pressed="false">Paq</button><button type="button" data-u="caja" aria-pressed="false">Caja</button><button type="button" data-u="bolsa" aria-pressed="false">Bolsa</button>
+      </div></div>
+    <button type="button" class="utg" id="aUrg" aria-pressed="false"><span class="sw"></span><span>Es urgente<small>Aparecerá marcado en rojo arriba de la lista</small></span></button>
+    <div class="acts">
+      <button type="button" class="send" id="aOk">Agregar</button>
+      <button type="button" class="b" id="aMas">Agregar y anotar otro</button>
+      <button type="button" class="b" id="aNo">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <dialog id="dlg"><h3>Link para tus trabajadores</h3><p>Compártelo para que anoten lo que falta con su usuario y contraseña.</p><input id="lnk"><div class="row2"><button class="send" id="cp">Copiar</button><button class="b" id="wa">WhatsApp</button><button class="b" id="cl">Cerrar</button></div></dialog>
+
+<!-- Advertencia: marcar repuesto sin monto -->
+<div class="calov" id="sinov" style="z-index:300">
+  <div class="cal" role="alertdialog" aria-modal="true" aria-label="Advertencia: sin monto" style="width:min(440px,100%);padding:22px">
+    <div class="warn">
+      <div class="ic" aria-hidden="true">!</div>
+      <div><h3>¿Marcar sin monto?</h3><p>No escribiste cuánto se gastó. Si no registras el monto, el gasto no se sumará y puede descuadrar tus cuentas.</p></div>
+    </div>
+    <label class="nomore"><input type="checkbox" id="sinNo"> No volver a mostrar esta advertencia</label>
+    <div class="row2">
+      <button type="button" class="send" id="sinCancel">Volver y poner monto</button>
+      <button type="button" class="b" id="sinOk">Marcar sin monto</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getDoc, setDoc, doc, onSnapshot, query, orderBy, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getDoc, setDoc, doc, onSnapshot, query, orderBy, updateDoc, addDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { app, db } from "../js/db/db.js";
 import { tiendaSubCol, tiendaSubDoc, tiendaDoc, tiendaServiciosDoc } from "../js/rutas/rutas.js";
 
 const $ = id => document.getElementById(id);
 const auth = getAuth(app);
-let admin = "Admin", C = null, items = [], filter = "pend", q = "";
+let admin = "Admin", C = null, items = [], filter = "pend", cargado = false;
+let G = "hoy", drafts = {}, flash = null, pintados = new Set(), lastKey = "";
+let porPasar = [], bulkBusy = false;
 onAuthStateChanged(auth, u => { if (u) admin = u.displayName || u.email || "Admin"; });
 
-/* Quita el skeleton (una sola vez). Se llama al llegar datos, al fallar, o por tiempo. */
+/* Quita el skeleton (una sola vez). */
 let skelCerrado = false;
 function ocultarSkel() {
   if (skelCerrado) return;
@@ -156,7 +409,7 @@ function ocultarSkel() {
   s.setAttribute("aria-busy", "false");
   setTimeout(() => { s.style.display = "none"; }, 400);
 }
-setTimeout(ocultarSkel, 12000); // respaldo: nunca queda pegado
+setTimeout(ocultarSkel, 12000);
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ms = t => t?.toMillis ? t.toMillis() : t?.seconds ? t.seconds * 1000 : Date.now();
@@ -170,12 +423,71 @@ const av = n => { n = n || "?"; let h = 0; for (const ch of n) h = (h * 31 + ch.
 const tags = i => (i.urgente && !i.repuesto && !i.quitado ? '<span class="tag">Urgente</span>' : "") + (i.repuesto ? '<span class="tag g">Repuesto</span>' : "") + (i.quitado ? '<span class="tag x">Quitado</span>' : "");
 const sorted = a => [...a].sort((x, y) => ((y.urgente && !y.repuesto) - (x.urgente && !x.repuesto)) || ms(y.creado) - ms(x.creado));
 
-const card = i => `<li class="item${i.urgente && !i.repuesto && !i.quitado ? " urg" : ""}${i.repuesto ? " done" : ""}${i.quitado ? " gone" : ""}">
+// ── Dinero (se suma en centavos para evitar errores de decimales) ──
+const tienePrecio = i => typeof i.precio === "number";
+const cents = n => Math.round(Number(n) * 100);
+const money = c => "S/ " + (c / 100).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const parsePrecio = s => { s = String(s ?? "").trim().replace(",", "."); return /^[0-9]{1,7}(\.[0-9]{1,2})?$/.test(s) ? Number(s) : null; };
+const pad = n => String(n).padStart(2, "0");
+const ymd = t => { const d = new Date(t); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const fmtDia = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("es-PE", { weekday: "short", day: "numeric", month: "short" }); };
+const fmtCorta = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("es-PE", { day: "numeric", month: "short", year: "numeric" }); };
+const reduce = () => matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+// Número que "corre" suavemente hasta su nuevo valor
+function anim(el, target) {
+  if (!el) return;
+  const from = el._v ?? 0; el._v = target;
+  cancelAnimationFrame(el._r);
+  if (from === target || reduce()) { el.textContent = money(target); return; }
+  const t0 = performance.now(), dur = 350;
+  const step = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = money(Math.round(from + (target - from) * e)); if (k < 1) el._r = requestAnimationFrame(step); };
+  el._r = requestAnimationFrame(step);
+}
+let tt; function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 2600); }
+
+// ── Preferencia: advertencia "marcar sin monto" ──
+const AVISO_KEY = "insumos_no_avisar_sin_monto";
+const avisoOff = () => { try { return localStorage.getItem(AVISO_KEY) === "1"; } catch { return false; } };
+function setAvisoOff(v) { try { v ? localStorage.setItem(AVISO_KEY, "1") : localStorage.removeItem(AVISO_KEY); } catch {} $("reAviso").hidden = !avisoOff(); }
+function confirmarSinMonto() {
+  return new Promise(res => {
+    const o = $("sinov"); $("sinNo").checked = false; o.classList.add("on");
+    const fin = ok => {
+      o.classList.remove("on"); o.removeEventListener("click", bg); document.removeEventListener("keydown", esc_, true);
+      $("sinOk").onclick = $("sinCancel").onclick = null;
+      if (ok && $("sinNo").checked) setAvisoOff(true);
+      res(ok);
+    };
+    const bg = ev => { if (ev.target === o) fin(false); };
+    const esc_ = ev => { if (ev.key === "Escape") fin(false); };
+    o.addEventListener("click", bg); document.addEventListener("keydown", esc_, true);
+    $("sinOk").onclick = () => fin(true); $("sinCancel").onclick = () => fin(false);
+    $("sinCancel").focus();
+  });
+}
+$("reAviso").onclick = () => { setAvisoOff(false); toast("Advertencia activada de nuevo"); };
+$("reAviso").hidden = !avisoOff();
+
+// ── Monto + casilla "Repuesto" (un solo control) ──
+const curP = i => { const d = drafts[i.id]; return d && d.p !== undefined ? d.p : (tienePrecio(i) ? String(i.precio) : ""); };
+function precioRow(i) {
+  return `<div class="pf${tienePrecio(i) ? " has" : ""}"><span class="cur">S/</span>
+  <input id="gp_${i.id}" data-d="p" data-id="${i.id}" inputmode="decimal" maxlength="10" placeholder="Monto gastado" value="${esc(curP(i))}" aria-label="Cuánto se gastó en ${esc(i.nombre)}">
+  <button type="button" class="chk" role="checkbox" aria-checked="${i.repuesto ? "true" : "false"}" data-a="chk" data-id="${i.id}"><span class="bx"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Repuesto</button></div>`;
+}
+
+const card = i => {
+  const esNuevo = !pintados.has(i.id);
+  const cls = `item${i.urgente && !i.repuesto && !i.quitado ? " urg" : ""}${i.repuesto ? " done" : ""}${i.quitado ? " gone" : ""}${esNuevo ? " n" : ""}${flash === i.id ? " fl" : ""}`;
+  return `<li class="${cls}" data-card="${i.id}">
 <div class="top"><span class="nm">${esc(i.nombre)}</span><span class="qty">${esc(qty(i))}</span></div>
 <div class="meta">${tags(i)}<span class="who">${av(i.por)}${esc(i.por)}</span><span>${fmt(i.creado)}${i.editado ? ", editado " + fmt(i.editado) : ""}</span></div>
-${i.quitado ? `<div class="meta">Quitado por ${esc(i.quitado.por)}, ${fmt(i.quitado.en)}</div>` : ""}
+${i.quitado ? `<div class="meta">Quitado por ${esc(i.quitado.por)}, ${fmt(i.quitado.en)}</div>` : precioRow(i)}
 <div class="btns">${i.quitado ? `<button class="b" data-a="res" data-id="${i.id}">Restaurar</button>`
- : `<button class="b ok" data-a="rep" data-id="${i.id}">${i.repuesto ? "Volver a pendiente" : "Marcar repuesto"}</button><button class="b dng" data-a="del" data-id="${i.id}">Quitar</button>`}</div></li>`;
+ : (tienePrecio(i) ? (i.gastoId ? `<button class="b saved" disabled>✓ Ya está en gastos</button>` : `<button class="b ok" data-a="gasto" data-id="${i.id}">Pasar a gastos</button>`) : "") + `<button class="b dng" data-a="del" data-id="${i.id}">Quitar</button>`}</div></li>`;
+};
 
 function groups(arr) {
   const g = {}; arr.forEach(i => { const k = (i.nombre || "").trim().toLowerCase(); (g[k] = g[k] || {n: i.nombre, r: []}).r.push(i); });
@@ -188,30 +500,280 @@ function groups(arr) {
     return `<li class="item${urg ? " urg" : ""}"><div class="top"><span class="nm">${esc(g[k].n)}</span><span class="qty">${esc(sum)}</span></div><div class="meta">${urg ? '<span class="tag">Urgente</span>' : ""}<span>${us.size} ${us.size === 1 ? "persona avisó" : "personas avisaron"}</span></div><div class="meta">${who}</div></li>`; }).join("") + "</ul>";
 }
 
+// ── Filtro por fechas ──
+function rango() {
+  let d = $("gD").value || "", h = $("gH").value || "";
+  if (d && h && d > h) [d, h] = [h, d];
+  return { a: d ? new Date(d + "T00:00:00").getTime() : -Infinity, b: h ? new Date(h + "T23:59:59.999").getTime() : Infinity };
+}
+function marcarChips() { document.querySelectorAll("#gChips button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.pre === G))); }
+function textoFechas() {
+  for (const [inp, txt, btn] of [["gD", "tD", "bD"], ["gH", "tH", "bH"]]) {
+    const v = $(inp).value; $(txt).textContent = v ? fmtCorta(v) : "Sin límite"; $(btn).classList.toggle("vacio", !v);
+  }
+}
+function preset(p) {
+  G = p;
+  const hoy = Date.now(); let d = "", h = "";
+  if (p === "hoy") d = h = ymd(hoy);
+  else if (p === "ayer") d = h = ymd(hoy - 864e5);
+  else if (p === "7d") { d = ymd(hoy - 6 * 864e5); h = ymd(hoy); }
+  else if (p === "mes") { const n = new Date(); d = ymd(new Date(n.getFullYear(), n.getMonth(), 1)); h = ymd(hoy); }
+  $("gD").value = d; $("gH").value = h;
+  marcarChips(); textoFechas();
+  if (cargado) render();
+}
+
+// ── Calendario propio ──
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+let calT = null, calM = null;
+function abrirCal(target) {
+  calT = target;
+  const v = $(target).value, base = v ? new Date(v + "T00:00:00") : new Date();
+  calM = new Date(base.getFullYear(), base.getMonth(), 1);
+  pintarCal(); $("calov").classList.add("on");
+}
+function cerrarCal() { $("calov").classList.remove("on"); calT = null; }
+function pintarCal() {
+  const y = calM.getFullYear(), m = calM.getMonth(), hoy = ymd(Date.now()), sel = $(calT).value;
+  $("calT").textContent = MESES[m] + " " + y;
+  const off = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
+  let h = ""; for (let i = 0; i < off; i++) h += "<span></span>";
+  for (let d = 1; d <= dim; d++) { const k = y + "-" + pad(m + 1) + "-" + pad(d);
+    h += `<button type="button" class="cd${k === sel ? " sel" : ""}${k === hoy ? " td" : ""}" data-day="${k}" ${k > hoy ? "disabled" : ""}>${d}</button>`; }
+  $("calG").innerHTML = h;
+  const hoyD = new Date(); document.querySelector('[data-cal="next"]').disabled = y === hoyD.getFullYear() && m === hoyD.getMonth() || (y > hoyD.getFullYear());
+}
+function elegirFecha(k) {
+  $(calT).value = k; G = "custom"; marcarChips(); textoFechas(); cerrarCal(); if (cargado) render();
+}
+
+const FDEF = [["pend","Pendientes"],["ins","Por insumo"],["urg","Urgentes"],["done","Repuestos"],["sin","Sin precio"],["con","Con precio"],["gone","Quitados"],["all","Todos"]];
+
 function render() {
   const act = items.filter(i => !i.quitado), pend = act.filter(i => !i.repuesto), urg = pend.filter(i => i.urgente),
-        done = act.filter(i => i.repuesto), gone = items.filter(i => i.quitado);
-  $("stats").innerHTML = `<div class="stat"><b>${pend.length}</b><span>Pendientes</span></div><div class="stat hot"><b>${urg.length}</b><span>Urgentes</span></div><div class="stat"><b>${done.length}</b><span>Repuestos</span></div>`;
-  const F = [["pend","Pendientes",pend],["ins","Por insumo",pend],["urg","Urgentes",urg],["done","Repuestos",done],["gone","Quitados",gone],["all","Todos",act]];
-  $("chips").innerHTML = F.map(f => `<button data-f="${f[0]}" aria-pressed="${filter === f[0]}">${f[1]} (${f[2].length})</button>`).join("");
-  let l = F.find(f => f[0] === filter)[2]; const t = q.trim().toLowerCase();
-  if (t) l = l.filter(i => ((i.nombre || "") + " " + (i.por || "")).toLowerCase().includes(t));
-  $("list").innerHTML = filter === "ins" ? groups(l) : l.length ? "<ul>" + sorted(l).map(card).join("") + "</ul>" : '<div class="empty">No hay avisos en esta vista.</div>';
+        done = act.filter(i => i.repuesto), gone = items.filter(i => i.quitado), sin = act.filter(i => !tienePrecio(i));
+  const R = rango();
+  const con = act.filter(tienePrecio).map(i => ({ ...i, g: ms(i.precioEn) })).filter(i => i.g >= R.a && i.g <= R.b).sort((x, y) => y.g - x.g);
+  porPasar = con.filter(i => !i.gastoId);
+  const ab = $("allGas");
+  if (ab && !bulkBusy) {
+    const tp = porPasar.reduce((s, i) => s + cents(i.precio), 0);
+    ab.disabled = !porPasar.length; ab.classList.toggle("okdone", !porPasar.length && con.length > 0);
+    ab.textContent = porPasar.length ? `Pasar todo a gastos (${porPasar.length} · ${money(tp)})` : con.length ? "✓ Todo esto ya está en gastos" : "Nada por pasar en este rango";
+  }
+
+  // Stats + gastos
+  $("sPend").textContent = pend.length; $("sUrg").textContent = urg.length; $("sDone").textContent = done.length;
+  const hoyKey = ymd(Date.now());
+  anim($("sHoy"), act.filter(i => tienePrecio(i) && ymd(ms(i.precioEn)) === hoyKey).reduce((s, i) => s + cents(i.precio), 0));
+  anim($("gTot"), con.reduce((s, i) => s + cents(i.precio), 0));
+  $("gCnt").textContent = `${con.length} ${con.length === 1 ? "compra" : "compras"}`;
+  const dias = {}; con.forEach(i => { const k = ymd(i.g); dias[k] = (dias[k] || 0) + cents(i.precio); });
+  const ks = Object.keys(dias).sort().reverse();
+  const gd = $("gDias");
+  if (ks.length > 1) { gd.innerHTML = ks.map(k => `<div class="dayrow"><span>${esc(fmtDia(k))}</span><b>${money(dias[k])}</b></div>`).join(""); gd.classList.add("on"); }
+  else gd.classList.remove("on");
+
+  // Chips (se crean una vez y luego solo se actualizan)
+  const counts = { pend: pend.length, ins: pend.length, urg: urg.length, done: done.length, sin: sin.length, con: con.length, gone: gone.length, all: act.length };
+  const ch = $("chips");
+  if (!ch.children.length) ch.innerHTML = FDEF.map(f => `<button data-f="${f[0]}"><span>${f[1]}</span> <span data-c="${f[0]}"></span></button>`).join("");
+  ch.querySelectorAll("button").forEach(b => { const k = b.dataset.f; b.setAttribute("aria-pressed", String(filter === k)); b.querySelector("[data-c]").textContent = `(${counts[k]})`; });
+
+  // Lista
+  const sets = { pend, ins: pend, urg, done, sin, con, gone, all: act };
+  const l = sets[filter];
+  if (filter !== lastKey) { pintados.clear(); lastKey = filter; }
+  const list = $("list"), ae = document.activeElement, aid = ae && list.contains(ae) ? ae.id : "", ss = aid && ae.selectionStart != null ? ae.selectionStart : null;
+  list.innerHTML = filter === "ins" ? groups(l) : l.length ? "<ul>" + (filter === "con" ? l : sorted(l)).map(card).join("") + "</ul>" : '<div class="empty">No hay avisos en esta vista.</div>';
+  if (filter !== "ins") l.forEach(i => pintados.add(i.id));
+  if (aid && $(aid)) { $(aid).focus(); try { if (ss != null) $(aid).setSelectionRange(ss, ss); } catch {} }
+
+  // Actividad en vivo
   const feed = [...items].sort((a, b) => ms(b.creado) - ms(a.creado)).slice(0, 40);
-  $("feed").innerHTML = feed.length ? feed.map(i => `<li class="fi${i.repuesto ? " done" : ""}${i.quitado ? " gone" : ""}">${av(i.por)}<div><div><b>${esc(i.nombre)}</b> ${esc(qty(i))} ${tags(i)}</div><div class="meta">${esc(i.por)}, ${fmt(i.creado)}</div></div></li>`).join("") : '<li class="empty">Aún no hay avisos.</li>';
+  $("feed").innerHTML = feed.length ? feed.map(i => `<li class="fi${i.repuesto ? " done" : ""}${i.quitado ? " gone" : ""}">${av(i.por)}<div><div><b>${esc(i.nombre)}</b> ${esc(qty(i))} ${tags(i)}${tienePrecio(i) && !i.quitado ? `<span class="tag g">${money(cents(i.precio))}</span>` : ""}</div><div class="meta">${esc(i.por)}, ${fmt(i.creado)}</div></div></li>`).join("") : '<li class="empty">Aún no hay avisos.</li>';
   ocultarSkel();
 }
 
 const ref = id => tiendaSubDoc(C.loc, "tiendas", C.id, "insumos", id);
+const gref = id => tiendaSubDoc(C.loc, "tiendas", C.id, "gastos_insumos", id);
+
+// ¿Quién pagó? (ventana propia)
+function elegirPagador(txt, titulo = "Pasar al historial de gastos") {
+  return new Promise(res => {
+    const o = $("gasov");
+    $("gasTxt").textContent = txt; $("gasTit").textContent = titulo;
+    o.classList.add("on");
+    const fin = v => { o.classList.remove("on"); o.removeEventListener("click", onc); document.removeEventListener("keydown", onk, true); res(v); };
+    const onc = ev => { const g = ev.target.closest("[data-p]"); if (g) return fin(g.dataset.p); if (ev.target === o || ev.target.id === "gasNo") fin(null); };
+    const onk = ev => { if (ev.key === "Escape") fin(null); };
+    o.addEventListener("click", onc); document.addEventListener("keydown", onk, true);
+  });
+}
+const sacudir = id => { const inp = $("gp_" + id); if (!inp) return; inp.classList.remove("bad"); void inp.offsetWidth; inp.classList.add("bad"); inp.focus(); };
+
+// Pasar TODO (lo que se ve en el rango de fechas) al historial de gastos, de una sola vez
+$("allGas").addEventListener("click", async () => {
+  if (!C || bulkBusy || !porPasar.length) return;
+  const lista = [...porPasar], tot = lista.reduce((s, i) => s + cents(i.precio), 0);
+  const quien = await elegirPagador(`${lista.length} ${lista.length === 1 ? "compra" : "compras"} por ${money(tot)}, según el rango de fechas elegido.`, "Pasar todo al historial de gastos");
+  if (!quien) return;
+  bulkBusy = true;
+  const btn = $("allGas"); btn.disabled = true; btn.textContent = "Pasando…";
+  try {
+    for (let k = 0; k < lista.length; k += 200) {   // máx. 500 operaciones por lote (cada compra usa 2)
+      const wb = writeBatch(db);
+      lista.slice(k, k + 200).forEach(it => {
+        const fecha = new Date(ms(it.precioEn)).toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+        const gid = "ins_" + it.id;
+        wb.set(gref(gid), {
+          tipo: "compra_insumo", categoria: "Insumos", nombre: it.nombre, cantidad: it.cantidad || "", unidad: it.unidad || "",
+          monto: it.precio, mes: fecha.slice(0, 7), fechaMs: new Date(fecha + "T12:00:00").getTime(), fecha: serverTimestamp(),
+          origen: quien, descuenta_caja: quien === "negocio", es_inversion: quien === "bolsillo", insumoId: it.id, registradoPor: admin
+        });
+        wb.update(ref(it.id), { gastoId: gid });
+      });
+      await wb.commit();
+    }
+    toast(`Pasados ${lista.length} a gastos: ${money(tot)}`);
+  } catch (err) { toast("No se pudo pasar todo: " + (err.code || err.message)); }
+  finally { bulkBusy = false; render(); }
+});
+
 document.addEventListener("click", async e => {
+  // calendario
+  const pk = e.target.closest("[data-pick]"); if (pk) return abrirCal(pk.dataset.pick);
+  if (e.target.id === "calov") return cerrarCal();
+  const cd = e.target.closest("[data-day]"); if (cd) return elegirFecha(cd.dataset.day);
+  const cb = e.target.closest("[data-cal]");
+  if (cb) { const k = cb.dataset.cal;
+    if (k === "prev") { calM = new Date(calM.getFullYear(), calM.getMonth() - 1, 1); pintarCal(); }
+    if (k === "next") { calM = new Date(calM.getFullYear(), calM.getMonth() + 1, 1); pintarCal(); }
+    if (k === "hoy") elegirFecha(ymd(Date.now()));
+    if (k === "clear") { $(calT).value = ""; G = "custom"; marcarChips(); textoFechas(); cerrarCal(); if (cargado) render(); }
+    if (k === "close") cerrarCal();
+    return; }
+  const pr = e.target.closest("[data-pre]"); if (pr) return preset(pr.dataset.pre);
   const f = e.target.closest("[data-f]"); if (f) { filter = f.dataset.f; return render(); }
   const b = e.target.closest("[data-a]"); if (!b || !C) return;
   const it = items.find(x => x.id === b.dataset.id); if (!it) return;
+  const a = b.dataset.a;
   try {
-    if (b.dataset.a === "rep") await updateDoc(ref(it.id), {repuesto: !it.repuesto, repuestoPor: admin, repuestoEn: serverTimestamp()});
-    if (b.dataset.a === "del" && confirm("¿Quitar este aviso? Quedará guardado en Quitados.")) await updateDoc(ref(it.id), {quitado: {por: admin, en: serverTimestamp()}});
-    if (b.dataset.a === "res") await updateDoc(ref(it.id), {quitado: null});
-  } catch (err) { alert("No se pudo guardar: " + (err.code || err.message)); }
+    if (a === "chk") {
+      // Ya estaba marcado → vuelve a pendiente (el monto se conserva)
+      if (it.repuesto) {
+        await updateDoc(ref(it.id), { repuesto: false, repuestoPor: admin, repuestoEn: serverTimestamp() });
+        return;
+      }
+      const raw = String(curP(it)).trim(), precio = parsePrecio(raw);
+      if (raw && precio === null) { sacudir(it.id); toast("Escribe un monto válido. Ej: 12.50"); return; }
+      const datos = { repuesto: true, repuestoPor: admin, repuestoEn: serverTimestamp() };
+      if (precio !== null) {
+        // La fecha del gasto es el momento en que se guarda; si ya tenía, se conserva
+        datos.precio = precio; datos.precioPor = admin;
+        datos.precioEn = tienePrecio(it) && it.precioEn ? it.precioEn : Timestamp.now();
+      } else if (!tienePrecio(it)) {
+        // Sin monto: advertir (salvo que el dueño haya pedido no verla más)
+        if (!avisoOff() && !(await confirmarSinMonto())) { sacudir(it.id); return; }
+      }
+      b.disabled = true;
+      flash = it.id; setTimeout(() => { if (flash === it.id) flash = null; }, 1400);
+      await updateDoc(ref(it.id), datos);
+      if (it.gastoId && precio !== null) await updateDoc(gref(it.gastoId), { monto: precio });
+      delete drafts[it.id];
+      toast(precio !== null ? `Guardado ${money(cents(precio))} y marcado como repuesto` : "Marcado como repuesto (sin monto)");
+      return;
+    }
+    if (a === "gasto") {
+      if (!tienePrecio(it)) { toast("Primero escribe el monto"); return; }
+      if (it.gastoId) { toast("Ya está en el historial de gastos"); return; }
+      const quien = await elegirPagador(`${it.nombre}${qty(it) ? " (" + qty(it) + ")" : ""}: ${money(cents(it.precio))}`); if (!quien) return;
+      b.disabled = true;
+      const fecha = new Date(ms(it.precioEn)).toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+      const gid = "ins_" + it.id;   // id fijo: imposible duplicar el gasto
+      await setDoc(gref(gid), {
+        tipo: "compra_insumo", categoria: "Insumos", nombre: it.nombre, cantidad: it.cantidad || "", unidad: it.unidad || "",
+        monto: it.precio, mes: fecha.slice(0, 7), fechaMs: new Date(fecha + "T12:00:00").getTime(), fecha: serverTimestamp(),
+        origen: quien, descuenta_caja: quien === "negocio", es_inversion: quien === "bolsillo", insumoId: it.id, registradoPor: admin
+      });
+      await updateDoc(ref(it.id), { gastoId: gid });
+      flash = it.id; setTimeout(() => { if (flash === it.id) flash = null; }, 1400);
+      toast(`Pasado a gastos: ${money(cents(it.precio))}`);
+      return;
+    }
+    if (a === "del" && confirm(it.gastoId ? "Este aviso ya está en el historial de gastos. Si lo quitas, también se borra de ahí. ¿Quitarlo?" : tienePrecio(it) ? "Este aviso tiene un monto registrado y dejará de contarse en los gastos. ¿Quitarlo?" : "¿Quitar este aviso? Quedará guardado en Quitados.")) {
+      if (it.gastoId) await deleteDoc(gref(it.gastoId));
+      await updateDoc(ref(it.id), {quitado: {por: admin, en: serverTimestamp()}, gastoId: null});
+    }
+    if (a === "res") await updateDoc(ref(it.id), {quitado: null});
+  } catch (err) { flash = null; render(); toast("No se pudo guardar: " + (err.code || err.message)); }
+});
+
+// Borradores: lo que escribes no se pierde cuando llega una actualización en vivo
+document.addEventListener("input", e => { const t = e.target;
+  if (t.dataset?.d === "p") { (drafts[t.dataset.id] ??= {}).p = t.value; t.classList.remove("bad"); } });
+
+// Si el aviso ya está marcado como repuesto, corregir el monto se guarda solo al salir del campo / Enter
+document.addEventListener("change", async e => { const t = e.target;
+  if (t.dataset?.d !== "p" || !C) return;
+  const it = items.find(x => x.id === t.dataset.id); if (!it || !it.repuesto) return;
+  const precio = parsePrecio(t.value);
+  if (precio === null) { delete drafts[it.id]; render(); if (t.value.trim()) toast("Monto no válido, se mantuvo el anterior"); return; }
+  if (tienePrecio(it) && precio === it.precio) { delete drafts[it.id]; return; }
+  try {
+    await updateDoc(ref(it.id), { precio, precioEn: tienePrecio(it) && it.precioEn ? it.precioEn : Timestamp.now(), precioPor: admin });
+    if (it.gastoId) await updateDoc(gref(it.gastoId), { monto: precio });
+    delete drafts[it.id]; flash = it.id; setTimeout(() => { if (flash === it.id) flash = null; }, 1400);
+    toast(`Monto actualizado: ${money(cents(precio))}`);
+  } catch (err) { toast("No se pudo guardar: " + (err.code || err.message)); }
+});
+
+document.addEventListener("keydown", e => { const t = e.target;
+  if (e.key === "Escape" && calT) return cerrarCal();
+  if (e.key === "Enter" && t.dataset?.d === "p") { e.preventDefault();
+    const it = items.find(x => x.id === t.dataset.id);
+    if (it?.repuesto) t.blur();   // dispara "change" y guarda el monto corregido
+    else document.querySelector(`[data-a="chk"][data-id="${t.dataset.id}"]`)?.click(); } });
+
+// ── Agregar insumo como admin ──
+let addU = "", addUrg = false, addBusy = false;
+function pintarAdd() {
+  document.querySelectorAll("#aUni button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.u === addU)));
+  $("aUrg").setAttribute("aria-pressed", String(addUrg));
+}
+function abrirAdd() {
+  if (!C) return;
+  $("aNom").value = ""; $("aCan").value = ""; addU = ""; addUrg = false; pintarAdd();
+  $("addov").classList.add("on"); setTimeout(() => $("aNom").focus(), 60);
+}
+function cerrarAdd() { $("addov").classList.remove("on"); }
+async function guardarAdd(otro) {
+  if (addBusy || !C) return;
+  const nombre = $("aNom").value.trim().replace(/\s+/g, " ");
+  if (!nombre) { const i = $("aNom"); i.classList.remove("bad"); void i.offsetWidth; i.classList.add("bad"); i.focus(); toast("Escribe qué insumo falta"); return; }
+  const can = $("aCan").value.trim().replace(",", ".");
+  if (can && !/^[0-9]{1,6}(\.[0-9]{1,2})?$/.test(can)) { $("aCan").focus(); toast("La cantidad no es válida. Ej: 5 o 2.5"); return; }
+  addBusy = true; ["aOk", "aMas", "aNo"].forEach(id => $(id).disabled = true);
+  try {
+    const r = await addDoc(tiendaSubCol(C.loc, "tiendas", C.id, "insumos"), { nombre, cantidad: can, unidad: addU, urgente: addUrg, por: admin, creado: serverTimestamp() });
+    filter = "pend"; flash = r.id; setTimeout(() => { if (flash === r.id) flash = null; }, 1400); render();
+    toast(`Agregado: ${nombre}`);
+    if (otro) { $("aNom").value = ""; $("aCan").value = ""; addUrg = false; pintarAdd(); $("aNom").focus(); }
+    else cerrarAdd();
+  } catch (err) { toast("No se pudo agregar: " + (err.code || err.message)); }
+  finally { addBusy = false; ["aOk", "aMas", "aNo"].forEach(id => $(id).disabled = false); }
+}
+$("addBtn").onclick = abrirAdd;
+$("aOk").onclick = () => guardarAdd(false);
+$("aMas").onclick = () => guardarAdd(true);
+$("aNo").onclick = cerrarAdd;
+$("aUrg").onclick = () => { addUrg = !addUrg; pintarAdd(); };
+$("aUni").addEventListener("click", e => { const b = e.target.closest("[data-u]"); if (!b) return; addU = addU === b.dataset.u ? "" : b.dataset.u; pintarAdd(); });
+$("addov").addEventListener("click", e => { if (e.target.id === "addov") cerrarAdd(); });
+$("addov").addEventListener("keydown", e => {
+  if (e.key === "Escape") cerrarAdd();
+  if (e.key === "Enter" && (e.target.id === "aNom" || e.target.id === "aCan")) { e.preventDefault(); guardarAdd(false); }
 });
 
 async function linkTrabajadores() {
@@ -236,9 +798,11 @@ function start(c) {
   C = c;
   const col = tiendaSubCol(c.loc, "tiendas", c.id, "insumos");
   onSnapshot(query(col, orderBy("creado", "desc")),
-    s => { items = s.docs.map(d => ({id: d.id, ...d.data()})); render(); },
+    s => { items = s.docs.map(d => ({id: d.id, ...d.data()})); cargado = true; render(); },
     err => { $("list").innerHTML = `<div class="empty">No se pudieron leer los insumos (${esc(err.code)}). Revisa las reglas de Firestore.</div>`; ocultarSkel(); });
 }
+
+preset("hoy");
 
 let tries = 0;
 (function wait() {

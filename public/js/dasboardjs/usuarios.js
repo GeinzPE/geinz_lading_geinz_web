@@ -1,7 +1,7 @@
 import {
-  getDoc, setDoc, getDocs, updateDoc, serverTimestamp,
+  getDoc, setDoc, getDocs, updateDoc, onSnapshot, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { registroCamposDoc, registradosCol, tiendaDoc, tiendaSubCol } from "../rutas/rutas.js";
+import { registroCamposDoc, registradosCol, tiendaDoc, tiendaSubCol, tiendaServiciosDoc } from "../rutas/rutas.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -210,7 +210,19 @@ window.UsuariosUI.setBloqueo = async (uid, bloquear) => {
     bloqueado_en: bloquear ? serverTimestamp() : null,
   });
 };
-
+// Lee cliente_y_fidelizacion.mis_usuarios del plan y avisa a la página
+function publicarPlan(servicios) {
+  const m = servicios?.cliente_y_fidelizacion?.mis_usuarios || {};
+  const plan = {
+    chats: m.chats === true,
+    campa: m.campa === true,
+    entrega_costos: m.entrega_costos === true,
+    mis_usuarios: m.mis_usuarios === true,
+  };
+  window.UsuariosUI.plan = plan;
+  window.dispatchEvent(new CustomEvent("plan-usuarios", { detail: plan }));
+  return plan;
+}
 // ── ARRANQUE: primero se averigua de qué negocio es, luego se carga todo ──
 (async () => {
   mostrarCargandoContexto();
@@ -236,6 +248,28 @@ window.UsuariosUI.setBloqueo = async (uid, bloquear) => {
     console.warn("[usuarios] no se pudo leer el negocio:", e.message);
   }
 
-  cargar();
-  cargarRegistrados();
+  let tablaCargada = false;
+  onSnapshot(
+    tiendaServiciosDoc(localidad, negocioId),
+    (snap) => {
+      const plan = publicarPlan(snap.exists() ? snap.data() : {});
+      if (!plan.mis_usuarios) {
+        $("lista").innerHTML = "";
+        $("registrados").innerHTML =
+          `<tr><td colspan="9">Tu plan no incluye la sección Mis usuarios.</td></tr>`;
+        return;
+      }
+      if (!tablaCargada) {
+        tablaCargada = true;
+        cargar();
+        cargarRegistrados();
+      }
+    },
+    (err) => {
+      console.error("[usuarios] plan:", err);
+      publicarPlan({});
+      $("registrados").innerHTML =
+        `<tr><td colspan="9">No se pudo leer tu plan.</td></tr>`;
+    },
+  );
 })();

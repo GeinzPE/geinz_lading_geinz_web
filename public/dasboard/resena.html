@@ -14,6 +14,7 @@
     #skel {
       position: fixed; inset: 0; z-index: 200; overflow-y: auto; overflow-x: hidden;
       background: #030305; color: #f4f4f5;
+      font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
       transition: opacity .35s ease;
     }
     #skel.out { opacity: 0; pointer-events: none; }
@@ -22,12 +23,13 @@
       border-bottom: 1px solid rgba(255,255,255,.08);
       background: rgba(3,3,5,.9);
     }
+    /* Alineado a la izquierda, pegado al borde (sin centrar) */
     #skel .hd-in {
-      max-width: 48rem; margin: 0 auto; padding: 16px 24px;
+      max-width: none; margin: 0; padding: 18px 32px;
       display: flex; align-items: center; gap: 12px;
     }
-    #skel .w { max-width: 48rem; margin: 0 auto; padding: 32px 24px 80px; }
-    #skel .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+    #skel .w { max-width: none; margin: 0; padding: 28px 32px 80px; }
+    #skel .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
     #skel .cd {
       background: #0e0e14; border: 1px solid rgba(255,255,255,.08);
       border-radius: 16px; padding: 18px;
@@ -60,8 +62,107 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
+
+  <!-- ============================================================
+       CAPTURADOR DE DATOS: solo se muestra si en el plan existe
+       cliente_y_fidelizacion.review.capturador_datos === true
+       Si no existe o está en false, se oculta (pestaña y panel).
+       El plan llega desde el padre (SERVICIOS_UPDATE) con el mismo
+       formato que envía inicio.js.
+       ============================================================ -->
+  <style>
+    .cap-off { display: none !important; }
+  </style>
+  <script>
+    (function () {
+      var KEY = "geinz_capturador_datos";
+      var permitido = false;
+      try { permitido = sessionStorage.getItem(KEY) === "1"; } catch (e) {}
+
+      // Lee el flag desde cualquier forma razonable del mensaje
+      function leerFlag(d) {
+        if (!d || typeof d !== "object") return null;
+        var plan = d.servicios || d.plan || d;
+        var cf = plan && plan.cliente_y_fidelizacion;
+        if (!cf) return null;                       // este mensaje no trae el plan
+        return !!(cf.review && cf.review.capturador_datos === true);
+      }
+
+      var RE_TXT = /capturador\s+de\s+datos/i;
+      var RE_ID = /captur/i;
+
+      function esCapturador(el) {
+        var attrs = [el.id, el.getAttribute("data-tab"), el.getAttribute("data-panel"),
+                     el.getAttribute("data-view"), el.getAttribute("data-target"),
+                     el.getAttribute("aria-controls")].join(" ");
+        if (RE_ID.test(attrs)) return true;
+        // botones/pestañas cuyo texto propio es "Capturador de datos"
+        if (/^(BUTTON|A|LI)$/.test(el.tagName) || el.getAttribute("role") === "tab") {
+          return RE_TXT.test(el.textContent || "") && (el.textContent || "").length < 40;
+        }
+        return false;
+      }
+
+      function aplicar() {
+        var root = document.body || document.documentElement;
+        if (!root) return;
+        var nodos = root.querySelectorAll("button, a, li, [role=tab], [id], [data-tab], [data-panel], [data-view], [data-target]");
+        var tocados = [];
+        nodos.forEach(function (el) {
+          if (el.closest("#skel")) return;
+          if (!esCapturador(el)) return;
+          el.classList.toggle("cap-off", !permitido);
+          tocados.push(el);
+        });
+        // Si solo queda una pestaña visible, la barra de pestañas no hace falta
+        tocados.forEach(function (el) {
+          var barra = el.parentElement;
+          if (!barra || barra === root) return;
+          if (!/^(BUTTON|A|LI)$/.test(el.tagName) && el.getAttribute("role") !== "tab") return;
+          var visibles = Array.prototype.filter.call(barra.children, function (h) {
+            return !h.classList.contains("cap-off");
+          });
+          barra.classList.toggle("cap-off", !permitido && visibles.length <= 1);
+        });
+        document.documentElement.setAttribute("data-capturador", permitido ? "on" : "off");
+      }
+
+      function setPermitido(v) {
+        permitido = !!v;
+        try { sessionStorage.setItem(KEY, permitido ? "1" : "0"); } catch (e) {}
+        aplicar();
+        window.dispatchEvent(new CustomEvent("capturador-permitido", { detail: permitido }));
+      }
+
+      // API para resena.js: window.CapturadorPlan.permitido()
+      window.CapturadorPlan = { permitido: function () { return permitido; } };
+
+      window.addEventListener("message", function (e) {
+        if (e.origin !== window.location.origin) return;
+        var v = leerFlag(e.data);
+        if (v !== null) setPermitido(v);
+      });
+
+      // Pide el plan al padre por si ya lo tenía cargado
+      try { window.parent.postMessage({ tipo: "PEDIR_SERVICIOS" }, window.location.origin); } catch (e) {}
+
+      // Reaplica cuando resena.js dibuja/oculta pestañas y paneles
+      function iniciarObserver() {
+        aplicar();
+        if (!("MutationObserver" in window)) return;
+        var pend = false;
+        new MutationObserver(function () {
+          if (pend) return;
+          pend = true;
+          requestAnimationFrame(function () { pend = false; aplicar(); });
+        }).observe(document.body, { childList: true, subtree: true });
+      }
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciarObserver);
+      else iniciarObserver();
+    })();
+  </script>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -72,8 +173,8 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
+            sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
           },
           colors: {
             dark: {
@@ -94,13 +195,30 @@
       --surface: #09090d;
       --card-bg: #0e0e14;
       --card-border: rgba(255, 255, 255, 0.08);
+      --font: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
     }
+
+    /* Todo en sans serif (nada de mono ni serif), peso normal por defecto */
+    html, body, button, input, textarea, select, .font-mono, .font-sans {
+      font-family: var(--font) !important;
+    }
+    body { font-weight: 400; }
 
     body {
       background-color: var(--bg);
       color: #f4f4f5;
       font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }
+
+    /* Solo lo que debe ir en negrita */
+    h1, h2, h3, h4,
+    .font-bold, .font-extrabold, .font-black, .font-semibold,
+    .btn-primary, .btn-ghost,
+    .filter-pill[data-active="true"] { font-weight: 700; }
+    h1 { font-weight: 800; }
+
+    /* Textos secundarios y descripciones: peso normal */
+    p.text-zinc-500, p.text-zinc-400:not(.font-bold), .review-text, .reply-input { font-weight: 400; }
 
     * {
       scrollbar-width: thin;
@@ -125,7 +243,7 @@
     }
 
     /* Filter Pills */
-    .filter-pill { transition: all 0.18s ease; }
+    .filter-pill { transition: all 0.18s ease; font-weight: 600; }
 
     .filter-pill[data-active="true"] {
       background: #ffffff;
@@ -216,6 +334,36 @@
       100% { background-position: -200% 0; }
     }
 
+    /* ===== Layout: contenido alineado a la izquierda, pegado al menú ===== */
+    .page-wrap { max-width: none; margin: 0; padding-left: 2rem; padding-right: 2rem; }
+    @media (min-width: 1536px) { .page-wrap { padding-left: 2.5rem; padding-right: 2.5rem; } }
+
+    /* ===== Pantalla grande: columna lateral (resumen + filtros) y reseñas al lado ===== */
+    .layout > * { grid-column: 1 / -1; }
+    .layout { display: block; }
+    @media (min-width: 1100px) {
+      .layout {
+        display: grid;
+        grid-template-columns: 340px minmax(0, 1fr);
+        column-gap: 28px; row-gap: 20px; align-items: start;
+      }
+      .layout > .side { grid-column: 1; grid-row: 2; position: sticky; top: 92px; }
+      .layout > .feed { grid-column: 2; grid-row: 2; min-width: 0; }
+      .side .stats { grid-template-columns: 1fr !important; margin-bottom: 16px !important; }
+      .side .filtros { margin-bottom: 0 !important; }
+    }
+    /* Reseñas en 2 columnas cuando hay espacio de sobra */
+    @media (min-width: 1700px) {
+      #reviews-list, #reviews-skeleton {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+      }
+    }
+    @media (max-width: 600px) {
+      .page-wrap { padding-left: 1rem; padding-right: 1rem; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; }
     }
@@ -298,44 +446,46 @@
   <!-- Glows de Fondo -->
   <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
     <div
-      class="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[350px] bg-gradient-to-b from-purple-900/10 via-indigo-950/5 to-transparent blur-[140px]">
+      class="absolute -top-40 left-0 w-[900px] h-[350px] bg-gradient-to-b from-purple-900/10 via-indigo-950/5 to-transparent blur-[140px]">
     </div>
   </div>
 
-  <!-- Header -->
+  <!-- Header (alineado a la izquierda) -->
   <header class="sticky top-0 z-30 backdrop-blur-xl bg-[#030305]/80 border-b border-white/[0.08]">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+    <div class="page-wrap py-4 flex items-center justify-start">
       <div class="flex items-center gap-3">
         <div class="w-2 h-7 bg-purple-500 rounded-full shadow-[0_0_12px_rgba(168,85,247,0.5)]"></div>
         <div>
           <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Marketing & Promociones</p>
-          <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Reseñas de mi tienda</h1>
+          <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Reseñas de mi negocio</h1>
         </div>
       </div>
     </div>
   </header>
 
-  <main class="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-28">
+  <main class="page-wrap layout pt-7 pb-28">
+
+    <aside class="side">
 
     <!-- Resumen -->
-    <div class="grid grid-cols-2 gap-4 mb-8">
+    <div class="stats grid grid-cols-2 gap-4 mb-7">
       <div class="glass-card rounded-2xl p-5">
         <p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Promedio</p>
         <div class="flex items-baseline gap-2">
-          <p class="text-3xl font-black text-white font-mono" id="stat-promedio">0.0</p>
+          <p class="text-3xl font-extrabold text-white" id="stat-promedio">0.0</p>
           <span class="stars" id="stat-promedio-stars"></span>
         </div>
         <p class="text-[11px] text-zinc-500 mt-1" id="stat-total-reviews">0 reseñas</p>
       </div>
       <div class="glass-card rounded-2xl p-5">
         <p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Sin responder</p>
-        <p class="text-3xl font-black text-amber-400 font-mono" id="stat-sin-responder">0</p>
+        <p class="text-3xl font-extrabold text-amber-400" id="stat-sin-responder">0</p>
         <p class="text-[11px] text-zinc-500 mt-1">Esperan tu respuesta</p>
       </div>
     </div>
 
     <!-- Filtros por estrellas -->
-    <div class="mb-6 flex items-center gap-2 flex-wrap bg-zinc-900/40 p-3 rounded-2xl border border-zinc-800/80">
+    <div class="filtros mb-6 flex items-center gap-2 flex-wrap bg-zinc-900/40 p-3 rounded-2xl border border-zinc-800/80">
       <button type="button" data-estrellas="todas" data-active="true"
         class="filter-pill rounded-xl px-4 py-2 text-xs">Todas</button>
       <button type="button" data-estrellas="5" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs">★★★★★</button>
@@ -344,6 +494,10 @@
       <button type="button" data-estrellas="2" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs">★★☆☆☆</button>
       <button type="button" data-estrellas="1" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs">★☆☆☆☆</button>
     </div>
+
+    </aside>
+
+    <section class="feed">
 
     <!-- Lista de reseñas -->
     <div id="reviews-list" class="flex flex-col gap-4"></div>
@@ -356,7 +510,7 @@
     </div>
 
     <!-- Estado vacío -->
-    <div id="empty-state" class="text-center py-20 px-6 glass-card rounded-2xl hidden">
+    <div id="empty-state" class="text-center py-20 px-6 glass-card rounded-2xl hidden" style="grid-column:1/-1">
       <div
         class="mx-auto w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 text-2xl">
         ⭐
@@ -366,9 +520,11 @@
     </div>
 
     <!-- Cargar más -->
-    <div class="flex justify-center mt-6">
+    <div class="flex justify-start mt-6">
       <button id="btn-cargar-mas" class="btn-ghost hidden">Cargar más reseñas</button>
     </div>
+
+    </section>
 
   </main>
 

@@ -1773,6 +1773,9 @@ const UI = {
     const modal = document.getElementById(id);
     modal.classList.remove("hidden");
     modal.classList.add("flex");
+    document.documentElement.classList.add("modal-lock");
+    const sheet = modal.firstElementChild;
+    if (sheet) sheet.scrollTop = 0;
     // fuerza reflow para que la transición se vea (Safari/iOS)
     void modal.offsetWidth;
     requestAnimationFrame(() => {
@@ -1786,6 +1789,11 @@ const UI = {
     const finalizar = () => {
       modal.classList.add("hidden");
       modal.classList.remove("flex");
+      // solo libera el scroll si no queda otro modal abierto
+      const hayAbierto = document.querySelector(
+        "#modalMultiples.flex, #modalAgregar.flex, #modalPreviewQr.flex",
+      );
+      if (!hayAbierto) document.documentElement.classList.remove("modal-lock");
     };
 
     let yaFinalizo = false;

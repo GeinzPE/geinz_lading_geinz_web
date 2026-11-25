@@ -939,24 +939,233 @@
     }
 
     /* ===== NEGRO PURO ===== */
-:root { --bg-dark:#000; --surface-dark:#050505; }
-html, body { background:#000 !important; }
-[class*="bg-[#0d0a17]"] { background-color:#050505 !important; }
-[class*="bg-[#05040a]"] { background-color:#000 !important; }
-[class*="border-purple-900"] { border-color:rgba(255,255,255,.08) !important; }
-.panel-actions-menu { background:#050505; border-color:rgba(255,255,255,.12); }
-.carta-coleccion-card { background:#000; border-color:rgba(255,255,255,.08); }
+    :root {
+      --bg-dark: #000;
+      --surface-dark: #050505;
+    }
 
-/* ===== SKELETON OSCURO ===== */
-.sk { background:linear-gradient(90deg,#0b0b0b 25%,#171717 50%,#0b0b0b 75%);
-  background-size:200% 100%; animation:skShine 1.5s linear infinite; border-radius:10px; }
-@keyframes skShine { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-.sk-card { border-radius:16px; background:#050505; border:1px solid rgba(255,255,255,.07); overflow:hidden; }
+    html,
+    body {
+      background: #000 !important;
+    }
 
-/* ===== RENDIMIENTO ===== */
-.producto-card { content-visibility:auto; contain-intrinsic-size:auto 430px; }
-.img-real-foto { transition:opacity .35s ease; }
+    [class*="bg-[#0d0a17]"] {
+      background-color: #050505 !important;
+    }
 
+    [class*="bg-[#05040a]"] {
+      background-color: #000 !important;
+    }
+
+    [class*="border-purple-900"] {
+      border-color: rgba(255, 255, 255, .08) !important;
+    }
+
+    .panel-actions-menu {
+      background: #050505;
+      border-color: rgba(255, 255, 255, .12);
+    }
+
+    .carta-coleccion-card {
+      background: #000;
+      border-color: rgba(255, 255, 255, .08);
+    }
+
+    /* ===== SKELETON OSCURO ===== */
+    .sk {
+      background: linear-gradient(90deg, #0b0b0b 25%, #171717 50%, #0b0b0b 75%);
+      background-size: 200% 100%;
+      animation: skShine 1.5s linear infinite;
+      border-radius: 10px;
+    }
+
+    @keyframes skShine {
+      0% {
+        background-position: 200% 0
+      }
+
+      100% {
+        background-position: -200% 0
+      }
+    }
+
+    .sk-card {
+      border-radius: 16px;
+      background: #050505;
+      border: 1px solid rgba(255, 255, 255, .07);
+      overflow: hidden;
+    }
+
+    /* ===== MÓVIL ===== */
+    @media (max-width: 767px) {
+      .filtros-scroll {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+      }
+
+      .filtros-scroll::-webkit-scrollbar {
+        display: none;
+      }
+
+      .filtros-scroll .filter-btn {
+        flex: none;
+        white-space: nowrap;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .categoria-head {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+        border-bottom: 0 !important;
+      }
+
+      .categoria-head>div:first-child {
+        cursor: pointer;
+        padding: 4px 0;
+      }
+
+      .categoria-titulo::after {
+        content: "▾";
+        margin-left: 8px;
+        color: #8b5cf6;
+        font-size: 14px;
+        display: inline-block;
+        transition: transform .2s;
+      }
+
+      .categoria.cat-cerrada .categoria-titulo::after {
+        transform: rotate(-90deg);
+      }
+
+      /* botones de la categoría: una sola fila con scroll */
+      .categoria-actions {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin-top: 12px;
+        padding-bottom: 14px;
+      }
+
+      .categoria-actions::-webkit-scrollbar {
+        display: none;
+      }
+
+      .categoria-actions>button {
+        flex: none;
+        white-space: nowrap;
+      }
+
+      /* cerrada = compacta */
+      .categoria.cat-cerrada {
+        padding-top: 12px;
+        padding-bottom: 12px;
+      }
+
+      .categoria.cat-cerrada .categoria-actions,
+      .categoria.cat-cerrada .productos-grid {
+        display: none;
+      }
+
+      /* si buscas o filtras, se abren solas */
+      body.filtrando .categoria.cat-cerrada .productos-grid {
+        display: grid;
+      }
+    }
+
+    /* ===== CARTA + ADICIONALES: skeleton y scroll ===== */
+    .carta-photo-item.carga {
+      background: linear-gradient(90deg, #0b0b0b 25%, #171717 50%, #0b0b0b 75%);
+      background-size: 200% 100%;
+      animation: skShine 1.5s linear infinite;
+    }
+
+    .carta-photo-item img {
+      opacity: 0;
+      transition: opacity .35s ease;
+      object-fit: contain;
+      background: #000;
+    }
+
+    .carta-photo-item.cargada img {
+      opacity: 1;
+    }
+
+    /* PC: adicionales en cuadrícula */
+    @media (min-width: 641px) {
+      #adic-list {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 10px;
+      }
+    }
+
+    /* Móvil: todo en una fila con scroll horizontal */
+    @media (max-width: 640px) {
+      .carta-photo-grid {
+        display: flex !important;
+        overflow-x: auto;
+        gap: 8px;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .carta-photo-grid::-webkit-scrollbar {
+        display: none;
+      }
+
+      .carta-photo-item {
+        flex: none;
+        width: 120px;
+        scroll-snap-align: start;
+      }
+
+      #adic-list {
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto;
+        gap: 8px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #adic-list::-webkit-scrollbar {
+        display: none;
+      }
+
+      #adic-list>* {
+        flex: none;
+        width: 240px;
+      }
+    }
+
+    /* ===== RENDIMIENTO ===== */
+    /* ===== BUSCADOR: coincidencias pintadas ===== */
+mark.buscar-hit {
+  background: #facc15;
+  color: #000;
+  border-radius: 3px;
+  padding: 0 2px;
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, .4);
+}
+    .producto-card {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 430px;
+    }
+
+    .img-real-foto {
+      transition: opacity .35s ease;
+    }
+
+    .plan-oculto {
+      display: none !important;
+    }
   </style>
 </head>
 
@@ -1039,7 +1248,7 @@ html, body { background:#000 !important; }
 
       <!-- Indicadores Interactivos (Filtros Clickeables) -->
       <div
-        class="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-between md:justify-end text-xs font-mono select-none flex-wrap">
+        class="flex items-center gap-2 sm:gap-3 filtros-scroll w-full md:w-auto md:justify-end md:flex-wrap text-xs font-mono select-none">
         <button type="button" id="btn-filter-todos"
           class="filter-btn active-filter flex items-center gap-2 px-3 py-1.5 rounded-xl bg-violet-950/50 border border-violet-500/40 text-violet-200 hover:bg-violet-900/50">
           <span>Todos</span>
@@ -1171,15 +1380,44 @@ html, body { background:#000 !important; }
     <div id="categorias-container" class="flex flex-col gap-10">
       <div id="skeleton-inicial" class="flex flex-col gap-10">
         <div class="sk-card p-4 sm:p-6">
-          <div class="flex items-center justify-between mb-5 pb-4" style="border-bottom:1px solid rgba(255,255,255,.07)">
+          <div class="flex items-center justify-between mb-5 pb-4"
+            style="border-bottom:1px solid rgba(255,255,255,.07)">
             <div class="sk" style="height:22px;width:180px"></div>
             <div class="sk" style="height:34px;width:220px"></div>
           </div>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <div class="sk-card"><div class="sk" style="aspect-ratio:1;border-radius:0"></div><div style="padding:14px"><div class="sk" style="height:12px;width:70%"></div><div class="sk" style="height:10px;width:90%;margin-top:10px"></div><div class="sk" style="height:18px;width:40%;margin-top:16px"></div></div></div>
-            <div class="sk-card"><div class="sk" style="aspect-ratio:1;border-radius:0"></div><div style="padding:14px"><div class="sk" style="height:12px;width:60%"></div><div class="sk" style="height:10px;width:85%;margin-top:10px"></div><div class="sk" style="height:18px;width:35%;margin-top:16px"></div></div></div>
-            <div class="sk-card hidden md:block"><div class="sk" style="aspect-ratio:1;border-radius:0"></div><div style="padding:14px"><div class="sk" style="height:12px;width:65%"></div><div class="sk" style="height:10px;width:80%;margin-top:10px"></div><div class="sk" style="height:18px;width:45%;margin-top:16px"></div></div></div>
-            <div class="sk-card hidden lg:block"><div class="sk" style="aspect-ratio:1;border-radius:0"></div><div style="padding:14px"><div class="sk" style="height:12px;width:75%"></div><div class="sk" style="height:10px;width:88%;margin-top:10px"></div><div class="sk" style="height:18px;width:38%;margin-top:16px"></div></div></div>
+            <div class="sk-card">
+              <div class="sk" style="aspect-ratio:1;border-radius:0"></div>
+              <div style="padding:14px">
+                <div class="sk" style="height:12px;width:70%"></div>
+                <div class="sk" style="height:10px;width:90%;margin-top:10px"></div>
+                <div class="sk" style="height:18px;width:40%;margin-top:16px"></div>
+              </div>
+            </div>
+            <div class="sk-card">
+              <div class="sk" style="aspect-ratio:1;border-radius:0"></div>
+              <div style="padding:14px">
+                <div class="sk" style="height:12px;width:60%"></div>
+                <div class="sk" style="height:10px;width:85%;margin-top:10px"></div>
+                <div class="sk" style="height:18px;width:35%;margin-top:16px"></div>
+              </div>
+            </div>
+            <div class="sk-card hidden md:block">
+              <div class="sk" style="aspect-ratio:1;border-radius:0"></div>
+              <div style="padding:14px">
+                <div class="sk" style="height:12px;width:65%"></div>
+                <div class="sk" style="height:10px;width:80%;margin-top:10px"></div>
+                <div class="sk" style="height:18px;width:45%;margin-top:16px"></div>
+              </div>
+            </div>
+            <div class="sk-card hidden lg:block">
+              <div class="sk" style="aspect-ratio:1;border-radius:0"></div>
+              <div style="padding:14px">
+                <div class="sk" style="height:12px;width:75%"></div>
+                <div class="sk" style="height:10px;width:88%;margin-top:10px"></div>
+                <div class="sk" style="height:18px;width:38%;margin-top:16px"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2506,15 +2744,18 @@ html, body { background:#000 !important; }
   <!-- Modal: También puedes agregar (a toda la categoría) -->
   <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
     id="overlay-sug-masivo">
-    <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
+    <div
+      class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
       <h3 class="text-lg font-bold text-white mb-1">También puedes agregar</h3>
       <p class="text-purple-300/60 text-xs mb-4" id="sug-masivo-hint"></p>
 
       <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-1">Secciones sugeridas</p>
-      <p class="text-[11px] text-purple-300/50 mb-3">Al agregar un producto de esta categoría, el cliente verá productos de las secciones que marques.</p>
+      <p class="text-[11px] text-purple-300/50 mb-3">Al agregar un producto de esta categoría, el cliente verá productos
+        de las secciones que marques.</p>
       <div id="sug-masivo-chips" class="flex flex-wrap gap-2 mb-5"></div>
 
-      <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Si el producto ya tenía sugerencias</label>
+      <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Si el
+        producto ya tenía sugerencias</label>
       <select id="sug-masivo-modo"
         class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 mb-5">
         <option value="sumar">Sumar las nuevas a las que ya tiene</option>
@@ -2535,19 +2776,23 @@ html, body { background:#000 !important; }
   <!-- Modal: Formato de texto (a toda la categoría) -->
   <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
     id="overlay-caso-masivo">
-    <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
+    <div
+      class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto thin-scroll">
       <h3 class="text-lg font-bold text-white mb-1">Formato de texto</h3>
       <p class="text-purple-300/60 text-xs mb-4" id="caso-masivo-hint"></p>
 
       <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-2">Convertir a</p>
       <div class="flex flex-col gap-2 mb-5">
-        <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+        <label
+          class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
           <input type="radio" name="caso-masivo" value="mayus" checked class="accent-violet-500"> MAYÚSCULAS
         </label>
-        <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+        <label
+          class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
           <input type="radio" name="caso-masivo" value="minus" class="accent-violet-500"> minúsculas
         </label>
-        <label class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
+        <label
+          class="inline-flex items-center gap-2 rounded-xl bg-[#05040a] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 cursor-pointer">
           <input type="radio" name="caso-masivo" value="titulo" class="accent-violet-500"> Primera Letra De Cada Palabra
         </label>
       </div>
