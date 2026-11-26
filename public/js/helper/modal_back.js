@@ -4,7 +4,6 @@ let ignorar = 0;
 let cfg = null;
 
 function irInicio() {
-  // Si el panel vive dentro de un iframe, que lo resuelva la ventana padre
   if (window.parent !== window) {
     window.parent.postMessage({ type: "IR_INICIO" }, window.location.origin);
     return;
@@ -39,6 +38,20 @@ window.ModalBack = {
   irInicioAlRetroceder(url) {
     if (cfg) return;
     cfg = { url, movil: window.matchMedia("(max-width:1023px)") };
-    history.pushState({ guard: true }, ""); // entrada "guard"
+
+    // El guard se agrega en el PRIMER toque del usuario.
+    // Si se agrega al cargar, Chrome lo ignora al retroceder.
+    let puesto = false;
+    const poner = () => {
+      if (puesto) return;
+      puesto = true;
+      history.pushState({ guard: true }, "");
+      ["pointerdown", "touchstart", "keydown"].forEach((ev) =>
+        window.removeEventListener(ev, poner, true),
+      );
+    };
+    ["pointerdown", "touchstart", "keydown"].forEach((ev) =>
+      window.addEventListener(ev, poner, { capture: true, passive: true }),
+    );
   },
 };

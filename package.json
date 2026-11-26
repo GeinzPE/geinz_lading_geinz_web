@@ -2,11 +2,13 @@
   "name": "geinzhosting",
   "version": "1.0.0",
   "main": "tailwind.config.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build:perfil": "tailwindcss -c tailwind.config.perfil.js -i ./src/perfil.input.css -o ./public/tailwind-perfil.css --minify",
-    "watch:perfil": "tailwindcss -c tailwind.config.perfil.js -i ./src/perfil.input.css -o ./public/tailwind-perfil.css --watch"
-  },
+"scripts": {
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "build:perfil": "tailwindcss -c tailwind.config.perfil.js -i ./src/perfil.input.css -o ./public/tailwind-perfil.css --minify",
+  "watch:perfil": "tailwindcss -c tailwind.config.perfil.js -i ./src/perfil.input.css -o ./public/tailwind-perfil.css --watch",
+  "build:productos": "tailwindcss -c tailwind.config.productos.js -i ./src/productos.input.css -o ./public/tailwind-productos.css --minify",
+  "watch:productos": "tailwindcss -c tailwind.config.productos.js -i ./src/productos.input.css -o ./public/tailwind-productos.css --watch"
+},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GeinzPE/geinz_lading_geinz_web.git"

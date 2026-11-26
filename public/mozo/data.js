@@ -152,6 +152,24 @@ const ETQ = {
   footer_cabezero: "Cabezote y pie de página",
   tipo_tienda: "Tipo de tienda",
   negocio: "Negocio",
+  // ── nuevos ──
+  formulario: "Formulario",
+  creacion_formulario: "Crear formulario",
+  creacion_campa: "Crear campañas",
+  entrega_costos: "Entrega de costos",
+  chats: "Chats",
+  campa: "Campañas",
+  instagram: "Instagram",
+  youtuve: "YouTube",
+  ia_generativa: "IA generativa",
+  generativa_compartir: "IA para compartir",
+  generativa_titulo_descripcion: "IA para título y descripción",
+  generativa_whatsapp: "IA para WhatsApp",
+  generador_promociones: "Generador de promociones",
+  capturador_datos: "Capturador de datos",
+  super_avanzado: "Modo súper avanzado",
+  insumos: "Insumos",
+  historial_gastos: "Historial de gastos",
 };
 const etiquetaDe = (k) => (typeof k === "string" && ETQ[k]) || null;
 
@@ -569,7 +587,7 @@ async function cargar() {
       (r.faltantes?.length
         ? `<br>No existen en el doc: ${r.faltantes.join(", ")}`
         : "") +
-      `<br>Ignorados (a mano): ${r.ignorados.join(", ") || "(ninguno)"}`;
+      `<br>Ignorados (a mano): ${(r.ignorados || []).join(", ") || "(ninguno)"}`;
     $barra.style.display = "flex";
     render();
     pintarPlanes();
@@ -834,77 +852,113 @@ const MOD_MAP = {
 const VALOR_ILIMITADO = 999999;
 
 // ═════════════════════════════════════════════════════════════
-//  ESTRUCTURA BASE DEL NEGOCIO
+//  ESTRUCTURA BASE DEL NEGOCIO (actualizada al formato final)
 //  Es el esqueleto que se CREA en el negocio cuando no existe.
 //  Si algo ya existe, la base no lo pisa (solo la plantilla del plan
 //  y los límites/módulos del plan lo reemplazan).
-//  >>> AJUSTA los nombres/jerarquía aquí para que calcen con tu Firestore real. <<<
+//  Las variables nuevas arrancan en false.
 // ═════════════════════════════════════════════════════════════
 const ESQUEMA_BASE = {
   cliente_y_fidelizacion: {
+    formulario: {
+      activo: false,
+      creacion_formulario: false,
+      creacion_campa: false,
+    },
+    mis_usuarios: {
+      mis_usuarios: true,
+      entrega_costos: false,
+      chats: false,
+      campa: false,
+    },
+    publicidad_ofertas: {
+      publicidad: {
+        fanpage: true,
+        instagram: false,
+        youtuve: false,
+        review: true,
+      },
+      ia_generativa: {
+        generativa_compartir: false,
+        generativa_titulo_descripcion: false,
+        generativa_whatsapp: false,
+      },
+      ofertas: {
+        cantidad_ofertas: 5,
+        baner: true,
+        generador_promociones: false,
+      },
+      mis_publicaciones: true,
+    },
+    review: {
+      capturador_datos: false,
+      activo: true,
+    },
     cupones_puntos: {
       activo: true,
       creacion_cupones: true,
       maximo_cupones: 20,
     },
     miqr: {
+      mis_productos: true,
+      review: true,
+      mesas: { cantidad_max: 5, activo: true },
+      perfil: true,
       carta: true,
       libro_reclamaciones: true,
-      mesas: { activo: true, cantidad_max: 5 },
-      mis_productos: true,
-      perfil: true,
-      review: true,
-    },
-    mis_usuarios: true,
-    publicidad_ofertas: {
-      mis_publicaciones: true,
-      ofertas: { baner: true, cantidad_ofertas: 5 },
-      publicidad: { fanpage: true, review: true },
     },
   },
   mi_negocio: {
     comprobantes: true,
-    legal: { libro_reclamaciones: true, politicas: true, terminos: true },
+    negocio: true,
     mis_trabajadores: true,
     perfil: true,
-    negocio: true,
+    legal: { terminos: true, politicas: true, libro_reclamaciones: true },
   },
   operacion_ventas: {
-    historial_ventas: true,
-    pedidos_vivos: {
-      carrito: {
-        activo: true,
-        auto_off: true,
-        auto_reserva: true,
-        delivery_config: true,
-        estado_pedidos: true,
-        mis_delivery: { activo: true, maximo_delivery: 10 },
-        tiempos: true,
-      },
-      mesa: { activo: true, config_mesas: true, mozos: true, reservas: true },
-      nuevo_pedido: {
-        activo: true,
-        uso_camara_scaner: true,
-        uso_celular_scaner: true,
-      },
-    },
     produtos: {
+      uso_celular_scaner: true,
       adicionales: { activo: true, cantidad_adicionales: 20 },
       carta: {
-        activo: true,
-        cantidad_imagenes_colecciones: 10,
-        colecciones: 10,
         config_avanzado: {
-          variantes_maximas: 10,
           max_colecciones: 20,
           max_productos_por_colecciones: 10,
+          variantes_maximas: 10,
         },
+        super_avanzado: false,
         modo_avanzado: true,
+        cantidad_imagenes_colecciones: 10,
+        colecciones: 10,
+        activo: true,
         modo_basico: true,
       },
       uso_camara_scaner: true,
-      uso_celular_scaner: true,
     },
+    pedidos_vivos: {
+      mesa: {
+        config_mesas: true,
+        reservas: true,
+        activo: true,
+        mozos: true,
+      },
+      carrito: {
+        activo: true,
+        mis_delivery: { maximo_delivery: 10, activo: true },
+        tiempos: true,
+        auto_reserva: true,
+        auto_off: true,
+        delivery_config: true,
+        estado_pedidos: true,
+      },
+      nuevo_pedido: {
+        uso_celular_scaner: true,
+        activo: true,
+        uso_camara_scaner: true,
+      },
+    },
+    insumos: { activo: false },
+    historial_gastos: { activo: false },
+    historial_ventas: { activo: true },
   },
   panel_admin: {
     footer_cabezero: {
@@ -1198,7 +1252,7 @@ function volcar(dest, tpl, raiz, log, raices, sobrescribir = true) {
     if (esMapa(v)) {
       if (!esMapa(dest[k])) {
         if (k in dest && !sobrescribir && typeof dest[k] !== "boolean")
-          continue; // un boolean viejo sí se convierte en mapa      // existe y no es mapa: no lo piso
+          continue; // un boolean viejo sí se convierte en mapa
         dest[k] = {};
         raices.add(r);
         log.push(`${k} (creado)`);
@@ -1459,8 +1513,6 @@ function aplicarPlan(id, o) {
     }
   });
 
-
-
   raices.forEach((r) => dirty.add(r));
   render();
   pintarAsignar();
@@ -1536,8 +1588,13 @@ $pb.addEventListener("click", (e) => {
   if (a === "capturar") {
     if (!datos) return alert("Carga primero el negocio modelo");
     const base = extraer(datos);
- ["plan", "fecha_fin", "creditos_ia500", "creditos_ia", "roles_max"].forEach((x) => delete base[x]);
-if (base.panel_admin) ["creditos_ia", "creditos_ia500", "roles_max"].forEach((x) => delete base.panel_admin[x]);
+    ["plan", "fecha_fin", "creditos_ia500", "creditos_ia", "roles_max"].forEach(
+      (x) => delete base[x],
+    );
+    if (base.panel_admin)
+      ["creditos_ia", "creditos_ia500", "roles_max"].forEach(
+        (x) => delete base.panel_admin[x],
+      );
     if (
       !confirm(
         `Guardar ${contar(base)} campos (booleanos y números) del negocio cargado como plantilla de "${planes[id].nombre}"?\nReemplaza la plantilla anterior.`,

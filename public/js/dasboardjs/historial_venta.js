@@ -325,7 +325,13 @@ function listenPedidos() {
 // Esta función los deja a todos con la misma forma para que el resto del código no tenga que distinguir.
 function normalizarPedido(id, raw) {
   if (raw && raw.pedido) {
-    return { id, ...raw.pedido, comprobante: raw.comprobante, esMesa: true };
+    return {
+      id,
+      ...raw.pedido,
+      comprobante: raw.comprobante,
+      vendedor: raw.vendedor || raw.pedido.vendedor,
+      esMesa: true,
+    };
   }
   return { id, ...raw, esMesa: false };
 }
@@ -440,6 +446,24 @@ function renderCuadrePago(entregados) {
           .join("") +
         `<div class="flex justify-between px-3 pt-1 text-sm font-bold text-white"><span>Total</span><span class="font-mono">${fmtMoney(total)}</span></div>`
       : `<p class="text-sm text-inkfaint">Sin ventas en el rango</p>`);
+}
+function escHtml(s) {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+}
+function nombreVendedor(p) {
+  return p.vendedor?.nombre || "";
+}
+function vendedorHtml(p) {
+  const n = nombreVendedor(p);
+  return n
+    ? `<p class="text-[11px] text-primary mt-0.5">👤 Vendido por: ${escHtml(n)}</p>`
+    : "";
 }
 function fmtMoney(n) {
   return (
@@ -732,7 +756,13 @@ function getFilteredOrders() {
         const nombre = ((p.cliente && p.cliente.nombre) || "").toLowerCase();
         const tel = telefonoCliente(p).toLowerCase();
         const cod = codigoPedido(p).toLowerCase();
-        if (!nombre.includes(q) && !tel.includes(q) && !cod.includes(q))
+        const vend = nombreVendedor(p).toLowerCase();
+        if (
+          !nombre.includes(q) &&
+          !tel.includes(q) &&
+          !cod.includes(q) &&
+          !vend.includes(q)
+        )
           return false;
       }
       return true;
@@ -1197,7 +1227,7 @@ function renderList(list) {
          <td class="px-4 py-3 font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? `<p class="text-[10px] text-inkfaint font-normal">🧾 ${p.comprobante.numero}</p>` : ""}</td>
       <td class="px-4 py-3 text-inkdim">${fmtFechaHora(p)}</td>
       <td class="px-4 py-3">
-        <p class="font-medium text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</p>
+      <p class="font-medium text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</p>
       </td>
          <td class="px-4 py-3 text-right font-mono font-semibold text-white">
         ${fmtMoney(p.total)}
@@ -1231,9 +1261,10 @@ function renderList(list) {
           ${tieneDelivery(p) ? `<span class="block text-[10px] text-inkfaint font-normal">🛵 incl. ${fmtMoney(deliveryDePedido(p))}</span>` : ""}
         </span>      </div>
       <div class="flex items-center gap-2 flex-wrap">
-        ${origenBadge(p)}
+           ${origenBadge(p)}
         ${cuponBadge(p)}
       </div>
+      ${vendedorHtml(p)}
     </div>
   `,
     )
@@ -1280,7 +1311,8 @@ function openModal(id) {
         <div>
           <p class="font-mono text-xs text-primary font-semibold mb-0.5">${codigoPedido(p)}</p>
           <h3 class="font-display font-bold text-xl text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</h3>
-          <p class="text-xs text-inkfaint mt-1">${fmtFechaHora(p)}</p>
+   <p class="text-xs text-inkfaint mt-1">${fmtFechaHora(p)}</p>
+          ${vendedorHtml(p)}
         </div>
         <button onclick="window.closeModal()" class="w-8 h-8 rounded-full bg-panel2 hover:bg-line flex items-center justify-center text-lg text-white">✕</button>
       </div>
@@ -1439,6 +1471,7 @@ function exportarCSV() {
     "Puntos usados",
     "Venta neta (S/)",
     "Delivery (S/)",
+    "Vendido por",
   ];
   const rows = list.map((p) => {
     const productos = (p.productos || [])
@@ -1468,6 +1501,7 @@ function exportarCSV() {
       (p.cupon && p.cupon.costoPuntos) || "",
       totalSinDelivery(p).toFixed(2),
       deliveryDePedido(p).toFixed(2),
+      nombreVendedor(p),
     ];
   });
   const entregados = list.filter(
@@ -1550,6 +1584,7 @@ async function exportarExcel() {
       "Puntos usados": (p.cupon && p.cupon.costoPuntos) || "",
       "Venta neta (S/)": totalSinDelivery(p),
       "Delivery (S/)": deliveryDePedido(p),
+      "Vendido por": nombreVendedor(p),
     };
   });
 
@@ -1571,6 +1606,7 @@ async function exportarExcel() {
     { wch: 14 },
     { wch: 14 },
     { wch: 12 },
+    { wch: 18 },
   ];
 
   const wb = XLSX.utils.book_new();
@@ -1713,6 +1749,7 @@ async function exportarPDF() {
       "Total",
       "Delivery",
       "Descuento",
+      "Vendedor",
     ],
   ];
   const body = list.map((p) => {
@@ -1740,6 +1777,7 @@ async function exportarPDF() {
       fmtMoney(p.total),
       deliveryDePedido(p) ? fmtMoney(deliveryDePedido(p)) : "—",
       descuentoTxt,
+      nombreVendedor(p),
     ];
   });
 

@@ -1029,10 +1029,12 @@
                     document.body.classList.toggle("rol-activo", !!d.rol);
 
                 if (d.tipo === "NAVEGAR" && NAV[d.seccion]) NAV[d.seccion]();
+                if (d.type === "IR_INICIO") PanelPerfil.showSection("inicio");
             });
 
             // Si ya había sesión guardada al recargar
             try { if (sessionStorage.getItem("rolActivo")) document.body.classList.add("rol-activo"); } catch (e) { }
+
         })();
     </script>
 </body>

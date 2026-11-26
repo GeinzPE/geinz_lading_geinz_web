@@ -63,6 +63,26 @@ const PLAN_PED = {
 };
 const URL_NOTIFICAR_CLIENTE =
   " https://enviar-notificacion-con-solo-id-desde-la-web-oixttik5rq-uc.a.run.app";
+// Usuario logueado en inicio.js: se guarda en cada venta
+function datosVendedor() {
+  try {
+    const raw =
+      sessionStorage.getItem("rolActivo") ||
+      localStorage.getItem("rolActivo_pwa");
+    const r = raw ? JSON.parse(raw) : null;
+    if (!r?.nombre) return {};
+    return {
+      vendedor: {
+        id: r.roleId || null,
+        nombre: r.nombre,
+        usuario: r.usuario || "",
+        esAdmin: !!r.esAdmin,
+      },
+    };
+  } catch {
+    return {};
+  }
+}
 if (!tiendaId || !localidad) {
   // fallback por si el postMessage llega después
   window.addEventListener("message", (e) => {
@@ -1523,7 +1543,7 @@ function abrirModalPausa(id, p) {
       (p) => !p.esPromo && !p.agotado && !afectadosIds.has(p.id),
     );
   };
-    const precioRef = () => {
+  const precioRef = () => {
     const arr = [...seleccionados].map(
       (i) => Number(productos[i].precio_unitario) || 0,
     );
@@ -1555,7 +1575,7 @@ function abrirModalPausa(id, p) {
           (!cat || p.categoria === cat) && (!q || p.nombreNorm.includes(q)),
       )
       .slice(0, 80);
-       const ref = precioRef();
+    const ref = precioRef();
     listEl.innerHTML =
       lista
         .map((p) => {
@@ -2736,6 +2756,15 @@ function aplicarVista(origen) {
   set("statusTabs", v.tabs);
   set("mesasStripWrap", v.mesas, "flex");
   set("nuevoPedidoWrap", v.directo, "flex");
+
+  // En "Nuevo pedido" solo quedan las pestañas de origen
+  document
+    .querySelector(".head-top")
+    ?.classList.toggle("vista-oculta", v.directo); // configuración y campanita
+  document
+    .getElementById("pedidoSearchWrap")
+    ?.classList.toggle("vista-oculta", v.directo); // buscador por código
+  if (v.directo) document.getElementById("cfgPanel")?.classList.remove("show");
   document.getElementById("mesaEmptyBanner")?.classList.add("vista-oculta");
   sincronizarBotonesWa();
 }
@@ -5241,6 +5270,7 @@ async function liberarMesa(numeroMesa, btnEl) {
           {
             estado: "entregado",
             actualizado: serverTimestamp(),
+            ...datosVendedor(),
           },
           { merge: true },
         );
@@ -5314,6 +5344,7 @@ async function liberarMesa(numeroMesa, btnEl) {
               estado: "entregado",
               actualizado: serverTimestamp(),
               stock_descontado: true,
+              ...datosVendedor(),
             }),
           );
         }
@@ -5750,15 +5781,17 @@ function renderDetail(id) {
   `;
 
   bindMapaDeliveryClicks();
-    document.querySelector("[data-copiar-num]")?.addEventListener("click", async (e) => {
-    const n = "+" + e.currentTarget.dataset.copiarNum;
-    try {
-      await navigator.clipboard.writeText(n);
-      showToast("📋 Número copiado: " + n);
-    } catch {
-      showToast("No se pudo copiar", true);
-    }
-  });
+  document
+    .querySelector("[data-copiar-num]")
+    ?.addEventListener("click", async (e) => {
+      const n = "+" + e.currentTarget.dataset.copiarNum;
+      try {
+        await navigator.clipboard.writeText(n);
+        showToast("📋 Número copiado: " + n);
+      } catch {
+        showToast("No se pudo copiar", true);
+      }
+    });
   enlazarDeliveryFijar(id, p);
   document
     .querySelector("[data-abrir-ruta-negocio]")
@@ -6168,6 +6201,7 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     if (nuevoEstado !== "rechazado") payload.auto_rechazado = false;
     if (nuevoEstado !== "rechazado") payload.cancelado_por_cliente = false;
     if (opts.auto) payload.auto_rechazado = true;
+    if (nuevoEstado === "entregado") Object.assign(payload, datosVendedor());
     if (nuevoEstado === "en_proceso" && "tiempoEstimadoMin" in opts) {
       payload.tiempo_estimado_min = opts.tiempoEstimadoMin;
       payload.tiempo_estimado_desde = serverTimestamp();
@@ -7300,7 +7334,7 @@ const NuevoPedido = {
     row.innerHTML = m
       .map(
         (x, i) =>
-          `<button type="button" class="np-pago-btn${i === 0 ? " active" : ""}" data-pago="${escapeHtml(x.label)}" data-clave="${x.clave}">${x.ico} ${escapeHtml(x.label)}</button>`,
+          `<button type="button" class="np-pago-btn${i === 0 ? " active" : ""}" data-pago="${escapeHtml(x.label)}" data-clave="${x.clave}">${iconoPago(x.clave)}<span>${escapeHtml(x.label)}</span></button>`,
       )
       .join("");
     this.metodoPago = m[0].label;
@@ -8001,7 +8035,9 @@ const NuevoPedido = {
     if (this.filtroTexto)
       res = res.filter(
         (p) =>
-          p.nombreNorm.includes(this.filtroTexto) ||
+          this.filtroTexto
+            .split(/\s+/)
+            .every((w) => p.nombreNorm.includes(w)) ||
           (p.codigoBarras || "").includes(this.filtroTexto) ||
           (p.id || "").toLowerCase() === this.filtroTexto,
       );
@@ -9032,6 +9068,7 @@ const NuevoPedido = {
       const payload = {
         estado: "entregado",
         stock_descontado: true, // ya lo descontamos arriba, cambiarEstado no lo vuelve a tocar
+        ...datosVendedor(),
         fecha: now.toLocaleDateString("es-PE"),
         hora: now.toLocaleTimeString("es-PE", {
           hour: "2-digit",
@@ -11572,6 +11609,27 @@ function derivarEstadoMesa(productos, fb) {
   if (e.includes("en_preparacion")) return "en_preparacion";
   return "entregado";
 }
+
+// Revisa que estos nombres sean iguales a los de tu carpeta public/img
+function archivoPago(clave) {
+  return {
+    efectivo: "efectivo_logo.webp",
+    yape: "yape_logo.webp", // revisa este nombre
+    plin: "logo_plin.webp",
+    agora: "logo_agora.webp",
+    visa_mastercard: "visa_logo.webp",
+  }[clave];
+}
+// Precarga: los logos quedan listos antes de mostrar los botones
+["efectivo", "yape", "plin", "agora", "visa_mastercard"].forEach((c) => {
+  new Image().src = `../img/${archivoPago(c)}`;
+});
+function iconoPago(clave) {
+  const archivo = archivoPago(clave);
+  if (!archivo) return "";
+  // El círculo ya tiene su tamaño: la imagen aparece dentro, suavemente
+  return `<span class="np-pago-ico"><img src="../img/${archivo}" alt="" width="34" height="34" onload="this.classList.add('listo')" onerror="this.remove()"></span>`;
+}
 const METODOS_LABEL = {
   efectivo: ["💵", "Efectivo"],
   yape: ["📱", "Yape"],
@@ -13290,3 +13348,430 @@ dlgFix.textContent = `
 #pausaBody .np-opt-btn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 `;
 document.head.appendChild(dlgFix);
+
+/* ══════ Nuevo pedido en celular: cuadrícula compacta + barra para cobrar ══════ */
+(function () {
+  const wrap = document.getElementById("nuevoPedidoWrap");
+  const cart = wrap?.querySelector(".np-cart-panel");
+  if (!wrap || !cart) return;
+
+  const css = document.createElement("style");
+  css.textContent = `
+#npBarraMovil,#npCartFondo,#npCartCerrar{display:none;}
+@media (max-width:820px){
+  /* Catálogo: 3 columnas y un solo scroll */
+  #nuevoPedidoWrap{padding:8px 8px 76px !important;gap:0 !important;}
+  #nuevoPedidoWrap .np-panel{padding:10px !important;min-width:0 !important;}
+  #nuevoPedidoWrap .np-search-wrap{margin-bottom:8px;}
+  #nuevoPedidoWrap .np-filtros{margin-bottom:8px;}
+  #nuevoPedidoWrap .np-search-wrap{gap:6px;}
+  #nuevoPedidoWrap .np-search-box{min-width:0;}
+  #nuevoPedidoWrap .np-tool-btn{width:40px;}
+  #nuevoPedidoWrap .np-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+    gap:7px !important;padding:0 0 8px !important;
+    max-height:calc(100dvh - 270px) !important;
+  }
+  #nuevoPedidoWrap .np-card .np-name{
+    font-size:10.5px;margin-top:5px;padding:0 6px;white-space:normal;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    line-height:1.2;min-height:2.4em;
+  }
+  #nuevoPedidoWrap .np-card .np-price{font-size:11.5px;padding:0 6px 6px;}
+
+  /* Barra fija inferior */
+  #npBarraMovil{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    position:fixed;left:8px;right:84px;bottom:10px;height:56px;z-index:50;
+    padding:0 16px;border:none;border-radius:16px;
+    background:#22c55e;color:#04240f;font-size:14px;font-weight:800;
+    box-shadow:0 10px 28px rgba(0,0,0,.55);cursor:pointer;
+  }
+  #npBarraMovil:disabled{background:#1b1b28;color:#93939f;}
+
+  /* El pedido actual se abre como panel desde abajo */
+  #npCartFondo{position:fixed;inset:0;z-index:54;background:rgba(0,0,0,.65);}
+  #nuevoPedidoWrap.carrito-abierto #npCartFondo{display:block;}
+  #nuevoPedidoWrap .np-cart-panel{
+    position:fixed;left:0;right:0;bottom:0;z-index:55;
+    width:100%;min-width:0;height:auto !important;max-height:88dvh !important;
+    overflow-y:auto;border-radius:20px 20px 0 0;padding:14px 14px 16px;
+    transform:translateY(105%);visibility:hidden;
+    transition:transform .25s ease,visibility 0s linear .25s;
+  }
+  #nuevoPedidoWrap.carrito-abierto .np-cart-panel{
+    transform:none;visibility:visible;transition:transform .25s ease;
+  }
+  #nuevoPedidoWrap .np-cart-panel > *{flex-shrink:0;}
+  #nuevoPedidoWrap .np-cart-items{flex:0 0 auto;max-height:32dvh;overflow-y:auto;}
+  #nuevoPedidoWrap .npc-ico{width:34px;height:34px;font-size:15px;}
+  #npCartCerrar{
+    display:block;position:absolute;top:8px;right:10px;width:34px;height:34px;
+    border:none;border-radius:50%;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;
+  }
+  /* Deja libre la esquina del botón flotante del menú */
+  #nuevoPedidoWrap #npConfirmarBtn{width:calc(100% - 76px);min-height:54px;font-size:15px;}
+}
+`;
+  document.head.appendChild(css);
+
+  const barra = document.createElement("button");
+  barra.type = "button";
+  barra.id = "npBarraMovil";
+  const fondo = document.createElement("div");
+  fondo.id = "npCartFondo";
+  wrap.append(barra, fondo);
+
+  const cerrar = document.createElement("button");
+  cerrar.type = "button";
+  cerrar.id = "npCartCerrar";
+  cerrar.textContent = "✕";
+  cart.appendChild(cerrar);
+
+  const abrir = (v) => wrap.classList.toggle("carrito-abierto", v);
+  barra.addEventListener("click", () => abrir(true));
+  fondo.addEventListener("click", () => abrir(false));
+  cerrar.addEventListener("click", () => abrir(false));
+
+  function pintarBarra() {
+    const n = [...NuevoPedido.carrito.values()].reduce(
+      (s, i) => s + i.cantidad,
+      0,
+    );
+    const total = document.getElementById("npCartTotal").textContent;
+    barra.disabled = !n;
+    barra.innerHTML = n
+      ? `<span>🧾 Cobrar (${n})</span><span>${total} ›</span>`
+      : `<span>Toca un producto para empezar</span>`;
+    if (!n) abrir(false); // venta registrada o carrito vacío
+  }
+  const obs = new MutationObserver(pintarBarra);
+  ["npCartItems", "npCartTotal"].forEach((id) =>
+    obs.observe(document.getElementById(id), {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    }),
+  );
+  pintarBarra();
+})();
+
+/* ══════ Nuevo pedido en celular: animaciones suaves y acabado elegante ══════ */
+(function () {
+  const wrap = document.getElementById("nuevoPedidoWrap");
+  const cart = wrap?.querySelector(".np-cart-panel");
+  const barra = document.getElementById("npBarraMovil");
+  if (!wrap || !cart || !barra) return;
+
+  const css = document.createElement("style");
+  css.textContent = `
+@media (max-width:820px){
+  /* Fondo: se oscurece y desenfoca poco a poco */
+  #nuevoPedidoWrap #npCartFondo{
+    display:block;opacity:0;visibility:hidden;
+    background:rgba(4,4,10,.62);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    transition:opacity .35s ease,visibility 0s linear .35s;
+  }
+  #nuevoPedidoWrap.carrito-abierto #npCartFondo{
+    opacity:1;visibility:visible;transition:opacity .35s ease;
+  }
+
+  /* Panel: sube deslizándose */
+  #nuevoPedidoWrap .np-cart-panel{
+    padding-top:28px;border-radius:28px 28px 0 0;
+    background:linear-gradient(180deg,#181824,#0f0f16 55%);
+    border:1px solid rgba(255,255,255,.09);border-bottom:none;
+    box-shadow:0 -18px 50px rgba(0,0,0,.55);
+    overscroll-behavior:contain;will-change:transform;
+    transition:transform .34s cubic-bezier(.4,0,.2,1),visibility 0s linear .34s;
+  }
+  #nuevoPedidoWrap.carrito-abierto .np-cart-panel{
+    transition:transform .5s cubic-bezier(.22,1,.36,1);
+  }
+  #nuevoPedidoWrap .np-cart-panel::before{
+    content:"";position:absolute;top:10px;left:50%;margin-left:-22px;
+    width:44px;height:5px;border-radius:99px;background:rgba(255,255,255,.2);
+  }
+  #nuevoPedidoWrap.carrito-abierto .np-cart-panel > :not(#npCartCerrar){
+    animation:npSube .42s cubic-bezier(.22,1,.36,1) both;
+  }
+  #nuevoPedidoWrap.carrito-abierto .np-cart-panel > :nth-child(2){animation-delay:.04s;}
+  #nuevoPedidoWrap.carrito-abierto .np-cart-panel > :nth-child(3){animation-delay:.08s;}
+  #nuevoPedidoWrap.carrito-abierto .np-cart-panel > :nth-child(n+4){animation-delay:.12s;}
+
+  /* Campos y botones */
+  #nuevoPedidoWrap .np-cliente-input{height:46px;border-radius:14px;font-size:16px;}
+  #nuevoPedidoWrap .np-pago-btn{min-height:46px;border-radius:14px;transition:all .22s ease;}
+  #nuevoPedidoWrap .np-cart-row{
+    padding:10px;border-radius:16px;
+    background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);
+    animation:npSube .3s ease both;
+  }
+  #nuevoPedidoWrap .npc-ico{border-radius:11px;transition:transform .15s ease;}
+  #nuevoPedidoWrap #npConfirmarBtn{
+    border-radius:18px;background:linear-gradient(135deg,#2ee06f,#16a34a);
+    box-shadow:0 10px 24px rgba(34,197,94,.25);transition:transform .15s ease,opacity .2s;
+  }
+
+  /* Barra de cobro */
+  #npBarraMovil{
+    border-radius:20px;background:linear-gradient(135deg,#2ee06f,#16a34a);
+    box-shadow:0 12px 30px rgba(34,197,94,.28),0 6px 16px rgba(0,0,0,.5);
+    transition:transform .18s ease,opacity .35s ease;
+    animation:npSube .45s cubic-bezier(.22,1,.36,1) both;
+  }
+  #npBarraMovil:disabled{
+    background:rgba(27,27,40,.9);box-shadow:0 6px 18px rgba(0,0,0,.45);
+    border:1px solid rgba(255,255,255,.08);font-size:12.5px;
+  }
+  #nuevoPedidoWrap.carrito-abierto #npBarraMovil{opacity:0;transform:translateY(14px);}
+
+  /* Respuesta al tocar */
+  #nuevoPedidoWrap .np-card{border-radius:16px;transition:transform .18s ease,border-color .25s,box-shadow .25s;}
+  #nuevoPedidoWrap .np-card:active{transform:scale(.94);}
+  #npBarraMovil:active:not(:disabled),
+  #nuevoPedidoWrap #npConfirmarBtn:active:not(:disabled),
+  #nuevoPedidoWrap .np-pago-btn:active,
+  #nuevoPedidoWrap .npc-ico:active{transform:scale(.95);}
+}
+@keyframes npSube{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){
+  #nuevoPedidoWrap *{animation:none !important;transition:none !important;}
+}
+`;
+  document.head.appendChild(css);
+
+  /* Pequeño "latido" en la barra cada vez que cambia el pedido */
+  new MutationObserver(() => {
+    if (
+      barra.disabled ||
+      matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    barra.animate(
+      [
+        { transform: "scale(1)" },
+        { transform: "scale(1.04)" },
+        { transform: "scale(1)" },
+      ],
+      { duration: 320, easing: "ease-out" },
+    );
+  }).observe(barra, { childList: true });
+
+  /* Cerrar deslizando hacia abajo */
+  let inicio = null,
+    dy = 0;
+  cart.addEventListener(
+    "touchstart",
+    (e) => {
+      const desdeArriba =
+        e.touches[0].clientY - cart.getBoundingClientRect().top < 70;
+      inicio =
+        desdeArriba &&
+        cart.scrollTop <= 0 &&
+        matchMedia("(max-width:820px)").matches
+          ? e.touches[0].clientY
+          : null;
+      dy = 0;
+    },
+    { passive: true },
+  );
+  cart.addEventListener(
+    "touchmove",
+    (e) => {
+      if (inicio === null) return;
+      dy = Math.max(0, e.touches[0].clientY - inicio);
+      if (dy > 0) e.preventDefault();
+      cart.style.transition = "none";
+      cart.style.transform = `translateY(${dy}px)`;
+    },
+    { passive: false },
+  );
+  const soltar = () => {
+    if (inicio === null) return;
+    inicio = null;
+    cart.style.transition = "";
+    cart.style.transform = "";
+    if (dy > 90) wrap.classList.remove("carrito-abierto");
+  };
+  cart.addEventListener("touchend", soltar);
+  cart.addEventListener("touchcancel", soltar);
+})();
+/* ══════ Nuevo pedido: panel completo, detalle suave, ícono y más espacio ══════ */
+(function () {
+  const css = document.createElement("style");
+  css.textContent = `
+/* ── Productos más separados ── */
+#nuevoPedidoWrap .np-grid{gap:16px;}
+
+/* ── Líneas del pedido: separadas y fáciles de leer ── */
+#nuevoPedidoWrap .np-cart-items{gap:12px;}
+#nuevoPedidoWrap .np-cart-row{
+  flex-shrink:0;gap:10px;padding:12px;border-radius:16px;
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);
+}
+#nuevoPedidoWrap .npc-name .n{font-size:13px;line-height:1.3;}
+#nuevoPedidoWrap .npc-name .p{display:block;margin-top:3px;line-height:1.35;}
+#nuevoPedidoWrap .npc-name .npc-opciones:not([style*="none"]){
+  display:block;width:fit-content;margin-top:6px;padding:5px 9px;border-radius:9px;
+  background:rgba(124,92,255,.14);border:1px solid rgba(124,92,255,.3);
+  color:#d6ccff;font-weight:600;
+}
+#nuevoPedidoWrap .npc-right{gap:8px;}
+#nuevoPedidoWrap .npc-icons{gap:6px;}
+
+/* ── Botón actualizar ── */
+#npRefreshBtn{display:flex;align-items:center;justify-content:center;color:#a78bfa;}
+#npRefreshBtn svg{width:20px;height:20px;}
+#npRefreshBtn.spinning{animation:none;}
+#npRefreshBtn.spinning svg{animation:np-spin .8s linear infinite;}
+
+/* ── Detalle del producto y opciones: apertura suave ── */
+#npDetOverlay,#npOptOverlay{
+  display:flex;opacity:0;visibility:hidden;
+  backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0);
+  transition:opacity .3s ease,backdrop-filter .3s ease,visibility 0s linear .3s;
+}
+#npDetOverlay.show,#npOptOverlay.show{
+  opacity:1;visibility:visible;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  transition:opacity .3s ease,backdrop-filter .3s ease;
+}
+#npDetOverlay .np-opt-modal,#npOptOverlay .np-opt-modal{
+  border-radius:24px;box-shadow:0 30px 80px rgba(0,0,0,.6);
+  transform:translateY(36px) scale(.94);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+#npDetOverlay.show .np-opt-modal,#npOptOverlay.show .np-opt-modal{
+  transform:none;transition:transform .5s cubic-bezier(.22,1,.36,1);
+}
+
+/* ── Celular: el pedido ocupa toda la pantalla ── */
+@media (max-width:820px){
+  #nuevoPedidoWrap .np-grid{gap:11px !important;}
+  #nuevoPedidoWrap .np-cart-panel{
+    top:0;height:100dvh !important;max-height:100dvh !important;
+    display:flex;flex-direction:column;
+    border-radius:0;border:none;overflow-y:auto;
+  }
+  #nuevoPedidoWrap .np-cart-items{
+    flex:1 1 0;min-height:200px;max-height:none;
+    overflow-y:auto;overscroll-behavior:contain;padding:2px 0 8px;
+  }
+  #nuevoPedidoWrap #npAdicionales{max-height:20dvh;overflow-y:auto;}
+  #nuevoPedidoWrap .np-cart-head{font-size:17px;margin-bottom:14px;}
+  #npCartCerrar{top:14px;right:14px;}
+}
+@media (prefers-reduced-motion:reduce){
+  #npDetOverlay,#npOptOverlay,#npDetOverlay *,#npOptOverlay *{transition:none !important;}
+}
+`;
+  document.head.appendChild(css);
+
+  const refrescar = document.getElementById("npRefreshBtn");
+  if (refrescar) {
+    refrescar.setAttribute("aria-label", "Actualizar productos");
+    refrescar.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/><path d="M3 12A9 9 0 0 1 18.5 5.8L21 8"/><path d="M21 3v5h-5"/></svg>`;
+  }
+})();
+
+/* ══════ Buscador de productos: resalta las coincidencias (como Ctrl+F) ══════ */
+(function () {
+  const input = document.getElementById("npSearchInput");
+  const grid = document.getElementById("npGrid");
+  if (!input || !grid || !window.Highlight || !CSS.highlights) return;
+
+  const css = document.createElement("style");
+  css.textContent = `::highlight(np-busqueda){background-color:#fde047;color:#111;}`;
+  document.head.appendChild(css);
+
+  const limpio = (s) =>
+    s
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  function resaltar() {
+    const palabras = limpio(input.value).split(/\s+/).filter(Boolean);
+    const marcas = new Highlight();
+    if (palabras.length) {
+      grid.querySelectorAll(".np-name").forEach((el) => {
+        const nodos = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let nodo;
+        while ((nodo = nodos.nextNode())) {
+          // texto sin tildes + posición de cada letra en el texto original
+          let texto = "";
+          const pos = [];
+          for (let i = 0; i < nodo.data.length; i++)
+            for (const c of limpio(nodo.data[i])) {
+              texto += c;
+              pos.push(i);
+            }
+          palabras.forEach((w) => {
+            for (
+              let i = texto.indexOf(w);
+              i >= 0;
+              i = texto.indexOf(w, i + w.length)
+            ) {
+              const r = new Range();
+              r.setStart(nodo, pos[i]);
+              r.setEnd(nodo, pos[i + w.length - 1] + 1);
+              marcas.add(r);
+            }
+          });
+        }
+      });
+    }
+    CSS.highlights.set("np-busqueda", marcas);
+  }
+
+  const programar = () => requestAnimationFrame(resaltar);
+  input.addEventListener("input", programar);
+  // también cuando la cuadrícula se repinta, se filtra o se limpia la búsqueda
+  new MutationObserver(programar).observe(grid, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["style"],
+  });
+})();
+
+
+/* ══════ Celular: Nuevo pedido entra completo en la pantalla ══════ */
+(function () {
+  const abierto = ":has(#nuevoPedidoWrap:not(.vista-oculta))";
+  const css = document.createElement("style");
+  css.textContent = `
+@media (max-width:820px){
+  html${abierto},html${abierto} body{height:100%;overflow:hidden;}
+  body .app-shell${abierto}{height:100vh;height:100dvh;overflow:hidden;}
+  .app-shell${abierto} > header{flex:0 0 auto;}
+  #nuevoPedidoWrap{flex:1 1 0 !important;min-height:0 !important;height:auto !important;overflow:hidden !important;}
+  #nuevoPedidoWrap .np-panel{flex:1 1 0 !important;min-height:0 !important;overflow:hidden;}
+  #nuevoPedidoWrap .np-grid{flex:1 1 0;min-height:0;max-height:none !important;overscroll-behavior:contain;}
+}
+`;
+  document.head.appendChild(css);
+
+  /* El marco que contiene esta página no debe ser más alto que lo visible */
+  const marco = window.frameElement;
+  if (!marco) return;
+  const padre = window.parent;
+  function ajustar() {
+    if (padre.innerWidth > 820) return marco.style.removeProperty("height");
+    const vista = padre.visualViewport;
+    const visible = vista ? vista.height * vista.scale : padre.innerHeight;
+    const arriba = Math.max(0, marco.getBoundingClientRect().top + padre.scrollY);
+    const alto = Math.floor(visible - arriba);
+    if (alto > 300) marco.style.setProperty("height", `${alto}px`, "important");
+  }
+  const eventos = [padre, padre.visualViewport].filter(Boolean);
+  eventos.forEach((o) => o.addEventListener("resize", ajustar));
+  window.addEventListener("pagehide", () => {
+    eventos.forEach((o) => o.removeEventListener("resize", ajustar));
+    marco.style.removeProperty("height");
+  });
+  ajustar();
+  setTimeout(ajustar, 600);
+})();
