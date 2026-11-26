@@ -1000,21 +1000,24 @@ window.PanelPerfil = {
   //  TIEMPO REAL
   // ═══════════════════════════════════════════
   _initRealtime() {
-    onSnapshot(tiendaServiciosDoc(this.LOCALIDAD_TIENDA, this.TIENDA_ID), (snap) => {
-      const d = snap.exists() ? snap.data() : {};
-      const esFisica =
-        String(d.panel_admin?.tipo_tienda ?? d.tipo_tienda ?? "")
-          .toLowerCase()
-          .trim() === "fisica";
-      this.aplicarVisibilidadUbicacion(esFisica);
-    });
+    onSnapshot(
+      tiendaServiciosDoc(this.LOCALIDAD_TIENDA, this.TIENDA_ID),
+      (snap) => {
+        const d = snap.exists() ? snap.data() : {};
+        const esFisica =
+          String(d.panel_admin?.tipo_tienda ?? d.tipo_tienda ?? "")
+            .toLowerCase()
+            .trim() === "fisica";
+        this.aplicarVisibilidadUbicacion(esFisica);
+      },
+    );
 
     document.querySelector(".app")?.classList.add("loading-data");
 
     onSnapshot(
       this.TIENDA_REF,
       (snap) => {
-             if (!snap.exists()) {
+        if (!snap.exists()) {
           this.showToast("⚠️ Documento no encontrado");
           this._quitarSkeleton({});
           return;
@@ -1041,12 +1044,12 @@ window.PanelPerfil = {
         this.populateUI(next);
         this.loadCategorias();
 
-          document.querySelector(".app")?.classList.remove("loading-data");
+        document.querySelector(".app")?.classList.remove("loading-data");
         this._quitarSkeleton(next);
 
         enviarDatosAFrames();
       },
-         (err) => {
+      (err) => {
         console.error("❌ Error Firestore:", err);
         this.showToast("Error al conectar con Firestore");
         document.querySelector(".app")?.classList.remove("loading-data");
@@ -1055,7 +1058,7 @@ window.PanelPerfil = {
     );
   },
 
-    // Quita el skeleton cuando YA llegaron los datos y el logo (o falló / no hay logo)
+  // Quita el skeleton cuando YA llegaron los datos y el logo (o falló / no hay logo)
   _quitarSkeleton(data) {
     const sk = document.getElementById("skeletonOverlay");
     if (!sk || sk._quitando) return;
@@ -1239,7 +1242,12 @@ window.PanelPerfil = {
     });
 
     const imgs = data.img_tienda?.lista_img;
-    this.populatePhotoGrid("ambienteGrid", imgs?.ambientales || [], 6, "ambientales");
+    this.populatePhotoGrid(
+      "ambienteGrid",
+      imgs?.ambientales || [],
+      6,
+      "ambientales",
+    );
     this.populatePhotoGrid(
       "productosGrid",
       imgs?.servicios_productos || [],
@@ -1883,7 +1891,12 @@ window.PanelPerfil = {
     });
   },
 
-  async _onMapPointChanged(lat, lng, fromDrag = false, direccionConocida = null) {
+  async _onMapPointChanged(
+    lat,
+    lng,
+    fromDrag = false,
+    direccionConocida = null,
+  ) {
     const elPendiente = document.getElementById("markerPendienteEl");
     if (elPendiente) elPendiente.style.display = "flex";
 
@@ -2462,7 +2475,9 @@ function getFirebasePlanes() {
 // Una sola lectura del doc de precios para planes + publicidad
 async function initPreciosApp() {
   try {
-    const snap = await getDoc(doc(getFirebasePlanes(), "precio_apartado", "app"));
+    const snap = await getDoc(
+      doc(getFirebasePlanes(), "precio_apartado", "app"),
+    );
     if (!snap.exists()) {
       console.warn("⚠️ [precios] Documento no encontrado");
       return;
@@ -2534,7 +2549,7 @@ function initRealtimeAccount() {
     (snap) => {
       serviciosData = snap.exists() ? snap.data() : {};
       serviciosListo = true;
-         window.setServiciosParaPublicidad(serviciosData); 
+      window.setServiciosParaPublicidad(serviciosData);
       emitir();
     },
     (err) => {
@@ -2593,8 +2608,7 @@ function formatDate(dateInput) {
 function getEndDateFromAccount(data) {
   if (data.panel_admin && data.panel_admin.timestamp_fin) {
     const ts = data.panel_admin.timestamp_fin;
-    const date =
-      typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
+    const date = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
     if (!isNaN(date.getTime())) return date;
   }
   if (data.panel_admin && data.panel_admin.fecha_fin) {
@@ -2707,7 +2721,9 @@ function desbloquearExpandibles() {
     el.style.userSelect = "";
     el.style.position = "";
     delete el.dataset.bloqueado;
-    el.querySelectorAll(".bloqueo-section-overlay").forEach((ov) => ov.remove());
+    el.querySelectorAll(".bloqueo-section-overlay").forEach((ov) =>
+      ov.remove(),
+    );
   });
 }
 
@@ -2740,7 +2756,7 @@ const _renovacion = {
     const modal = document.getElementById("modal-renovacion");
     if (!modal) return;
     modal.classList.add("open");
-
+    ModalBack.abrir("renovacion", () => window.cerrarModal());
     this._planSeleccionado = null;
     const resumenPago = document.getElementById("resumen-pago");
     const btnContinuar = document.getElementById("btn-continuar");
@@ -2814,7 +2830,8 @@ const _renovacion = {
       elSaldoRestante.textContent = sinSaldo
         ? " —"
         : ` ${restante.toLocaleString("es-PE")}`;
-    if (elTotal) elTotal.textContent = ` ${precioFinal.toLocaleString("es-PE")}`;
+    if (elTotal)
+      elTotal.textContent = ` ${precioFinal.toLocaleString("es-PE")}`;
 
     if (detalle) {
       detalle.innerHTML = desc
@@ -2855,7 +2872,8 @@ const _renovacion = {
 window.abrirModalRenovacion = () => _renovacion.abrirModal();
 
 window.cerrarModal = () => {
-  document.getElementById("modal-renovacion")?.classList.remove("open");
+  ModalBack.cerrado("renovacion");
+window.cerrarModal();
   _renovacion._planSeleccionado = null;
   const resumenPago = document.getElementById("resumen-pago");
   const btnContinuar = document.getElementById("btn-continuar");
@@ -2930,7 +2948,9 @@ window.procesarPago = async () => {
     mostrarSnackbar("Plan renovado correctamente 🎉", "success");
   } catch (err) {
     console.error("❌ Error procesarPago:", err);
-    alert("❌ Error al procesar el pago: " + (err.message || "intenta de nuevo"));
+    alert(
+      "❌ Error al procesar el pago: " + (err.message || "intenta de nuevo"),
+    );
   } finally {
     if (btnContinuar) {
       btnContinuar.disabled = false;
@@ -2945,7 +2965,8 @@ function mostrarSnackbar(msg, tipo = "success") {
   const text = document.getElementById("toast-renovacion-msg");
   if (!toast) return;
 
-  icon.textContent = tipo === "success" ? "✅" : tipo === "warning" ? "⚠️" : "❌";
+  icon.textContent =
+    tipo === "success" ? "✅" : tipo === "warning" ? "⚠️" : "❌";
   text.textContent = msg;
   toast.style.background =
     tipo === "success" ? "#0f9b6e" : tipo === "warning" ? "#e07b00" : "#d63031";
@@ -3665,15 +3686,15 @@ function enviarDatosAFrames() {
   const payload = window.APP_STATE?.tienda;
   if (!payload) return;
 
-const message = {
-  type: "DATOS_TIENDA",
-  tipo: "DATOS_TIENDA",
-  tiendaId,
-  localidad,
-  categoriaTienda: payload.categoria_tienda,
-  payload,
-  id: tiendaId,
-};
+  const message = {
+    type: "DATOS_TIENDA",
+    tipo: "DATOS_TIENDA",
+    tiendaId,
+    localidad,
+    categoriaTienda: payload.categoria_tienda,
+    payload,
+    id: tiendaId,
+  };
   window._datosParaIframe = message;
 
   document.querySelectorAll("iframe").forEach((frame) => {
@@ -3790,10 +3811,10 @@ function broadcastPlanes(planesActivacion, planesBotPromo, publicidad) {
 
 // ── Cuando un iframe termina de cargar, se le manda todo lo cacheado ──
 function _hookIframe(iframe) {
-iframe.addEventListener("load", () => {
-  sendCacheToIframe(iframe);
-  enviarServiciosAPublicidad();
-});
+  iframe.addEventListener("load", () => {
+    sendCacheToIframe(iframe);
+    enviarServiciosAPublicidad();
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

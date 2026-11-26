@@ -336,8 +336,14 @@ function setMsg(boxId, text, type) {
   box.textContent = text;
   box.className = text ? `msg ${type}` : "msg";
 }
+const ES_PWA =
+  sessionStorage.getItem("esPWA") === "1" ||
+  matchMedia("(display-mode: standalone)").matches ||
+  navigator.standalone === true;
 function saveSession(rolData) {
-  sessionStorage.setItem("rolActivo", JSON.stringify(rolData));
+  const s = JSON.stringify(rolData);
+  sessionStorage.setItem("rolActivo", s);
+  if (ES_PWA) localStorage.setItem("rolActivo_pwa", s);
 }
 function getSession() {
   const raw = sessionStorage.getItem("rolActivo");
@@ -407,6 +413,7 @@ async function boot() {
 
 function cerrarRol() {
   sessionStorage.removeItem("rolActivo");
+  localStorage.removeItem("rolActivo_pwa");
   broadcastRolActivo(null);
   [unsubNegocio, unsubPedidos, unsubServicios, unsubMiRol, unsubRoles].forEach(
     (u) => u && u(),
@@ -1195,5 +1202,27 @@ function openAjustes() {
   renderAjustes();
 }
 
+let pwa = { instalable: false, ios: false, instalada: false };
+function pintarInstall() {
+  const b = document.getElementById("installBtn");
+  if (!b) return;
+  b.classList.toggle("hidden", !!pwa.instalada);
+}
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin || e.data?.tipo !== "PWA_ESTADO") return;
+  pwa = e.data;
+  pintarInstall();
+});
+window.parent.postMessage({ tipo: "PEDIR_PWA_ESTADO" }, window.location.origin);
+
+on("installBtn", () => {
+  if (pwa.instalable) {
+    window.parent.postMessage({ tipo: "INSTALAR_APP" }, window.location.origin);
+  } else if (pwa.ios) {
+    showToast("Toca Compartir ⬆️ y luego «Añadir a pantalla de inicio».");
+  } else {
+    showToast("Este navegador aún no permite instalar. Abre el menú ⋮ → Instalar app.");
+  }
+});
 // ── Init ──
 boot();

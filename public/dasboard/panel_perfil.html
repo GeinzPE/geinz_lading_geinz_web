@@ -113,60 +113,83 @@
             }
         }
 
- /* ── Menú móvil: alto real y scroll completo ── */
-.mobile-menu {
-    left: 0;
-    height: 100vh;
-    height: 100dvh;
-    transform: translateX(-105%);
-    transition: transform .28s cubic-bezier(.22, 1, .36, 1);
-    will-change: transform;
-}
-.mobile-menu.open { transform: translateX(0); left: 0; }
-.mobile-menu > * { flex-shrink: 0; }
-.mobile-menu-items {
-    padding-bottom: calc(90px + env(safe-area-inset-bottom));
-}
-.mobile-menu-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; }
+        /* ── Menú móvil: alto real y scroll completo ── */
+        .mobile-menu {
+            left: 0;
+            height: 100vh;
+            height: 100dvh;
+            transform: translateX(-105%);
+            transition: transform .28s cubic-bezier(.22, 1, .36, 1);
+            will-change: transform;
+        }
 
-/* ── Grupos: animación suave sin límite de alto ── */
-.mobile-menu-group-body,
-.sidebar-group-body {
-    display: grid;
-    grid-template-rows: 0fr;
-    max-height: none;
-    transition: grid-template-rows .3s cubic-bezier(.22, 1, .36, 1);
-}
-.mobile-menu-group-body.open,
-.sidebar-group-body.open {
-    grid-template-rows: 1fr;
-    max-height: none;
-}
-.mobile-menu-group-body > .sgb-inner,
-.sidebar-group-body > .sgb-inner {
-    min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.mobile-menu-group-body > .sgb-inner { gap: 6px; }
-.sidebar.collapsed .sidebar-group-body { display: none; }
+        .mobile-menu.open {
+            transform: translateX(0);
+            left: 0;
+        }
 
-/* ── Sin sesión: no mostrar ningún grupo del menú ── */
-body:not(.rol-activo) .sidebar-group,
-body:not(.rol-activo) .mobile-menu-group,
-body:not(.rol-activo) .sidebar-vincular-wrap {
-    display: none !important;
-}
+        .mobile-menu>* {
+            flex-shrink: 0;
+        }
 
-/* ── El skeleton NO se va hasta que inicio.html esté listo ── */
-body:not(.inicio-listo) .skeleton-overlay {
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-}
-body:not(.inicio-listo) .app { visibility: hidden; }
+        .mobile-menu-items {
+            padding-bottom: calc(90px + env(safe-area-inset-bottom));
+        }
+
+        .mobile-menu-overlay {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        /* ── Grupos: animación suave sin límite de alto ── */
+        .mobile-menu-group-body,
+        .sidebar-group-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            max-height: none;
+            transition: grid-template-rows .3s cubic-bezier(.22, 1, .36, 1);
+        }
+
+        .mobile-menu-group-body.open,
+        .sidebar-group-body.open {
+            grid-template-rows: 1fr;
+            max-height: none;
+        }
+
+        .mobile-menu-group-body>.sgb-inner,
+        .sidebar-group-body>.sgb-inner {
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .mobile-menu-group-body>.sgb-inner {
+            gap: 6px;
+        }
+
+        .sidebar.collapsed .sidebar-group-body {
+            display: none;
+        }
+
+        /* ── Sin sesión: no mostrar ningún grupo del menú ── */
+        body:not(.rol-activo) .sidebar-group,
+        body:not(.rol-activo) .mobile-menu-group,
+        body:not(.rol-activo) .sidebar-vincular-wrap {
+            display: none !important;
+        }
+
+        /* ── El skeleton NO se va hasta que inicio.html esté listo ── */
+        body:not(.inicio-listo) .skeleton-overlay {
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+        }
+
+        body:not(.inicio-listo) .app {
+            visibility: hidden;
+        }
     </style>
 
     <!-- ── Carga perezosa de iframes: intención + calentamiento + revelado sin blanco ── -->
@@ -357,13 +380,42 @@ body:not(.inicio-listo) .app { visibility: hidden; }
                 });
             });
         })();
+        window.addEventListener("beforeinstallprompt", function (e) {
+            e.preventDefault();
+            window.__pwaPrompt = e;
+        });
     </script>
 
     <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
-    <link rel="manifest" href="../img/icons/site.webmanifest">
+    <link rel="manifest" id="pwaManifest">
+    <link rel="apple-touch-icon" id="pwaApple">
+    <script>
+        (function () {
+            if (PWA) sessionStorage.setItem("esPWA", "1");
+            var PWA = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+            var q = new URLSearchParams(location.search);
+            var t = q.get("t"), l = q.get("l");
+            if (PWA) {
+                t = t || localStorage.getItem("pwa_tiendaId");
+                l = l || localStorage.getItem("pwa_localidad");
+                if (t && l) {
+                    localStorage.setItem("pwa_tiendaId", t);
+                    localStorage.setItem("pwa_localidad", l);
+                }
+                var r = localStorage.getItem("rolActivo_pwa");
+                if (r && !sessionStorage.getItem("rolActivo")) sessionStorage.setItem("rolActivo", r);
+            }
+            if (t && l) {
+                sessionStorage.setItem("tiendaId", t);
+                sessionStorage.setItem("localidad", l);
+            }
+        })();
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js"); });
+        }
+    </script>
 
     <script src="../js/storage/storage.js"></script>
     <script type="module" src="../js/dasboardjs/panel_pervil_v2_data.js"></script>
@@ -584,8 +636,7 @@ body:not(.inicio-listo) .app { visibility: hidden; }
                 </div>
 
                 <div class="section" id="sec-publicidad">
-                    <iframe class="pf" id="iframePublicidad" data-src="publicaicones"
-                        style="background:#fff;"></iframe>
+                    <iframe class="pf" id="iframePublicidad" data-src="publicaicones" style="background:#fff;"></iframe>
                 </div>
 
                 <div class="section" id="sec-cotiza">
@@ -932,58 +983,58 @@ body:not(.inicio-listo) .app { visibility: hidden; }
 
         </div>
     </div>
-<script>
-(function () {
-    "use strict";
-    var overlay = document.getElementById("skeletonOverlay");
+    <script>
+        (function () {
+            "use strict";
+            var overlay = document.getElementById("skeletonOverlay");
 
-     function inicioListo() {
-        if (document.body.classList.contains("inicio-listo")) return;
-        document.body.classList.add("inicio-listo");
-        if (overlay) {
-            overlay.classList.add("hidden");
-            setTimeout(function () { overlay.remove(); }, 450);
-        }
-    }
-    // Seguro: si algo falla, a los 8 s se revela igual
-    setTimeout(inicioListo, 8000);
+            function inicioListo() {
+                if (document.body.classList.contains("inicio-listo")) return;
+                document.body.classList.add("inicio-listo");
+                if (overlay) {
+                    overlay.classList.add("hidden");
+                    setTimeout(function () { overlay.remove(); }, 450);
+                }
+            }
+            // Seguro: si algo falla, a los 8 s se revela igual
+            setTimeout(inicioListo, 8000);
 
-    // Mapa sección → función del panel
-    var NAV = {
-        perfil: function () { PanelPerfil.showSection("perfil"); },
-        comprobantes: function () { PanelPerfil.showSection("comprobante"); },
-        trabajadores: function () { PanelPerfil.showSection("trabajadores"); },
-        legal: function () { PanelPerfil.loadLegal(); },
-        pedidos: function () { PanelPerfil.load_pedidos_vivos(); },
-        productos: function () { PanelPerfil.loadProductos(); },
-        historial: function () { PanelPerfil.loadHistorial(); },
-        historialgasto: function () { PanelPerfil.loadHistorial_gastos(); },
-        avisoinsumo: function () { PanelPerfil.showSection("avisoinsumo"); },
-        usuarios: function () { PanelPerfil.showSection("usuarios"); },
-        fidelizacion: function () { PanelPerfil.loadFidelizacion(); },
-        publicidad: function () { PanelPerfil.loadPublicidad(); },
-        mispublicaciones: function () { PanelPerfil.loadMisPublicaciones(); },
-        qr: function () { PanelPerfil.loadQr(); },
-        formularios: function () { PanelPerfil.loadFormularios(); },
-        recargas: function () { PanelPerfil.showSection("recargas"); }
-    };
+            // Mapa sección → función del panel
+            var NAV = {
+                perfil: function () { PanelPerfil.showSection("perfil"); },
+                comprobantes: function () { PanelPerfil.showSection("comprobante"); },
+                trabajadores: function () { PanelPerfil.showSection("trabajadores"); },
+                legal: function () { PanelPerfil.loadLegal(); },
+                pedidos: function () { PanelPerfil.load_pedidos_vivos(); },
+                productos: function () { PanelPerfil.loadProductos(); },
+                historial: function () { PanelPerfil.loadHistorial(); },
+                historialgasto: function () { PanelPerfil.loadHistorial_gastos(); },
+                avisoinsumo: function () { PanelPerfil.showSection("avisoinsumo"); },
+                usuarios: function () { PanelPerfil.showSection("usuarios"); },
+                fidelizacion: function () { PanelPerfil.loadFidelizacion(); },
+                publicidad: function () { PanelPerfil.loadPublicidad(); },
+                mispublicaciones: function () { PanelPerfil.loadMisPublicaciones(); },
+                qr: function () { PanelPerfil.loadQr(); },
+                formularios: function () { PanelPerfil.loadFormularios(); },
+                recargas: function () { PanelPerfil.showSection("recargas"); }
+            };
 
-    window.addEventListener("message", function (e) {
-        if (e.origin !== location.origin || !e.data) return;
-        var d = e.data;
+            window.addEventListener("message", function (e) {
+                if (e.origin !== location.origin || !e.data) return;
+                var d = e.data;
 
-        if (d.tipo === "INICIO_LISTO") inicioListo();
+                if (d.tipo === "INICIO_LISTO") inicioListo();
 
-        if (d.type === "ROL_ACTIVO_UPDATE")
-            document.body.classList.toggle("rol-activo", !!d.rol);
+                if (d.type === "ROL_ACTIVO_UPDATE")
+                    document.body.classList.toggle("rol-activo", !!d.rol);
 
-        if (d.tipo === "NAVEGAR" && NAV[d.seccion]) NAV[d.seccion]();
-    });
+                if (d.tipo === "NAVEGAR" && NAV[d.seccion]) NAV[d.seccion]();
+            });
 
-    // Si ya había sesión guardada al recargar
-    try { if (sessionStorage.getItem("rolActivo")) document.body.classList.add("rol-activo"); } catch (e) {}
-})();
-</script>
+            // Si ya había sesión guardada al recargar
+            try { if (sessionStorage.getItem("rolActivo")) document.body.classList.add("rol-activo"); } catch (e) { }
+        })();
+    </script>
 </body>
 
 </html>

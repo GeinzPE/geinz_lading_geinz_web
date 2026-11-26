@@ -21,13 +21,21 @@ import { tiendaDoc } from "../rutas/rutas.js";
 
 const auth = getAuth(app);
 
+const PWA_KEYS = ["pwa_tiendaId", "pwa_localidad", "rolActivo_pwa"];
+function limpiarSinPWA() {
+  const guardado = PWA_KEYS.map((k) => [k, localStorage.getItem(k)]);
+  StorageCleaner.limpiarTodo();
+  guardado.forEach(([k, v]) => v !== null && localStorage.setItem(k, v));
+}
+
 onAuthStateChanged(auth, (user) => {
   if (!user) {
-    StorageCleaner.limpiarTodo();
+    limpiarSinPWA();
     window.location.replace("../index");
     return;
   }
 });
+
 
 window.cerrarSesionPanel = async () => {
   const uid = auth.currentUser?.uid;
@@ -381,3 +389,58 @@ window.addEventListener("message", (e) => {
     enviarPermisosFidelizacion();
   }
 });
+
+(function () {
+  const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone =
+    matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+let promptInstalar = window.__pwaPrompt || null;
+
+ const estado = () => ({
+  tipo: "PWA_ESTADO",
+  instalable: !!promptInstalar,
+  ios: esIOS && !standalone && !promptInstalar,
+  instalada: standalone,
+});
+  const avisar = () => {
+    try {
+      document.getElementById("iframeInicio")?.contentWindow
+        ?.postMessage(estado(), window.location.origin);
+    } catch (e) {}
+  };
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    promptInstalar = e;
+    avisar();
+  });
+  window.addEventListener("appinstalled", () => {
+    promptInstalar = null;
+    avisar();
+  });
+  document.getElementById("iframeInicio")?.addEventListener("load", avisar);
+
+  function configurarPWA() {
+    const t = sessionStorage.getItem("tiendaId");
+    const l = sessionStorage.getItem("localidad");
+    if (!t || !l) return;
+    const qs = `id=${encodeURIComponent(t)}&l=${encodeURIComponent(l)}&panel=1&s=${encodeURIComponent(location.pathname)}`;
+    document.getElementById("pwaManifest").href = `/api/manifest?${qs}`;
+    document.getElementById("pwaApple").href =
+      `/api/icon?id=${encodeURIComponent(t)}&l=${encodeURIComponent(l)}&p=1&s=180&v=3`;
+  }
+  configurarPWA();
+
+  window.addEventListener("message", async (e) => {
+    if (e.origin !== window.location.origin) return;
+    const d = e.data || {};
+    if (d.tipo === "DATOS_PWA") configurarPWA();
+    if (d.tipo === "PEDIR_PWA_ESTADO") avisar();
+    if (d.tipo === "INSTALAR_APP" && promptInstalar) {
+      promptInstalar.prompt();
+      await promptInstalar.userChoice;
+      promptInstalar = null;
+      avisar();
+    }
+  });
+})();

@@ -1,12 +1,26 @@
-import { tiendaSubDoc, tiendaDoc, tiendaSubCol } from "../rutas/rutas.js";
+// ══════════════════════════════════════════════════════════════════════
+//  publicaciones_perfil.js
+//  Banners, ofertas, generador de combos y modo avanzado.
+//
+//  • La pantalla se sincroniza en vivo con Firestore (onSnapshot) y solo
+//    actualiza lo que cambió: las imágenes NO se vuelven a cargar.
+//  • El generador solo existe si el plan tiene
+//    publicidad_ofertas.ofertas.generador_promociones === true
+// ══════════════════════════════════════════════════════════════════════
+import {
+  tiendaSubDoc,
+  tiendaDoc,
+  tiendaSubCol,
+  tiendaServiciosDoc,
+} from "../rutas/rutas.js";
 import { storage } from "../db/db.js";
 import {
   updateDoc,
-  getDoc,
   deleteField,
   collection,
   doc,
   getDocs,
+  onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   ref as storageRef,
@@ -15,36 +29,46 @@ import {
   deleteObject,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
+// ══════════════ CONSTANTES ══════════════
+const GEN_DIAS = [
+  ["lunes", "Lun"],
+  ["martes", "Mar"],
+  ["miercoles", "Mié"],
+  ["jueves", "Jue"],
+  ["viernes", "Vie"],
+  ["sabado", "Sáb"],
+  ["domingo", "Dom"],
+];
+
 // ══════════════ DATOS DE LA TIENDA + HANDSHAKE ══════════════
 let TIENDA_ID = null,
   LOCALIDAD = null,
   TIENDA_REF = null;
 let datosRecibidos = false;
+let unsubTienda = null,
+  unsubServicios = null;
 
 function iniciarConDatos({ id, localidad }) {
   if (!id || !localidad) return;
+  // El padre reenvía los datos varias veces: solo se arranca si cambió la tienda
+  if (id === TIENDA_ID && localidad === LOCALIDAD) return;
+
+  if (datosRecibidos) reiniciarPantalla();
   TIENDA_ID = id;
   LOCALIDAD = localidad;
   TIENDA_REF = tiendaSubDoc(LOCALIDAD, "tiendas", TIENDA_ID);
   datosRecibidos = true;
-  cargarBanner();
-  cargarOfertas();
-  cargarProductosGen();
+  escucharTienda();
+  escucharPlanGenerador();
 }
 
 window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
-  if (e.data?.type === "DATOS_TIENDA") iniciarConDatos(e.data);
-  if (e.data?.type === "PATCH_TIENDA" && TIENDA_REF) {
-    const diff = e.data.payload || {};
-    if (Object.keys(diff).some((k) => k.startsWith("banner"))) cargarBanner();
-    if (
-      Object.keys(diff).some((k) =>
-        k.startsWith("img_tienda.lista_img.promociones"),
-      )
-    )
-      cargarOfertas();
-  }
+  if (e.data?.type !== "DATOS_TIENDA") return;
+  iniciarConDatos({
+    id: e.data.id ?? e.data.payload?.id_tienda,
+    localidad: e.data.localidad ?? e.data.payload?.localidad,
+  });
 });
 
 // El iframe PIDE los datos al padre y reintenta hasta recibirlos
@@ -57,6 +81,26 @@ function pedirDatos(intento = 0) {
   if (intento < 12) setTimeout(() => pedirDatos(intento + 1), 500);
 }
 pedirDatos();
+
+// Única fuente de banners y ofertas
+function escucharTienda(intento = 0) {
+  unsubTienda?.();
+  unsubTienda = onSnapshot(
+    TIENDA_REF,
+    (snap) => {
+      intento = 0;
+      const data = snap.data() || {};
+      sincronizarBanners(data.banner || {});
+      renderOfertas(data.img_tienda?.lista_img?.promociones || {});
+    },
+    (err) => {
+      console.error("[tienda] falló la escucha:", err.code, err.message);
+      if (intento < 3)
+        setTimeout(() => escucharTienda(intento + 1), 1000 * (intento + 1));
+      else mostrarErrorOfertas();
+    },
+  );
+}
 
 // ══════════════ UTILIDADES ══════════════
 // Comprime y exporta a JPG (compatible con plantillas de WhatsApp).
@@ -98,9 +142,66 @@ function dataURLtoBlob(dataURL) {
   return new Blob([arr], { type: mime });
 }
 
-// Evita que el navegador muestre la imagen vieja cuando se reemplaza en la misma ruta
+// Se aplica UNA vez al subir (se guarda en la URL), para no ver la imagen
+// vieja cuando se reemplaza en la misma ruta
 function conVersion(url) {
   return url + (url.includes("?") ? "&" : "?") + "v=" + Date.now();
+}
+
+// Solo toca el src si la imagen realmente cambió
+function ponerImagen(img, url) {
+  if (!url) {
+    img.removeAttribute("src");
+    delete img.dataset.url;
+    return;
+  }
+  if (img.dataset.url === url) return;
+  img.dataset.url = url;
+  img.src = url;
+}
+
+// Pone el elemento en la posición i solo si no está ya ahí
+function colocar(grid, el, i) {
+  if (grid.children[i] !== el)
+    grid.insertBefore(el, grid.children[i] || null);
+}
+
+// La primera vez se limpia lo que traiga el HTML
+function prepararGrid(grid) {
+  if (grid.dataset.listo) return;
+  grid.innerHTML = "";
+  grid.dataset.listo = "1";
+}
+
+// Marca o desmarca un día, respetando el orden de la semana
+function alternarDia(actuales, dia) {
+  const set = new Set(actuales || []);
+  set.has(dia) ? set.delete(dia) : set.add(dia);
+  return GEN_DIAS.map((x) => x[0]).filter((x) => set.has(x));
+}
+
+// Los chips se crean una sola vez; después solo cambian de estado
+function pintarChipsDias(box, dias = []) {
+  if (!box.querySelector("[data-dia]"))
+    box.innerHTML =
+      `<span class="of-dias-lbl"></span>` +
+      GEN_DIAS.map(
+        ([d, l]) => `<span class="of-dia" data-dia="${d}">${l}</span>`,
+      ).join("");
+  box.querySelector(".of-dias-lbl").textContent = dias.length
+    ? "Se muestra estos días:"
+    : "Se muestra todos los días";
+  box
+    .querySelectorAll("[data-dia]")
+    .forEach((c) => c.classList.toggle("on", dias.includes(c.dataset.dia)));
+}
+
+// Copia el objeto cambiando un campo (undefined = quitarlo)
+function conCampo(obj, campo, valor) {
+  const nuevo = { ...obj };
+  if (valor === undefined) delete nuevo[campo];
+  else nuevo[campo] = valor;
+  return nuevo;
 }
 
 function abrirVisor(url) {
@@ -175,64 +276,68 @@ const BANNER_CAMPOS_LEGACY = [
   "caso",
 ];
 
-const textoAdv = (id) => {
-  const n = (bannerMap[id]?.condiciones || []).length;
+const textoAdv = (item) => {
+  const n = (item?.condiciones || []).length;
   return `⚙️ Modo avanzado${n ? ` · ${n} grupo(s)` : ""}`;
 };
-function bannerRepintarAdv(id) {
-  const b = document.querySelector(
-    `.of-card[data-bid="${id}"] [data-role="adv"]`,
-  );
-  if (b) b.textContent = textoAdv(id);
-}
 
 // Pasa el banner viejo (campos sueltos) a banner.items.principal antes de escribir
 async function asegurarMigrado(id) {
   const it = bannerMap[id];
   if (!it || !it._legacy) return;
   const { _legacy, ...limpio } = it;
-  await updateDoc(TIENDA_REF, { [`banner.items.${id}`]: limpio });
   delete it._legacy;
+  try {
+    await updateDoc(TIENDA_REF, { [`banner.items.${id}`]: limpio });
+  } catch (err) {
+    it._legacy = true;
+    throw err;
+  }
 }
 
-async function cargarBanner(intento = 0) {
-  if (!TIENDA_REF) return;
-  let b = {};
-  try {
-    const snap = await getDoc(TIENDA_REF);
-    b = snap.data()?.banner || {};
-  } catch (err) {
-    console.error("[banner] falló getDoc:", err.code, err.message);
-    if (intento < 3)
-      setTimeout(() => cargarBanner(intento + 1), 1000 * (intento + 1));
-    return;
-  }
-
+function sincronizarBanners(b) {
   bannerActivo = b.activo === true;
-  bannerMap = {};
+  const nuevos = {};
   const items = b.items && typeof b.items === "object" ? b.items : {};
-  Object.entries(items).forEach(([id, it]) => (bannerMap[id] = { ...it }));
+  Object.entries(items).forEach(([id, it]) => (nuevos[id] = { ...it }));
 
   // Banner viejo sin migrar
-  if (!Object.keys(bannerMap).length && b.imagen) {
+  if (!Object.keys(nuevos).length && b.imagen) {
     const leg = { imagen: b.imagen, _legacy: true };
     BANNER_CAMPOS_LEGACY.forEach((k) => {
       if (b[k] !== undefined && b[k] !== null) leg[k] = b[k];
     });
-    bannerMap.principal = leg;
+    nuevos.principal = leg;
   }
-  renderBanners();
+  renderBanners(nuevos);
 }
 
-function renderBanners() {
+// Actualiza la grilla sin reconstruir las tarjetas que ya existen
+function renderBanners(nuevos = bannerMap) {
   const grid = document.getElementById("bannersGrid");
   if (!grid) return;
-  grid.style.cssText =
-    "display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;margin-top:14px";
-  grid.innerHTML = "";
+  if (!grid.dataset.listo)
+    grid.style.cssText =
+      "display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;margin-top:14px";
+  prepararGrid(grid);
 
-  const ids = Object.keys(bannerMap);
-  ids.forEach((id) => grid.appendChild(crearCardBanner(id)));
+  grid.querySelectorAll(".of-card[data-bid]").forEach((c) => {
+    if (!(c.dataset.bid in nuevos)) c.remove();
+  });
+  Object.keys(bannerMap).forEach((id) => {
+    if (!(id in nuevos)) delete bannerMap[id];
+  });
+
+  const ids = Object.keys(nuevos);
+  ids.forEach((id, i) => {
+    let card = grid.querySelector(`.of-card[data-bid="${id}"]`);
+    if (card) card._actualizar(nuevos[id]);
+    else {
+      bannerMap[id] = nuevos[id];
+      card = crearCardBanner(id);
+    }
+    colocar(grid, card, i);
+  });
 
   const sw = document.getElementById("bannerActivoSwitch");
   if (sw) sw.checked = bannerActivo;
@@ -242,30 +347,38 @@ function renderBanners() {
       ? `${ids.length} de ${MAX_BANNERS} banners`
       : "Aún no tienes banners";
 
-  if (ids.length < MAX_BANNERS) {
-    const add = document.createElement("div");
+  let add = document.getElementById("bannerAddCard");
+  if (ids.length >= MAX_BANNERS) {
+    add?.remove();
+    return;
+  }
+  if (!add) {
+    add = document.createElement("div");
     add.className = "of-add";
     add.id = "bannerAddCard";
     add.style.position = "relative";
-    add.innerHTML = `📷<span>Agregar banner</span><small style="opacity:.6">${ids.length + 1} de ${MAX_BANNERS}</small>`;
+    add.innerHTML = `📷<span>Agregar banner</span><small style="opacity:.6"></small>`;
     add.onclick = () => subirImagenBanner(null);
     grid.appendChild(add);
   }
+  add.querySelector("small").textContent =
+    `${ids.length + 1} de ${MAX_BANNERS}`;
 }
 
 function crearCardBanner(id) {
-  const base = bannerMap[id];
   // Borrador editable (lo guardado vive en bannerMap[id])
-  const st = {
-    descripcion: base.descripcion || "",
-    precio: Number(base.precio) > 0 ? Number(base.precio) : null,
-    clickeable: base.clickeable === true,
-    tipo: base.tipo || "producto",
-    descuentoTipo: base.descuentoTipo || "porcentaje",
+  const leerBorrador = (it) => ({
+    descripcion: it.descripcion || "",
+    precio: Number(it.precio) > 0 ? Number(it.precio) : null,
+    clickeable: it.clickeable === true,
+    tipo: it.tipo || "producto",
+    descuentoTipo: it.descuentoTipo || "porcentaje",
     descuentoValor:
-      Number(base.descuentoValor) > 0 ? Number(base.descuentoValor) : null,
-    soloSeguidores: base.soloSeguidores === true,
-  };
+      Number(it.descuentoValor) > 0 ? Number(it.descuentoValor) : null,
+    soloSeguidores: it.soloSeguidores === true,
+  });
+  const st = leerBorrador(bannerMap[id]);
+  let guardando = false;
 
   const card = document.createElement("div");
   card.className = "of-card";
@@ -328,13 +441,6 @@ function crearCardBanner(id) {
     btn = $("save"),
     tag = $("tag");
 
-  if (base.imagen) imgEl.src = conVersion(base.imagen);
-  desc.value = st.descripcion;
-  precio.value = st.precio ?? "";
-  vdesc.value = st.descuentoValor ?? "";
-  $("click").checked = st.clickeable;
-  $("seg").checked = st.soloSeguidores;
-
   const num = (inp) => {
     const n = parseFloat(String(inp.value).replace(",", "."));
     return n > 0 ? n : null;
@@ -342,6 +448,17 @@ function crearCardBanner(id) {
   const setMsg = (t, tipo = "") => {
     msg.textContent = t;
     msg.className = "of-msg" + (tipo ? " " + tipo : "");
+  };
+
+  // Vuelca el borrador en los campos sin mover el cursor si no hace falta
+  const pintarCampos = () => {
+    if (desc.value.trim() !== st.descripcion.trim())
+      desc.value = st.descripcion;
+    if (num(precio) !== st.precio) precio.value = st.precio ?? "";
+    if (num(vdesc) !== st.descuentoValor)
+      vdesc.value = st.descuentoValor ?? "";
+    $("click").checked = st.clickeable;
+    $("seg").checked = st.soloSeguidores;
   };
 
   // Item que se guardaría con el borrador actual (conserva imagen, días y avanzado)
@@ -384,13 +501,7 @@ function crearCardBanner(id) {
 
   const pintarDias = () => {
     const it = bannerMap[id] || {};
-    const sel = it.dias || [];
-    $("dias").innerHTML =
-      `<span class="of-dias-lbl">${sel.length ? "Se muestra estos días:" : "Se muestra todos los días"}</span>` +
-      GEN_DIAS.map(
-        ([d, l]) =>
-          `<span class="of-dia ${sel.includes(d) ? "on" : ""}" data-dia="${d}">${l}</span>`,
-      ).join("");
+    pintarChipsDias($("dias"), it.dias || []);
     $("hoy").style.display = ofertaCoincide(it, "hoy") ? "" : "none";
   };
 
@@ -413,7 +524,7 @@ function crearCardBanner(id) {
     $("seg-row").style.display = st.clickeable ? "" : "none";
     const adv = $("adv");
     adv.style.display = st.clickeable && esProd ? "" : "none";
-    adv.textContent = textoAdv(id);
+    adv.textContent = textoAdv(bannerMap[id]);
 
     const ob = st.clickeable;
     const faltan = [];
@@ -426,7 +537,7 @@ function crearCardBanner(id) {
       "error",
       faltan.includes("valor del descuento"),
     );
-    btn.disabled = faltan.length > 0;
+    btn.disabled = guardando || faltan.length > 0;
     card.classList.toggle("falta-precio", faltan.length > 0);
     card.classList.toggle("dirty", !faltan.length && hayCambios());
     if (faltan.length)
@@ -450,6 +561,21 @@ function crearCardBanner(id) {
     }
   };
 
+  // Llegan datos nuevos: se actualiza sin pisar lo que se está escribiendo
+  card._actualizar = (nuevo) => {
+    const sucio = hayCambios();
+    bannerMap[id] = nuevo;
+    if (!sucio) {
+      Object.assign(st, leerBorrador(nuevo));
+      pintarCampos();
+    }
+    ponerImagen(imgEl, nuevo.imagen);
+    pintarDias();
+    pintar();
+  };
+
+  ponerImagen(imgEl, bannerMap[id].imagen);
+  pintarCampos();
   pintarDias();
   pintar();
 
@@ -490,23 +616,30 @@ function crearCardBanner(id) {
     abrirEditorAvanzadoOferta("__banner__:" + id),
   );
 
-  // Días: se guardan al tocar (igual que en ofertas)
+  // Días: se marcan al instante y se guardan en segundo plano
   $("dias").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-dia]");
     if (!b) return;
-    const set = new Set(bannerMap[id]?.dias || []);
-    set.has(b.dataset.dia) ? set.delete(b.dataset.dia) : set.add(b.dataset.dia);
-    const arr = GEN_DIAS.map((x) => x[0]).filter((x) => set.has(x));
+    const antes = bannerMap[id]?.dias;
+    const arr = alternarDia(antes, b.dataset.dia);
     try {
-      await asegurarMigrado(id);
-      await updateDoc(TIENDA_REF, {
-        [`banner.items.${id}.dias`]: arr.length ? arr : deleteField(),
-      });
-      if (arr.length) bannerMap[id].dias = arr;
-      else delete bannerMap[id].dias;
+      const migracion = asegurarMigrado(id);
+      bannerMap[id] = conCampo(
+        bannerMap[id],
+        "dias",
+        arr.length ? arr : undefined,
+      );
       pintarDias();
+      await Promise.all([
+        migracion,
+        updateDoc(TIENDA_REF, {
+          [`banner.items.${id}.dias`]: arr.length ? arr : deleteField(),
+        }),
+      ]);
     } catch (err) {
       console.error(err);
+      bannerMap[id] = conCampo(bannerMap[id], "dias", antes);
+      pintarDias();
       mostrarToast("No se pudo cambiar los días");
     }
   });
@@ -523,6 +656,8 @@ function crearCardBanner(id) {
       }, 1500);
       return;
     }
+    const copia = { ...st };
+    guardando = true;
     btn.disabled = true;
     btn.textContent = "Guardando...";
     try {
@@ -537,8 +672,15 @@ function crearCardBanner(id) {
       mostrarToast("Banner actualizado correctamente");
     } catch (err) {
       console.error(err);
-      setMsg("Error al guardar, intenta otra vez", "error");
+      // Se conserva lo que el usuario había escrito
+      setTimeout(() => {
+        Object.assign(st, copia);
+        pintarCampos();
+        pintar();
+        setMsg("Error al guardar, intenta otra vez", "error");
+      }, 0);
     } finally {
+      guardando = false;
       btn.textContent = "Guardar";
       pintar();
     }
@@ -613,7 +755,7 @@ function subirImagenBanner(oldId) {
           `tiendas/${TIENDA_ID}/banner/${nombre}.jpg`,
         );
         await uploadBytes(ref, blob, { contentType: "image/jpeg" });
-        const url = await getDownloadURL(ref);
+        const url = conVersion(await getDownloadURL(ref));
         if (oldId) {
           await updateDoc(TIENDA_REF, {
             [`banner.items.${id}.imagen`]: url,
@@ -629,7 +771,6 @@ function subirImagenBanner(oldId) {
           });
         }
         mostrarToast("La imagen se subió correctamente");
-        await cargarBanner();
       } catch (err) {
         console.error(err);
         alert("Error al subir el banner");
@@ -652,6 +793,7 @@ async function eliminarBanner(id) {
   if (!TIENDA_REF) return;
   if (!confirm("¿Eliminar este banner por completo?")) return;
   try {
+    const eraElUltimo = Object.keys(bannerMap).length <= 1;
     const nombre = id === "principal" ? "banner" : id;
     for (const ext of ["jpg", "webp"]) {
       try {
@@ -662,7 +804,7 @@ async function eliminarBanner(id) {
     }
     const cambios = { [`banner.items.${id}`]: deleteField() };
     // Si era el último, se limpia también el banner viejo para que no reaparezca
-    if (Object.keys(bannerMap).length <= 1) {
+    if (eraElUltimo) {
       ["imagen", ...BANNER_CAMPOS_LEGACY].forEach(
         (k) => (cambios[`banner.${k}`] = deleteField()),
       );
@@ -699,6 +841,7 @@ document
 
 // ══════════════ OFERTAS ══════════════
 let ofertasCache = {};
+let ofertasListas = false;
 const maxOfertas = () => window.GEINZ_PLAN?.maxOfertas ?? 50;
 let subiendoOferta = false;
 let ofFiltro = "todas"; // "todas" | "hoy" | "lunes" ... "domingo"
@@ -737,26 +880,12 @@ function pintarFiltrosOfertas() {
     .join("");
 }
 
-async function cargarOfertas(intento = 0) {
+function mostrarErrorOfertas() {
   const grid = document.getElementById("ofertasGrid");
-  if (!grid) {
-    console.warn("[ofertas] no existe #ofertasGrid en el HTML");
-    return;
-  }
-  if (!TIENDA_REF) return;
-  try {
-    const snap = await getDoc(TIENDA_REF);
-    const map = snap.data()?.img_tienda?.lista_img?.promociones || {};
-    renderOfertas(map);
-  } catch (err) {
-    console.error("[ofertas] falló getDoc:", err.code, err.message);
-    if (intento < 3) {
-      setTimeout(() => cargarOfertas(intento + 1), 1000 * (intento + 1));
-      return;
-    }
-    grid.innerHTML = `<p class="of-msg error">No se pudieron cargar las ofertas. <button type="button" id="ofReintentar">Reintentar</button></p>`;
-    document.getElementById("ofReintentar").onclick = () => cargarOfertas();
-  }
+  if (!grid) return;
+  grid.innerHTML = `<p class="of-msg error">No se pudieron cargar las ofertas. <button type="button" id="ofReintentar">Reintentar</button></p>`;
+  delete grid.dataset.listo;
+  document.getElementById("ofReintentar").onclick = () => escucharTienda();
 }
 
 // Muestra el esqueleto mientras sube la imagen. Devuelve una función para quitarlo.
@@ -806,14 +935,50 @@ function normalizarOferta(val) {
   return { imagen: "", descripcion: "" };
 }
 
-// Guarda el objeto completo de la oferta (también convierte el formato viejo)
+function repintarOferta(key) {
+  document
+    .querySelector(`#ofertasGrid .of-card[data-key="${key}"]`)
+    ?._actualizar();
+}
+
+// Cambia solo los campos indicados (undefined = borrar). La pantalla se
+// actualiza al instante; si Firestore falla, se revierte.
+async function escribirCamposOferta(key, cambios) {
+  const anterior = ofertasCache[key];
+  const actual = normalizarOferta(anterior);
+  let nuevo = actual;
+  Object.entries(cambios).forEach(
+    ([c, v]) => (nuevo = conCampo(nuevo, c, v)),
+  );
+  ofertasCache[key] = nuevo;
+  repintarOferta(key);
+
+  const ruta = `img_tienda.lista_img.promociones.${key}`;
+  // Formato viejo (solo texto): se guarda el objeto completo para no perder la imagen
+  const payload =
+    typeof anterior === "string"
+      ? { [ruta]: nuevo }
+      : Object.fromEntries(
+          Object.entries(cambios).map(([c, v]) => [
+            `${ruta}.${c}`,
+            v === undefined ? deleteField() : v,
+          ]),
+        );
+  try {
+    await updateDoc(TIENDA_REF, payload);
+  } catch (err) {
+    let revertido = normalizarOferta(ofertasCache[key]);
+    Object.keys(cambios).forEach(
+      (c) => (revertido = conCampo(revertido, c, actual[c])),
+    );
+    ofertasCache[key] = typeof anterior === "string" ? anterior : revertido;
+    repintarOferta(key);
+    throw err;
+  }
+}
+
 async function guardarOferta(key, cambios) {
-  const actual = normalizarOferta(ofertasCache[key]);
-  const nuevo = {
-    ...actual,
-    descripcion: actual.descripcion || "",
-    ...cambios,
-  };
+  const nuevo = { ...normalizarOferta(ofertasCache[key]), ...cambios };
 
   if (!String(nuevo.descripcion || "").trim())
     throw new Error("DESCRIPCION_REQUERIDA");
@@ -821,276 +986,310 @@ async function guardarOferta(key, cambios) {
   if (nuevo.combo?.total && Number(nuevo.precio) >= Number(nuevo.combo.total))
     throw new Error("PRECIO_COMBO_INVALIDO");
 
-  await updateDoc(TIENDA_REF, {
-    [`img_tienda.lista_img.promociones.${key}`]: nuevo,
-  });
-  ofertasCache[key] = nuevo; // solo se actualiza el caché si Firestore guardó bien
+  await escribirCamposOferta(key, cambios);
 }
 
+// Actualiza la grilla sin reconstruir las tarjetas que ya existen
 function renderOfertas(map) {
   const grid = document.getElementById("ofertasGrid");
-  if (!grid) return;
-  grid.innerHTML = "";
-  ofertasCache = map;
+  if (!grid) {
+    console.warn("[ofertas] no existe #ofertasGrid en el HTML");
+    return;
+  }
+  prepararGrid(grid);
+  ofertasCache = { ...map };
+  ofertasListas = true;
 
-  const entries = Object.entries(map);
+  grid.querySelectorAll(".of-card[data-key]").forEach((c) => {
+    if (!(c.dataset.key in ofertasCache)) c.remove();
+  });
 
-  const visibles = entries.filter(([, v]) =>
-    ofertaCoincide(normalizarOferta(v), ofFiltro),
-  );
+  Object.keys(ofertasCache).forEach((key, i) => {
+    let card = grid.querySelector(`.of-card[data-key="${key}"]`);
+    if (card) card._actualizar();
+    else {
+      card = crearCardOferta(key);
+      const item = normalizarOferta(ofertasCache[key]);
+      card.style.display = ofertaCoincide(item, ofFiltro) ? "" : "none";
+    }
+    colocar(grid, card, i);
+  });
 
-  visibles.forEach(([key, val]) => {
-    const item = normalizarOferta(val);
+  actualizarResumenOfertas();
+}
 
-    const card = document.createElement("div");
-    card.className = "of-card";
-    card.dataset.key = key;
-    card.innerHTML = `
-      <div class="of-img" data-role="img-wrap">
-        <img alt="">
-        <button type="button" class="of-edit" data-role="edit">📷 Cambiar</button>
-        <button type="button" class="of-del" data-role="del" title="Eliminar oferta">✕</button>
-        <span class="of-price-tag vacio" data-role="tag">Sin precio</span>
-      </div>
-      <div class="of-body">
-        <textarea class="of-desc" data-role="desc" rows="3" maxlength="500" placeholder="Descripción (obligatoria)"></textarea>
-                <div class="of-dias" data-role="dias"></div>
-                     
-              <div class="of-dias" data-role="esp"></div>
-        <button type="button" class="of-save" data-role="adv" style="margin:6px 0;background:rgba(255,255,255,.08);box-shadow:none;">⚙️ Modo avanzado${(item.condiciones || []).length ? ` · ${item.condiciones.length} grupo(s)` : ""}</button>
-        <div class="of-price" data-role="price-box">
-          <span>S/</span>
-          <input data-role="precio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Precio (obligatorio)">
-        </div>
-        <p class="of-msg" data-role="msg"></p>
-        <button type="button" class="of-save" data-role="save" disabled>Guardar</button>
-      </div>
-    `;
+// Contador, subtítulo y tarjeta "Agregar oferta"
+function actualizarResumenOfertas() {
+  const grid = document.getElementById("ofertasGrid");
+  if (!grid || !ofertasListas) return;
+  const total = Object.keys(ofertasCache).length;
+  const visibles = [...grid.querySelectorAll(".of-card[data-key]")].filter(
+    (c) => c.style.display !== "none",
+  ).length;
 
-    const imgEl = card.querySelector("img");
-    if (item.imagen) imgEl.src = conVersion(item.imagen);
+  const cont = document.getElementById("ofContador");
+  if (cont)
+    cont.textContent = !total
+      ? ""
+      : visibles
+        ? `Mostrando ${visibles} de ${total}`
+        : "No hay ofertas para este filtro";
 
-    const desc = card.querySelector('[data-role="desc"]');
-    const precio = card.querySelector('[data-role="precio"]');
-    const priceBox = card.querySelector('[data-role="price-box"]');
-    const msg = card.querySelector('[data-role="msg"]');
-    const btn = card.querySelector('[data-role="save"]');
-    const tag = card.querySelector('[data-role="tag"]');
-    const diasBox = card.querySelector('[data-role="dias"]');
-    const pintarDias = () => {
-      const sel = normalizarOferta(ofertasCache[key]).dias || [];
-      diasBox.innerHTML =
-        `<span class="of-dias-lbl">${sel.length ? "Se muestra estos días:" : "Se muestra todos los días"}</span>` +
-        GEN_DIAS.map(
-          ([d, l]) =>
-            `<span class="of-dia ${sel.includes(d) ? "on" : ""}" data-dia="${d}">${l}</span>`,
-        ).join("");
-    };
-    pintarDias();
-    diasBox.addEventListener("click", async (e) => {
-      const b = e.target.closest("[data-dia]");
-      if (!b) return;
-      const actual = normalizarOferta(ofertasCache[key]);
-      const set = new Set(actual.dias || []);
-      set.has(b.dataset.dia)
-        ? set.delete(b.dataset.dia)
-        : set.add(b.dataset.dia);
-      const arr = GEN_DIAS.map((x) => x[0]).filter((x) => set.has(x));
-      try {
-        await updateDoc(TIENDA_REF, {
-          [`img_tienda.lista_img.promociones.${key}.dias`]: arr.length
-            ? arr
-            : deleteField(),
-        });
-        const nuevo = { ...actual };
-        if (arr.length) nuevo.dias = arr;
-        else delete nuevo.dias;
-        ofertasCache[key] = nuevo;
-        pintarDias();
-      } catch (err) {
-        console.error(err);
-        mostrarToast("No se pudo cambiar los días");
-      }
+  const max = maxOfertas();
+  const sub = document.querySelector("#cardOfertas .sec-sub");
+  if (sub)
+    sub.textContent = `${total} de ${max} ofertas · imagen, descripción y precio obligatorios.`;
+
+  // Una sola tarjeta "Agregar oferta" (no una por cada espacio libre)
+  let add = grid.querySelector(".of-add");
+  if (total >= max) {
+    add?.remove();
+    return;
+  }
+  if (!add) {
+    add = document.createElement("div");
+    add.className = "of-add";
+    add.innerHTML = `📷<span>Agregar oferta</span><small style="opacity:.6"></small>`;
+    add.onclick = () => cambiarImagenOferta(null);
+    grid.appendChild(add);
+  }
+  add.querySelector("small").textContent = `${total + 1} de ${max}`;
+  // Se esconde solo mientras hay un esqueleto de oferta nueva
+  add.style.display = grid.querySelector(".of-skel-shine") ? "none" : "";
+}
+
+// El filtro solo oculta o muestra tarjetas (sin recargar imágenes)
+function aplicarFiltroOfertas() {
+  document
+    .querySelectorAll("#ofertasGrid .of-card[data-key]")
+    .forEach((c) => {
+      const item = normalizarOferta(ofertasCache[c.dataset.key]);
+      c.style.display = ofertaCoincide(item, ofFiltro) ? "" : "none";
     });
-    // ── Destacar en día especial + Delivery gratis ──
-    const espBox = card.querySelector('[data-role="esp"]');
-    const pintarEsp = () => {
-      const o = normalizarOferta(ofertasCache[key]);
-      espBox.innerHTML =
-        `<span class="of-dia ${o.destacarEspecial === true ? "on" : ""}" data-esp="1" style="padding:5px 10px">⭐ Destacar en día especial</span>` +
-        `<span class="of-dia ${o.deliveryGratis === true ? "on" : ""}" data-del="1" style="padding:5px 10px">🚚 Delivery gratis</span>`;
-    };
-    pintarEsp();
-    espBox.addEventListener("click", async (e) => {
-      const chip = e.target.closest("[data-esp],[data-del]");
-      if (!chip) return;
-      const campo = chip.dataset.del ? "deliveryGratis" : "destacarEspecial";
-      const actual = normalizarOferta(ofertasCache[key]);
-      const nuevoValor = !(actual[campo] === true);
-      try {
-        await updateDoc(TIENDA_REF, {
-          [`img_tienda.lista_img.promociones.${key}.${campo}`]: nuevoValor
-            ? true
-            : deleteField(),
-        });
-        const nuevo = { ...actual };
-        if (nuevoValor) nuevo[campo] = true;
-        else delete nuevo[campo];
-        ofertasCache[key] = nuevo;
-        pintarEsp();
-        mostrarToast(
-          campo === "deliveryGratis"
-            ? nuevoValor
-              ? "Delivery gratis activado"
-              : "Delivery gratis desactivado"
-            : nuevoValor
-              ? "Se destacará en tu día especial"
-              : "Ya no se destacará",
-        );
-      } catch (err) {
-        console.error(err);
-        mostrarToast("No se pudo cambiar");
-      }
-    });
-    card
-      .querySelector('[data-role="adv"]')
-      .addEventListener("click", () => abrirEditorAvanzadoOferta(key));
-    desc.value = item.descripcion || "";
-    precio.value = Number(item.precio) > 0 ? item.precio : "";
+  actualizarResumenOfertas();
+}
 
-    const leerPrecio = () => {
-      const n = parseFloat(String(precio.value).replace(",", "."));
-      return n > 0 ? n : null;
-    };
+function crearCardOferta(key) {
+  const card = document.createElement("div");
+  card.className = "of-card";
+  card.dataset.key = key;
+  card.innerHTML = `
+    <div class="of-img" data-role="img-wrap">
+      <img alt="">
+      <button type="button" class="of-edit" data-role="edit">📷 Cambiar</button>
+      <button type="button" class="of-del" data-role="del" title="Eliminar oferta">✕</button>
+      <span class="of-price-tag vacio" data-role="tag">Sin precio</span>
+    </div>
+    <div class="of-body">
+      <textarea class="of-desc" data-role="desc" rows="3" maxlength="500" placeholder="Descripción (obligatoria)"></textarea>
+      <div class="of-dias" data-role="dias"></div>
+      <div class="of-dias" data-role="esp">
+        <span class="of-dia" data-campo="destacarEspecial" style="padding:5px 10px">⭐ Destacar en día especial</span>
+        <span class="of-dia" data-campo="deliveryGratis" style="padding:5px 10px">🚚 Delivery gratis</span>
+      </div>
+      <button type="button" class="of-save" data-role="adv" style="margin:6px 0;background:rgba(255,255,255,.08);box-shadow:none;"></button>
+      <div class="of-price" data-role="price-box">
+        <span>S/</span>
+        <input data-role="precio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Precio (obligatorio)">
+      </div>
+      <p class="of-msg" data-role="msg"></p>
+      <button type="button" class="of-save" data-role="save" disabled>Guardar</button>
+    </div>
+  `;
 
-    const setMsg = (texto, tipo = "") => {
-      msg.textContent = texto;
-      msg.className = "of-msg" + (tipo ? " " + tipo : "");
-    };
+  const $ = (r) => card.querySelector(`[data-role="${r}"]`);
+  const imgEl = card.querySelector("img");
+  const desc = $("desc");
+  const precio = $("precio");
+  const priceBox = $("price-box");
+  const msg = $("msg");
+  const btn = $("save");
+  const tag = $("tag");
+  const diasBox = $("dias");
+  const espBox = $("esp");
 
-    const hayCambios = () => {
-      const guardado = normalizarOferta(ofertasCache[key]);
-      const cambioDesc =
-        desc.value.trim() !== (guardado.descripcion || "").trim();
-      const cambioPrecio =
-        (leerPrecio() || 0) !== (Number(guardado.precio) || 0);
-      return cambioDesc || cambioPrecio;
-    };
+  const leer = () => normalizarOferta(ofertasCache[key]);
+  let base = {}; // últimos datos guardados que se volcaron en los campos
+  let guardando = false;
 
-    // Bloquea el botón si falta descripción o precio
-    const pintarEstado = () => {
-      const faltan = [];
-      if (!desc.value.trim()) faltan.push("descripción");
-      if (!leerPrecio()) faltan.push("precio");
+  const leerPrecio = () => {
+    const n = parseFloat(String(precio.value).replace(",", "."));
+    return n > 0 ? n : null;
+  };
 
-      desc.classList.toggle("error", faltan.includes("descripción"));
-      priceBox.classList.toggle("error", faltan.includes("precio"));
-      card.classList.toggle("falta-precio", faltan.length > 0);
-      btn.disabled = faltan.length > 0;
+  const setMsg = (texto, tipo = "") => {
+    msg.textContent = texto;
+    msg.className = "of-msg" + (tipo ? " " + tipo : "");
+  };
 
-      const p = leerPrecio();
-      tag.textContent = p ? "S/ " + p.toFixed(2) : "Sin precio";
-      tag.classList.toggle("vacio", !p);
-      card.classList.toggle("dirty", faltan.length === 0 && hayCambios());
+  const hayCambios = () => {
+    const guardado = leer();
+    const cambioDesc =
+      desc.value.trim() !== (guardado.descripcion || "").trim();
+    const cambioPrecio = (leerPrecio() || 0) !== (Number(guardado.precio) || 0);
+    return cambioDesc || cambioPrecio;
+  };
 
-      if (faltan.length) setMsg("Falta " + faltan.join(" y "), "error");
-      else if (msg.classList.contains("error")) setMsg("");
-    };
+  // Bloquea el botón si falta descripción o precio
+  const pintarEstado = () => {
+    const faltan = [];
+    if (!desc.value.trim()) faltan.push("descripción");
+    if (!leerPrecio()) faltan.push("precio");
 
+    desc.classList.toggle("error", faltan.includes("descripción"));
+    priceBox.classList.toggle("error", faltan.includes("precio"));
+    card.classList.toggle("falta-precio", faltan.length > 0);
+    btn.disabled = guardando || faltan.length > 0;
+
+    const p = leerPrecio();
+    tag.textContent = p ? "S/ " + p.toFixed(2) : "Sin precio";
+    tag.classList.toggle("vacio", !p);
+    card.classList.toggle("dirty", faltan.length === 0 && hayCambios());
+
+    if (faltan.length) setMsg("Falta " + faltan.join(" y "), "error");
+    else if (msg.classList.contains("error")) setMsg("");
+  };
+
+  // Llegan datos nuevos: se actualiza sin pisar lo que se está escribiendo
+  card._actualizar = () => {
+    const item = leer();
+    const descIntacta =
+      desc.value.trim() === (base.descripcion || "").trim();
+    const precioIntacto = (leerPrecio() || 0) === (Number(base.precio) || 0);
+
+    if (descIntacta && desc.value.trim() !== (item.descripcion || "").trim())
+      desc.value = item.descripcion || "";
+    if (precioIntacto && (leerPrecio() || 0) !== (Number(item.precio) || 0))
+      precio.value = Number(item.precio) > 0 ? item.precio : "";
+    base = item;
+
+    ponerImagen(imgEl, item.imagen);
+    pintarChipsDias(diasBox, item.dias || []);
+    espBox
+      .querySelectorAll("[data-campo]")
+      .forEach((c) =>
+        c.classList.toggle("on", item[c.dataset.campo] === true),
+      );
+    $("adv").textContent = textoAdv(item);
     pintarEstado();
-    desc.addEventListener("input", pintarEstado);
-    precio.addEventListener("input", pintarEstado);
+  };
+  card._actualizar();
 
-    btn.addEventListener("click", async () => {
-      if (!hayCambios()) {
-        setMsg("Sin cambios");
-        setTimeout(() => {
-          if (msg.textContent === "Sin cambios") setMsg("");
-        }, 1500);
-        return;
-      }
+  // ── Días: se marcan al instante y se guardan en segundo plano ──
+  diasBox.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-dia]");
+    if (!b) return;
+    const arr = alternarDia(leer().dias, b.dataset.dia);
+    try {
+      await escribirCamposOferta(key, {
+        dias: arr.length ? arr : undefined,
+      });
+    } catch (err) {
+      console.error(err);
+      mostrarToast("No se pudo cambiar los días");
+    }
+  });
 
-      btn.disabled = true;
-      btn.textContent = "Guardando...";
-      try {
-        await guardarOferta(key, {
-          descripcion: desc.value.trim(),
-          precio: leerPrecio(),
-        });
-        card.classList.remove("dirty");
-        btn.classList.add("ok");
-        btn.textContent = "Guardado ✓";
-        setMsg("Cambios guardados", "ok");
-        setTimeout(() => {
-          btn.classList.remove("ok");
-          btn.textContent = "Guardar";
-          if (msg.classList.contains("ok")) setMsg("");
-        }, 1500);
-      } catch (err) {
-        console.error(err);
-        if (
-          err.message === "DESCRIPCION_REQUERIDA" ||
-          err.message === "PRECIO_REQUERIDO"
-        ) {
-          pintarEstado();
-        } else if (err.message === "PRECIO_COMBO_INVALIDO") {
+  // ── Destacar en día especial + Delivery gratis ──
+  espBox.addEventListener("click", async (e) => {
+    const chip = e.target.closest("[data-campo]");
+    if (!chip) return;
+    const campo = chip.dataset.campo;
+    const nuevoValor = !(leer()[campo] === true);
+    try {
+      await escribirCamposOferta(key, {
+        [campo]: nuevoValor ? true : undefined,
+      });
+      mostrarToast(
+        campo === "deliveryGratis"
+          ? nuevoValor
+            ? "Delivery gratis activado"
+            : "Delivery gratis desactivado"
+          : nuevoValor
+            ? "Se destacará en tu día especial"
+            : "Ya no se destacará",
+      );
+    } catch (err) {
+      console.error(err);
+      mostrarToast("No se pudo cambiar");
+    }
+  });
+
+  $("adv").addEventListener("click", () => abrirEditorAvanzadoOferta(key));
+  desc.addEventListener("input", pintarEstado);
+  precio.addEventListener("input", pintarEstado);
+
+  btn.addEventListener("click", async () => {
+    if (!hayCambios()) {
+      setMsg("Sin cambios");
+      setTimeout(() => {
+        if (msg.textContent === "Sin cambios") setMsg("");
+      }, 1500);
+      return;
+    }
+
+    const textoDesc = desc.value;
+    const textoPrecio = precio.value;
+    guardando = true;
+    btn.disabled = true;
+    btn.textContent = "Guardando...";
+    try {
+      await guardarOferta(key, {
+        descripcion: desc.value.trim(),
+        precio: leerPrecio(),
+      });
+      card.classList.remove("dirty");
+      btn.classList.add("ok");
+      btn.textContent = "Guardado ✓";
+      setMsg("Cambios guardados", "ok");
+      setTimeout(() => {
+        btn.classList.remove("ok");
+        btn.textContent = "Guardar";
+        if (msg.classList.contains("ok")) setMsg("");
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+      btn.textContent = "Guardar";
+      // Se conserva lo que el usuario había escrito
+      setTimeout(() => {
+        desc.value = textoDesc;
+        precio.value = textoPrecio;
+        pintarEstado();
+        if (err.message === "PRECIO_COMBO_INVALIDO")
           setMsg(
             "El combo no puede costar igual o más que por separado",
             "error",
           );
-        } else {
-          setMsg("Error al guardar, intenta otra vez", "error");
-        }
-        btn.textContent = "Guardar";
-      } finally {
-        btn.disabled = !desc.value.trim() || !leerPrecio();
-      }
-    });
-
-    card
-      .querySelector('[data-role="img-wrap"]')
-      .addEventListener("click", (e) => {
-        if (
-          e.target.closest('[data-role="del"]') ||
-          e.target.closest('[data-role="edit"]')
+        else if (
+          err.message !== "DESCRIPCION_REQUERIDA" &&
+          err.message !== "PRECIO_REQUERIDO"
         )
-          return;
-        abrirVisor(imgEl.src || normalizarOferta(ofertasCache[key]).imagen);
-      });
-    card.querySelector('[data-role="edit"]').addEventListener("click", (e) => {
-      e.stopPropagation();
-      cambiarImagenOferta(key);
-    });
-    card.querySelector('[data-role="del"]').addEventListener("click", (e) => {
-      e.stopPropagation();
-      eliminarOferta(key);
-    });
-
-    grid.appendChild(card);
+          setMsg("Error al guardar, intenta otra vez", "error");
+      }, 0);
+    } finally {
+      guardando = false;
+      btn.disabled = !desc.value.trim() || !leerPrecio();
+    }
   });
 
-  const cont = document.getElementById("ofContador");
-  if (cont)
-    cont.textContent = !entries.length
-      ? ""
-      : visibles.length
-        ? `Mostrando ${visibles.length} de ${entries.length}`
-        : "No hay ofertas para este filtro";
+  $("img-wrap").addEventListener("click", (e) => {
+    if (
+      e.target.closest('[data-role="del"]') ||
+      e.target.closest('[data-role="edit"]')
+    )
+      return;
+    abrirVisor(imgEl.src || leer().imagen);
+  });
+  $("edit").addEventListener("click", (e) => {
+    e.stopPropagation();
+    cambiarImagenOferta(key);
+  });
+  $("del").addEventListener("click", (e) => {
+    e.stopPropagation();
+    eliminarOferta(key);
+  });
 
-  const max = maxOfertas();
-
-  const sub = document.querySelector("#cardOfertas .sec-sub");
-  if (sub)
-    sub.textContent = `${entries.length} de ${max} ofertas · imagen, descripción y precio obligatorios.`;
-
-  // Una sola tarjeta "Agregar oferta" (no una por cada espacio libre)
-  if (entries.length < max) {
-    const addCard = document.createElement("div");
-    addCard.className = "of-add";
-    addCard.innerHTML = `📷<span>Agregar oferta</span><small style="opacity:.6">${entries.length + 1} de ${max}</small>`;
-    addCard.onclick = () => cambiarImagenOferta(null);
-    grid.appendChild(addCard);
-  }
+  return card;
 }
 
 function cambiarImagenOferta(oldKey) {
@@ -1104,9 +1303,6 @@ function cambiarImagenOferta(oldKey) {
     return;
   }
 
-  const actual = oldKey
-    ? normalizarOferta(ofertasCache[oldKey])
-    : { imagen: "", descripcion: "" };
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "image/png,image/jpeg,image/webp";
@@ -1118,6 +1314,11 @@ function cambiarImagenOferta(oldKey) {
 
     subiendoOferta = true;
     const quitarSkeleton = mostrarSkeletonOferta(oldKey);
+    const terminar = () => {
+      subiendoOferta = false;
+      quitarSkeleton();
+      actualizarResumenOfertas();
+    };
 
     const reader = new FileReader();
     reader.onload = async (ev) => {
@@ -1129,17 +1330,18 @@ function cambiarImagenOferta(oldKey) {
         const path = `tiendas/${TIENDA_ID}/imagenes/promociones/${newKey}.jpg`;
         const ref = storageRef(storage, path);
         await uploadBytes(ref, blob, { contentType: "image/jpeg" });
-        const url = await getDownloadURL(ref);
+        const url = conVersion(await getDownloadURL(ref));
 
-        const nuevo = {
-          ...actual,
-          imagen: url,
-          descripcion: actual.descripcion || "",
-        };
-
-        await updateDoc(TIENDA_REF, {
-          [`img_tienda.lista_img.promociones.${newKey}`]: nuevo,
-        });
+        if (oldKey) {
+          await escribirCamposOferta(oldKey, { imagen: url });
+        } else {
+          await updateDoc(TIENDA_REF, {
+            [`img_tienda.lista_img.promociones.${newKey}`]: {
+              imagen: url,
+              descripcion: "",
+            },
+          });
+        }
 
         // Si se reemplazó una oferta vieja en WebP, se borra el archivo huérfano
         if (oldKey) {
@@ -1154,18 +1356,15 @@ function cambiarImagenOferta(oldKey) {
         }
 
         mostrarToast("La imagen se subió correctamente");
-        await cargarOfertas();
       } catch (err) {
         console.error(err);
         alert("Error al subir la oferta");
       } finally {
-        subiendoOferta = false;
-        quitarSkeleton();
+        terminar();
       }
     };
     reader.onerror = () => {
-      subiendoOferta = false;
-      quitarSkeleton();
+      terminar();
       alert("No se pudo leer la imagen");
     };
     reader.readAsDataURL(file);
@@ -1198,18 +1397,10 @@ async function eliminarOferta(key) {
     alert("Error al eliminar");
   }
 }
-window.addEventListener("geinz:plan", () => renderOfertas(ofertasCache));
+// Cambió el plan: solo se actualizan el límite y los contadores
+window.addEventListener("geinz:plan", actualizarResumenOfertas);
 
 // ══════════════ GENERADOR DE PROMOCIONES / COMBOS ══════════════
-const GEN_DIAS = [
-  ["lunes", "Lun"],
-  ["martes", "Mar"],
-  ["miercoles", "Mié"],
-  ["jueves", "Jue"],
-  ["viernes", "Vie"],
-  ["sabado", "Sáb"],
-  ["domingo", "Dom"],
-];
 const $g = (id) => document.getElementById(id);
 const gFmt = (n) => "S/ " + Number(n || 0).toFixed(2);
 const gEsc = (s) =>
@@ -1332,7 +1523,9 @@ function genLinea(l) {
 }
 
 // ── Estado ──
+let generadorActivo = null; // null = aún no se aplicó
 let genProductos = [];
+let productosPromesa = null;
 let genSel = new Map(); // uid -> { p, qty, sel }
 let genUid = 0;
 let genDias = new Set();
@@ -1341,57 +1534,168 @@ let genFile = null;
 let genDescEditada = false;
 let genCreando = false;
 let genDelivery = false;
-async function cargarProductosGen() {
-  if (!TIENDA_REF) return;
-  const lista = $g("genLista");
-  try {
-    const [insSnap] = await Promise.all([
-      getDocs(tiendaSubCol(LOCALIDAD, "tiendas", TIENDA_ID, "insumos")).catch(
-        () => null,
-      ),
-    ]);
-    genInsumos = new Map();
-    insSnap?.forEach((d) => genInsumos.set(d.id, { id: d.id, ...d.data() }));
 
-    const catsRef = collection(
-      tiendaDoc(LOCALIDAD, "tiendas", TIENDA_ID),
-      "productos",
-    );
-    const cats = await getDocs(catsRef);
-    const lotes = await Promise.all(
-      cats.docs.map(async (c) => {
-        const s = await getDocs(collection(doc(catsRef, c.id), c.id));
-        return s.docs.map((d) => {
-          const x = d.data();
-          return {
-            id: d.id,
-            catId: c.id,
-            cat: c.data().nombre || c.id,
-            nombre: x.nombre || "Sin nombre",
-            precio: Number(x.precio) || 0,
-            disponible: x.disponible !== false,
-            condiciones: x.condiciones || [],
-            variantesMultiples: x.variantesMultiples === true,
-            receta: x.receta || null,
-            costo_unitario: Number(x.costo_unitario) || 0,
-          };
-        });
-      }),
-    );
-    genProductos = lotes
-      .flat()
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
-    genRenderLista();
-  } catch (err) {
-    console.error("[generador] productos:", err);
-    if (lista)
-      lista.innerHTML = `<p class="of-msg error">No se pudieron cargar tus productos.</p>`;
+// ── Visibilidad según el plan ──
+const GEN_IDS = [
+  "genBuscar",
+  "genLista",
+  "genSel",
+  "genAnalisis",
+  "genTotal",
+  "genPromo",
+  "genAhorro",
+  "genPct",
+  "genModoRow",
+  "genUnidad",
+  "genValor",
+  "genRapidos",
+  "genDias",
+  "genDeliveryRow",
+  "genDesc",
+  "genImgPrev",
+  "genImgBtn",
+  "genImgInput",
+  "genLimpiar",
+  "genCrear",
+  "genMsg",
+];
+
+// Encuentra la caja completa del generador en el HTML
+function bloquesGenerador() {
+  const marcado =
+    document.querySelector("[data-generador]") || $g("cardGenerador");
+  if (marcado) return [marcado];
+
+  const els = GEN_IDS.map($g).filter(Boolean);
+  if (!els.length) return [];
+  let base = els[0].parentElement;
+  while (base && !els.every((el) => base.contains(el)))
+    base = base.parentElement;
+
+  const ajenos = [
+    ...document.querySelectorAll(
+      "#cardOfertas, #cardBanner, #ofertasGrid, #ofFiltros, #bannersGrid, #tituloInput, .vista-tab",
+    ),
+  ];
+  const esPropio = (n) =>
+    !!n &&
+    n !== document.body &&
+    n !== document.documentElement &&
+    !ajenos.some((a) => n === a || n.contains(a));
+
+  if (esPropio(base)) {
+    while (!base.matches(".card") && esPropio(base.parentElement))
+      base = base.parentElement;
+    return [base];
   }
+  // El generador comparte caja con otras cosas: se ocultan solo sus partes
+  return [
+    ...new Set(
+      els.map((el) => {
+        let n = el;
+        while (n.parentElement !== base) n = n.parentElement;
+        return n;
+      }),
+    ),
+  ];
+}
+
+function mostrarGenerador(activo) {
+  if (activo === generadorActivo) return;
+  const estabaActivo = generadorActivo === true;
+  generadorActivo = activo;
+
+  bloquesGenerador().forEach((el) => {
+    if (!activo) {
+      if (!el.dataset.genOculto) {
+        el.dataset.genDisplay = el.style.display;
+        el.dataset.genOculto = "1";
+      }
+      el.hidden = true;
+      el.style.setProperty("display", "none", "important");
+    } else if (el.dataset.genOculto) {
+      el.hidden = false;
+      el.style.display = el.dataset.genDisplay;
+      delete el.dataset.genOculto;
+    }
+  });
+
+  if (activo) {
+    genRefrescar();
+    asegurarProductos().then(genRenderLista);
+  } else if (estabaActivo) {
+    genLimpiar();
+  }
+}
+
+function escucharPlanGenerador() {
+  unsubServicios?.();
+  unsubServicios = onSnapshot(
+    tiendaServiciosDoc(LOCALIDAD, TIENDA_ID),
+    (snap) => {
+      const ofertas =
+        snap.data()?.cliente_y_fidelizacion?.publicidad_ofertas?.ofertas;
+      mostrarGenerador(ofertas?.generador_promociones === true);
+    },
+    (err) => {
+      console.error("[generador] plan:", err.code, err.message);
+      mostrarGenerador(false);
+    },
+  );
+}
+
+// Carga productos una sola vez (los usan el generador y el modo avanzado)
+function asegurarProductos() {
+  if (!TIENDA_REF) return Promise.resolve();
+  if (!productosPromesa)
+    productosPromesa = cargarProductos().catch((err) => {
+      console.error("[generador] productos:", err);
+      productosPromesa = null;
+      const lista = $g("genLista");
+      if (lista)
+        lista.innerHTML = `<p class="of-msg error">No se pudieron cargar tus productos.</p>`;
+    });
+  return productosPromesa;
+}
+
+async function cargarProductos() {
+  const insSnap = await getDocs(
+    tiendaSubCol(LOCALIDAD, "tiendas", TIENDA_ID, "insumos"),
+  ).catch(() => null);
+  genInsumos = new Map();
+  insSnap?.forEach((d) => genInsumos.set(d.id, { id: d.id, ...d.data() }));
+
+  const catsRef = collection(
+    tiendaDoc(LOCALIDAD, "tiendas", TIENDA_ID),
+    "productos",
+  );
+  const cats = await getDocs(catsRef);
+  const lotes = await Promise.all(
+    cats.docs.map(async (c) => {
+      const s = await getDocs(collection(doc(catsRef, c.id), c.id));
+      return s.docs.map((d) => {
+        const x = d.data();
+        return {
+          id: d.id,
+          catId: c.id,
+          cat: c.data().nombre || c.id,
+          nombre: x.nombre || "Sin nombre",
+          precio: Number(x.precio) || 0,
+          disponible: x.disponible !== false,
+          condiciones: x.condiciones || [],
+          variantesMultiples: x.variantesMultiples === true,
+          receta: x.receta || null,
+          costo_unitario: Number(x.costo_unitario) || 0,
+        };
+      });
+    }),
+  );
+  genProductos = lotes.flat().sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
 function genRenderLista() {
   const lista = $g("genLista");
-  if (!lista) return;
+  if (!lista || !productosPromesa) return;
   const q = ($g("genBuscar").value || "").trim().toLowerCase();
   const items = genProductos
     .filter((p) => !q || (p.nombre + " " + p.cat).toLowerCase().includes(q))
@@ -1575,6 +1879,7 @@ function genPintarAnalisis(t) {
 
 function genRefrescar() {
   const box = $g("genSel");
+  if (!box) return;
   if (!genSel.size)
     box.innerHTML = `<p class="of-msg">Agrega productos con el botón +</p>`;
   else
@@ -1619,11 +1924,13 @@ function genRefrescar() {
 
 function genMsg(txt, tipo = "") {
   const m = $g("genMsg");
+  if (!m) return;
   m.textContent = txt;
   m.className = "of-msg" + (tipo ? " " + tipo : "");
 }
 
 function genLimpiar() {
+  if (!$g("genSel")) return;
   genSel.clear();
   genDias.clear();
   genDelivery = false;
@@ -1641,6 +1948,7 @@ function genLimpiar() {
 }
 
 function genPintarDelivery() {
+  if (!$g("genDias")) return;
   let box = $g("genDeliveryRow");
   if (!box) {
     box = document.createElement("div");
@@ -1657,7 +1965,9 @@ function genPintarDelivery() {
 }
 
 function genPintarDias() {
-  $g("genDias").innerHTML = GEN_DIAS.map(
+  const box = $g("genDias");
+  if (!box) return;
+  box.innerHTML = GEN_DIAS.map(
     ([d, l]) =>
       `<div class="bn-tipo-chip ${genDias.has(d) ? "active" : ""}" data-d="${d}">${l}</div>`,
   ).join("");
@@ -1777,7 +2087,7 @@ $g("genImgInput")?.addEventListener("change", (e) => {
 $g("genLimpiar")?.addEventListener("click", genLimpiar);
 
 $g("genCrear")?.addEventListener("click", async () => {
-  if (genCreando) return;
+  if (genCreando || !generadorActivo) return;
   if (!TIENDA_REF) return genMsg("Aún cargando datos de la tienda", "error");
 
   const t = genTotales();
@@ -1821,7 +2131,7 @@ $g("genCrear")?.addEventListener("click", async () => {
     await uploadBytes(ref, dataURLtoBlob(comprimida), {
       contentType: "image/jpeg",
     });
-    const url = await getDownloadURL(ref);
+    const url = conVersion(await getDownloadURL(ref));
 
     // OJO: aquí NO se guarda costo, ganancia ni margen. Este documento lo lee la
     // tienda pública y el cliente vería cuánto ganas. Solo se guarda lo que el cliente puede ver.
@@ -1856,7 +2166,6 @@ $g("genCrear")?.addEventListener("click", async () => {
     });
     mostrarToast("Oferta creada correctamente");
     genLimpiar();
-    await cargarOfertas();
   } catch (err) {
     console.error(err);
     genMsg("Error al crear la oferta, intenta otra vez", "error");
@@ -1867,9 +2176,29 @@ $g("genCrear")?.addEventListener("click", async () => {
   }
 });
 
+// Si el padre cambia de tienda, se limpia todo lo de la anterior
+function reiniciarPantalla() {
+  bannerMap = {};
+  ofertasCache = {};
+  ofertasListas = false;
+  genProductos = [];
+  genInsumos = new Map();
+  productosPromesa = null;
+  ["bannersGrid", "ofertasGrid"].forEach((id) => {
+    const grid = $g(id);
+    if (!grid) return;
+    grid.innerHTML = "";
+    delete grid.dataset.listo;
+  });
+  genLimpiar();
+  mostrarGenerador(false);
+}
+
+// ── Arranque ──
 genPintarDias();
 genPintarDelivery();
 genRefrescar();
+mostrarGenerador(false); // oculto hasta que el plan diga lo contrario
 
 pintarFiltrosOfertas();
 document.getElementById("ofFiltros")?.addEventListener("click", (e) => {
@@ -1877,7 +2206,7 @@ document.getElementById("ofFiltros")?.addEventListener("click", (e) => {
   if (!c) return;
   ofFiltro = c.dataset.f;
   pintarFiltrosOfertas();
-  renderOfertas(ofertasCache);
+  aplicarFiltroOfertas();
 });
 
 // ══════════════ MODO AVANZADO DE OFERTA / BANNER (variantes tipo producto) ══════════════
@@ -1961,25 +2290,25 @@ function abrirEditorAvanzadoOferta(key) {
     opciones: [nuevaOpcion()],
   });
 
-  const pintar = () => {
+  const htmlCategorias = () => {
     const cats = new Map();
     genProductos.forEach((p) => cats.set(p.catId, p.cat));
+    return cats.size
+      ? [...cats.entries()]
+          .map(
+            ([id, nombre]) =>
+              `<label class="va-chk"><input type="checkbox" data-f="sug" data-cat="${gEsc(id)}" ${st.sugerencias.includes(id) ? "checked" : ""}> ${gEsc(nombre)}</label>`,
+          )
+          .join("")
+      : `<span style="font-size:11.5px;color:#a78bfa">Aún no se cargaron tus secciones.</span>`;
+  };
+
+  const pintar = () => {
     const sugHtml = `
       <div class="va-grp" style="margin-top:14px">
         <p class="va-sec" style="margin-top:0">También puedes agregar</p>
         <p style="font-size:11.5px;color:#a78bfa;margin:0 0 8px">Al agregar ${esBanner ? "este banner" : "esta oferta"}, el cliente verá productos de estas secciones.</p>
-        <div class="va-row va-wrap">
-          ${
-            cats.size
-              ? [...cats.entries()]
-                  .map(
-                    ([id, nombre]) =>
-                      `<label class="va-chk"><input type="checkbox" data-f="sug" data-cat="${gEsc(id)}" ${st.sugerencias.includes(id) ? "checked" : ""}> ${gEsc(nombre)}</label>`,
-                  )
-                  .join("")
-              : `<span style="font-size:11.5px;color:#a78bfa">Aún no se cargaron tus secciones.</span>`
-          }
-        </div>
+        <div class="va-row va-wrap" data-role="cats">${htmlCategorias()}</div>
       </div>`;
     body.dataset.caso = st.caso;
     body.innerHTML = `
@@ -2004,7 +2333,7 @@ function abrirEditorAvanzadoOferta(key) {
           const multi = c.tipo === "multiple";
           return `
         <div class="va-grp" data-ci="${ci}">
-                   <div class="va-row">
+          <div class="va-row">
             <input class="va-in" data-f="cnombre" maxlength="30" placeholder="Ej. Gaseosa" value="${gEsc(c.nombre)}">
             <button type="button" class="va-mv" data-a="upgrp" title="Subir" ${ci === 0 ? "disabled" : ""}>▲</button>
             <button type="button" class="va-mv" data-a="downgrp" title="Bajar" ${ci === st.condiciones.length - 1 ? "disabled" : ""}>▼</button>
@@ -2050,10 +2379,15 @@ function abrirEditorAvanzadoOferta(key) {
         </div>`;
         })
         .join("")}
-           <button type="button" class="va-add" data-a="addgrp">+ Agregar grupo de opciones</button>
+      <button type="button" class="va-add" data-a="addgrp">+ Agregar grupo de opciones</button>
       ${sugHtml}`;
   };
   pintar();
+  // Las secciones se cargan aunque el generador esté desactivado
+  asegurarProductos().then(() => {
+    const box = body.querySelector('[data-role="cats"]');
+    if (box) box.innerHTML = htmlCategorias();
+  });
 
   const onEdit = (e) => {
     const t = e.target;
@@ -2202,11 +2536,10 @@ function abrirEditorAvanzadoOferta(key) {
         return;
       }
 
-      const nuevo = { ...actual };
-      if (esBanner) {
-        b.disabled = true;
-        b.textContent = "Guardando...";
-        try {
+      b.disabled = true;
+      b.textContent = "Guardando...";
+      try {
+        if (esBanner) {
           await asegurarMigrado(bannerId);
           const P = `banner.items.${bannerId}`;
           await updateDoc(TIENDA_REF, {
@@ -2216,51 +2549,45 @@ function abrirEditorAvanzadoOferta(key) {
               : deleteField(),
             [`${P}.caso`]: st.caso !== "tal_cual" ? st.caso : deleteField(),
           });
-          const it = bannerMap[bannerId] || {};
-          if (conds.length) it.condiciones = conds;
-          else delete it.condiciones;
-          if (st.sugerencias.length) it.sugerencias = st.sugerencias;
-          else delete it.sugerencias;
-          if (st.caso !== "tal_cual") it.caso = st.caso;
-          else delete it.caso;
-          bannerMap[bannerId] = it;
-          bannerRepintarAdv(bannerId);
+          let it = bannerMap[bannerId] || {};
+          it = conCampo(it, "condiciones", conds.length ? conds : undefined);
+          it = conCampo(
+            it,
+            "sugerencias",
+            st.sugerencias.length ? st.sugerencias : undefined,
+          );
+          it = conCampo(
+            it,
+            "caso",
+            st.caso !== "tal_cual" ? st.caso : undefined,
+          );
+          document
+            .querySelector(`.of-card[data-bid="${bannerId}"]`)
+            ?._actualizar(it);
           mostrarToast("Opciones del banner guardadas");
-          ov.remove();
-        } catch (err) {
-          console.error(err);
-          msg.textContent = "Error al guardar, intenta otra vez";
-          b.disabled = false;
-          b.textContent = "Guardar";
-        }
-        return;
-      }
-      const nombre = aplicarCaso(st.nombre.trim());
-      if (nombre) nuevo.nombre = nombre;
-      else delete nuevo.nombre;
-      if (st.caso !== "tal_cual") nuevo.caso = st.caso;
-      else delete nuevo.caso;
-      if (st.stock !== "" && st.stock !== null)
-        nuevo.stock = Math.max(0, parseInt(st.stock, 10) || 0);
-      else delete nuevo.stock;
-      if (conds.length) nuevo.condiciones = conds;
-      else delete nuevo.condiciones;
-      if (st.sugerencias.length) nuevo.sugerencias = st.sugerencias;
-      else delete nuevo.sugerencias;
+        } else {
+          // Se parte de los datos más recientes (días, precio, etc.)
+          const nuevo = { ...normalizarOferta(ofertasCache[key]) };
+          const nombre = aplicarCaso(st.nombre.trim());
+          if (nombre) nuevo.nombre = nombre;
+          else delete nuevo.nombre;
+          if (st.caso !== "tal_cual") nuevo.caso = st.caso;
+          else delete nuevo.caso;
+          if (st.stock !== "" && st.stock !== null)
+            nuevo.stock = Math.max(0, parseInt(st.stock, 10) || 0);
+          else delete nuevo.stock;
+          if (conds.length) nuevo.condiciones = conds;
+          else delete nuevo.condiciones;
+          if (st.sugerencias.length) nuevo.sugerencias = st.sugerencias;
+          else delete nuevo.sugerencias;
 
-      b.disabled = true;
-      b.textContent = "Guardando...";
-      try {
-        await updateDoc(TIENDA_REF, {
-          [`img_tienda.lista_img.promociones.${key}`]: nuevo,
-        });
-        ofertasCache[key] = nuevo;
-        const btnAdv = document.querySelector(
-          `.of-card[data-key="${key}"] [data-role="adv"]`,
-        );
-        if (btnAdv)
-          btnAdv.textContent = `⚙️ Modo avanzado${conds.length ? ` · ${conds.length} grupo(s)` : ""}`;
-        mostrarToast("Opciones de la oferta guardadas");
+          await updateDoc(TIENDA_REF, {
+            [`img_tienda.lista_img.promociones.${key}`]: nuevo,
+          });
+          ofertasCache[key] = nuevo;
+          repintarOferta(key);
+          mostrarToast("Opciones de la oferta guardadas");
+        }
         ov.remove();
       } catch (err) {
         console.error(err);

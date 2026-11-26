@@ -7689,7 +7689,10 @@ function aplicarFiltroInicial() {
 }
 // Link compartido: ?oferta=ID | activa_ID | banner → filtra y abre el diálogo
 function aplicarOfertaDesdeLink(ofertaId) {
-  const p = promosGlobal.find((x) => x.promoId === String(ofertaId));
+const id = String(ofertaId);
+const p = promosGlobal.find(
+  (x) => x.promoId === id || x.promoId === `activa_${id}`,
+);
   if (!p) {
     showToast("⚠️ Esa oferta ya no está disponible");
     return;

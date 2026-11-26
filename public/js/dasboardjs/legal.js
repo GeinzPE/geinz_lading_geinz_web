@@ -441,7 +441,8 @@ function abrirModalDatosIA(tipoDocumento, titulo, datos, guardadas, onGenerar) {
 
   let ocupado = false;
 
-  const cerrar = () => {
+  const cerrar = (desdeAtras = false) => {
+    if (!desdeAtras) window.ModalBack?.cerrado("modalIA");
     overlay.classList.remove("open");
     panel.classList.remove("open");
     setTimeout(() => {
@@ -449,6 +450,16 @@ function abrirModalDatosIA(tipoDocumento, titulo, datos, guardadas, onGenerar) {
       panel.remove();
     }, 350);
   };
+
+  // Atrás: si está generando, no cierra y se vuelve a registrar
+  const alAtras = () => {
+    if (ocupado) {
+      window.ModalBack?.abrir("modalIA", alAtras);
+      return;
+    }
+    cerrar(true);
+  };
+  window.ModalBack?.abrir("modalIA", alAtras);
 
   const btnGen = panel.querySelector("[data-generar]");
   const campos = () => panel.querySelectorAll("[data-grupo]");
@@ -757,8 +768,7 @@ function initFooterConfig() {
 }
 
 function actualizarTabsDisponibles(footer) {
-  document.getElementById("tabBtnLibro").disabled =
-    !footer.libro_reclamaciones;
+  document.getElementById("tabBtnLibro").disabled = !footer.libro_reclamaciones;
   document.getElementById("tabBtnPoliticas").disabled =
     !footer.politicas_privacidad;
   document.getElementById("tabBtnTerminos").disabled =
@@ -1038,9 +1048,11 @@ function abrirDrawerReclamo(id) {
 
   document.getElementById("reclamoDrawerOverlay").classList.add("open");
   document.getElementById("reclamoDrawerPanel").classList.add("open");
+  window.ModalBack?.abrir("drawerReclamo", cerrarDrawerReclamo); // ← NUEVO
 }
 
 function cerrarDrawerReclamo() {
+  window.ModalBack?.cerrado("drawerReclamo"); // ← NUEVO (primera línea)
   document.getElementById("reclamoDrawerOverlay").classList.remove("open");
   document.getElementById("reclamoDrawerPanel").classList.remove("open");
   _reclamoSeleccionadoId = null;

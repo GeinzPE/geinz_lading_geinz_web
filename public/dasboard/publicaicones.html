@@ -1073,20 +1073,41 @@
         }
 
         /* ── Generador de promociones ── */
+
+        #vista-ofertas,
+        #vista-ofertas .card {
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        #vista-ofertas {
+            overflow-x: hidden;
+        }
+
+        #cardGenerador .bn-mini-toggle .bn-tipo-chip {
+            min-width: 0;
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
         .gen-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             gap: 16px;
             margin-top: 14px
         }
 
         @media(max-width:760px) {
             .gen-grid {
-                grid-template-columns: 1fr
+                grid-template-columns: minmax(0, 1fr)
             }
         }
 
         .gen-box {
+            min-width: 0;
+            box-sizing: border-box;
+            max-width: 100%;
             background: rgba(255, 255, 255, .03);
             border: 1px solid rgba(255, 255, 255, .08);
             border-radius: 16px;
@@ -1168,12 +1189,13 @@
 
         .gen-res {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             gap: 8px;
             margin-top: 10px
         }
 
         .gen-res div {
+            min-width: 0;
             background: #05040a;
             border: 1px solid rgba(255, 255, 255, .08);
             border-radius: 12px;

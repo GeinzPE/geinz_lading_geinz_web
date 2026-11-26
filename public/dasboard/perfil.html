@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <script type="module" src="../js/dasboardjs/panel_perfil_org.js"></script>
-
+    <script src="../js/helper/modal_back.js"></script>
 
     <style>
         html,
@@ -2021,6 +2021,7 @@
                     function cerrar(val) {
                         if (hecho) return;
                         hecho = true; abierto = null;
+                          ModalBack.cerrado("confirmar");   
                         document.removeEventListener("keydown", onKey, true);
                         overlay.classList.remove("cm-show");
                         setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
@@ -2041,6 +2042,7 @@
                     document.addEventListener("keydown", onKey, true);
 
                     document.body.appendChild(overlay);
+                    ModalBack.abrir("confirmar", () => cerrar(false));
                     void overlay.offsetWidth;
                     overlay.classList.add("cm-show");
                     setTimeout(function () { bOk.focus(); }, 40);

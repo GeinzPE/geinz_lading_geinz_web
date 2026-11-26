@@ -25,7 +25,7 @@ import {
 import { leer } from "../structure/structure_min.js";
 // Importamos app, db y storage ya inicializados desde db.js
 import { app, db, storage } from "../db/db.js";
-import { tiendaSubDoc } from "../rutas/rutas.js";
+import { tiendaSubDoc, tiendaServiciosDoc } from "../rutas/rutas.js";
 
 const _urlParams = new URLSearchParams(window.location.search);
 let tiendaId = _urlParams.get("id") || sessionStorage.getItem("tiendaId");
@@ -55,7 +55,7 @@ function _on(v) {
   return false;
 }
 
-// Las redes nacen APAGADAS hasta que llegue el plan real desde el padre.
+// Redes e IA nacen APAGADAS hasta que llegue el plan real (Firestore).
 window.GEINZ_PLAN = {
   fanpage: false,
   instagram: false,
@@ -64,6 +64,9 @@ window.GEINZ_PLAN = {
   ofertas: true,
   misPublicaciones: true,
   maxOfertas: 5,
+  iaTitulo: false,
+  iaWhatsapp: false,
+  iaCompartir: false,
 };
 
 function _mostrar(el, visible) {
@@ -133,12 +136,19 @@ let _precios = {
   publicacion_x_hora: 10, // 10 créditos por hora
   costo_por_moneda: 0.012,
 };
+let _preciosOk = false; // true cuando ya llegaron los precios del padre
 
 // ── Estado de Facebook / Instagram (declarado arriba para evitar problemas de orden) ──
 let fbConectado = false;
 let fbPublicarActivo = false;
 let igConectado = false;
 let igPublicarActivo = false;
+
+// ── Datos de la tienda y créditos (declarados arriba: se usan en todo el archivo) ──
+let datosTienda = null;
+let saldoCreditos = null; // null = todavía no llegó desde Firestore
+const ID_TIENDA = tiendaId;
+const LOCALIDAD = localidad;
 
 // ══════════════════════════════════════════════════════════════════════
 //  HELPERS DE TIPO DE PUBLICACIÓN
@@ -164,7 +174,12 @@ function textoRedes() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  LINKS (alias de tienda, carrito y compartir)
+//  LINKS (negocio, carrito y compartir)
+//
+//  • Link del NEGOCIO  → dominio propio, o geinztech.com/perfil/<alias>
+//      (se usa en publicaciones solo Facebook / solo Instagram / YouTube)
+//  • Link del CARRITO  → ...?oferta=<UID>  (solo cuando se crea una oferta
+//      en el perfil, es decir en el modo "perfil")
 // ══════════════════════════════════════════════════════════════════════
 async function obtenerAliasTienda() {
   const d = datosTienda || {};
@@ -180,7 +195,7 @@ async function obtenerAliasTienda() {
         d.id_tienda || ID_TIENDA,
       ),
     );
-    alias = snap.data()?.alias_key || "";
+    alias = snap.data()?.alias_key || snap.data()?.slug || "";
     if (alias && datosTienda) datosTienda.alias_key = alias; // cachear
   } catch (e) {
     console.warn("⚠️ No se pudo leer alias_key:", e);
@@ -188,13 +203,70 @@ async function obtenerAliasTienda() {
   return String(alias || "").trim();
 }
 
-async function construirLinkCarrito(idOferta) {
-  const v = 1;
-  const dominio = (datosTienda?.dominio_personalizado || "")
-    .toString()
+// Lee de Firestore el dominio propio y el alias (por si el estado local está viejo)
+async function refrescarDatosLink() {
+  try {
+    const snap = await getDoc(
+      tiendaSubDoc(
+        datosTienda?.localidad || LOCALIDAD,
+        "tiendas",
+        datosTienda?.id_tienda || ID_TIENDA,
+      ),
+    );
+    const d = snap.data() || {};
+    if (datosTienda) {
+      datosTienda.dominio_personalizado = d.dominio_personalizado;
+      datosTienda.alias_key = d.alias_key;
+      datosTienda.slug = d.slug;
+    }
+  } catch (e) {
+    console.warn("⚠️ refrescarDatosLink:", e);
+  }
+}
+
+const limpiarDominio = (s) =>
+  String(s || "")
     .trim()
     .replace(/^https?:\/\//i, "")
     .replace(/\/+$/, "");
+
+// Link del negocio SIN carrito. null si no hay ni dominio ni alias.
+async function construirLinkNegocio() {
+  await refrescarDatosLink();
+  const dom = limpiarDominio(datosTienda?.dominio_personalizado);
+  if (dom) return `https://${dom}`;
+  const alias = await obtenerAliasTienda();
+  return alias ? `https://geinztech.com/perfil/${alias}` : null;
+}
+window.construirLinkNegocio = construirLinkNegocio; // para publicaciones_youtube.js
+
+// Link opcional escrito por el usuario. null si está vacío; lanza error si es inválido.
+function leerLinkPersonalizado() {
+  let v = document.getElementById("linkPersonalizadoInput")?.value.trim() || "";
+  if (!v) return null;
+  if (!/^https?:\/\//i.test(v)) v = "https://" + v;
+  try {
+    new URL(v);
+  } catch {
+    throw new Error("El link personalizado no es válido");
+  }
+  return v;
+}
+window.leerLinkPersonalizado = leerLinkPersonalizado;
+
+// Arma el texto de la publicación; el link (si hay) va al final y nunca se corta
+function armarCaption(titulo, descripcion, link, max = null) {
+  const pie = link ? `\n\n🔗 ${link}` : "";
+  let cuerpo = `${titulo}\n\n${descripcion}`;
+  if (max) cuerpo = cuerpo.slice(0, Math.max(0, max - pie.length));
+  return cuerpo + pie;
+}
+
+// Link al carrito con el UID de la oferta (solo modo perfil)
+async function construirLinkCarrito(idOferta) {
+  await refrescarDatosLink();
+  const v = 1;
+  const dominio = limpiarDominio(datosTienda?.dominio_personalizado);
   if (dominio) return `https://${dominio}/carrito?oferta=${idOferta}&v=${v}`;
 
   const alias = await obtenerAliasTienda();
@@ -208,6 +280,117 @@ function construirLinkPromo(id_promocion, localidad) {
   const l =
     localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
   return `https://geinztech.com/api/share?t=prms&l=${l}&pi=${id_promocion}`;
+}
+
+// Campo opcional "Link para redirigir" (solo visible en modo Facebook / Instagram)
+(function inyectarCampoLink() {
+  const desc = document.getElementById("descripcionInput")?.closest(".ig");
+  if (!desc || document.getElementById("bloqueLinkRedes")) return;
+  const b = document.createElement("div");
+  b.className = "ig";
+  b.id = "bloqueLinkRedes";
+  b.style.display = "none";
+  b.innerHTML = `
+    <label class="lbl">Link para redirigir (opcional)</label>
+    <input type="text" id="linkPersonalizadoInput" placeholder="https://...">
+    <p class="sec-sub">Si lo dejas vacío, se pondrá el link de tu negocio.</p>`;
+  desc.parentNode.insertBefore(b, desc.nextSibling);
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+//  CRÉDITOS: fuente única (Firestore directo, igual que en perfil)
+// ══════════════════════════════════════════════════════════════════════
+function leerCreditosIA(serv) {
+  const n = Number(serv?.panel_admin?.creditos_ia ?? serv?.creditos_ia);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pintarCreditos() {
+  const el = document.getElementById("creditos_value");
+  if (!el) return;
+  el.textContent =
+    saldoCreditos === null
+      ? "Cargando…"
+      : `${saldoCreditos.toLocaleString("en-US")} Creditos  `;
+}
+
+function setSaldo(n) {
+  if (!Number.isFinite(Number(n))) return;
+  saldoCreditos = Number(n);
+  if (datosTienda) datosTienda.saldo_tienda = saldoCreditos;
+  pintarCreditos();
+  actualizarBotonesIA();
+  actualizarCostoPublicar();
+  actualizarEstadoBotonPublicar();
+  verificarSaldo();
+}
+
+let _unsubServ = null,
+  _unsubTienda = null,
+  _listenKey = "",
+  _sigTienda = "";
+
+function iniciarListenersDirectos(id, loc) {
+  if (!id || !loc) return;
+  const key = `${loc}/${id}`;
+  if (key === _listenKey) return;
+  _listenKey = key;
+  _sigTienda = "";
+  _unsubServ?.();
+  _unsubTienda?.();
+
+  // Servicios del plan + créditos
+  _unsubServ = onSnapshot(
+    tiendaServiciosDoc(loc, id),
+    (snap) => {
+      const serv = snap.exists() ? snap.data() : {};
+      const c = leerCreditosIA(serv);
+      if (c !== null) setSaldo(c);
+      aplicarServicios(serv);
+    },
+    (e) => console.warn("⚠️ servicios:", e),
+  );
+
+  // Datos de la tienda (contacto, pagos, ubicación, FB/IG, dominio, alias)
+  _unsubTienda = onSnapshot(
+    tiendaSubDoc(loc, "tiendas", id),
+    (snap) => {
+      const d = snap.data() || {};
+      const sig = JSON.stringify([
+        d.nombre_tienda,
+        d.metodo_contacto,
+        d.metodos_pago,
+        d.ubicacion,
+        d.facebook_page,
+        d.instagram,
+      ]);
+      const cambio = sig !== _sigTienda;
+      _sigTienda = sig;
+
+      datosTienda = {
+        ...(datosTienda || {}),
+        id_tienda: id,
+        localidad: loc,
+        nombre_tienda: d.nombre_tienda || "",
+        categoria_tienda: d.categoria_tienda || "",
+        img_tienda: { logo_tienda: d.img_tienda?.logo_tienda || "" },
+        metodo_contacto: d.metodo_contacto || {},
+        metodos_pago: d.metodos_pago || {},
+        ubicacion: d.ubicacion || {},
+        facebook_page: d.facebook_page || null,
+        instagram: d.instagram || null,
+        slug: d.slug,
+        alias_key: d.alias_key,
+        dominio_personalizado: d.dominio_personalizado,
+        saldo_tienda: saldoCreditos ?? datosTienda?.saldo_tienda ?? 0,
+      };
+      // Solo repinta el formulario si cambió algo relevante (no pisa lo que el usuario escribe)
+      if (cambio) _aplicarDatosTienda(datosTienda);
+      actualizarBotonesIA();
+      actualizarEstadoBotonPublicar();
+    },
+    (e) => console.warn("⚠️ tienda:", e),
+  );
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -662,9 +845,16 @@ function actualizarCostoPublicar() {
 
 // ── Verificar si el saldo es suficiente ─────────────────
 function verificarSaldo() {
-  const saldo = datosTienda?.saldo_tienda ?? 0;
   const total = calcularCostoTotal();
   const warn = document.getElementById("saldoInsuficienteWarn");
+
+  // Mientras el saldo no haya cargado no se avisa "insuficiente" (evita falsos avisos)
+  if (saldoCreditos === null && total > 0) {
+    if (warn) warn.classList.remove("visible");
+    return false;
+  }
+
+  const saldo = saldoCreditos ?? datosTienda?.saldo_tienda ?? 0;
   const suficiente = saldo >= total && total > 0;
 
   if (warn) {
@@ -828,6 +1018,9 @@ function aplicarTipoPublicacionUI() {
   // Plazo: oculto en "solo redes" y en YouTube
   alternarBloque(document.querySelector(".plazo"), !(esSoloRed || esYt));
 
+  // Link opcional para redirigir: solo en "solo redes" (Facebook / Instagram)
+  alternarBloque(document.getElementById("bloqueLinkRedes"), esSoloRed);
+
   // WhatsApp / compartir / precio: ocultos en "solo redes".
   // En YouTube no se tocan: se esconden junto con toda la lista de parámetros.
   ["wp", "share", "price"].forEach((id) => {
@@ -902,10 +1095,6 @@ async function getToken() {
     });
   });
 }
-
-let datosTienda = null;
-const ID_TIENDA = tiendaId;
-const LOCALIDAD = localidad;
 
 // ══════════════════════════════════════════════════════════════════════
 //  STORAGE (subida y compresión de imágenes)
@@ -1086,6 +1275,27 @@ function formatFechaSlash(str) {
   const [y, m, d] = str.split("-");
   return `${d}/${m}/${y}`;
 }
+// Días de la semana en los que la publicación está activa
+function diasEntre(inicioSeg, finSeg) {
+  const N = [
+    "domingo",
+    "lunes",
+    "martes",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "sabado",
+  ];
+  const d = new Date(inicioSeg * 1000);
+  d.setHours(0, 0, 0, 0);
+  const fin = new Date(finSeg * 1000);
+  const dias = new Set();
+  while (d <= fin && dias.size < 7) {
+    dias.add(N[d.getDay()]);
+    d.setDate(d.getDate() + 1);
+  }
+  return [...dias];
+}
 
 // ══════════════════════════════════════════════════════════════════════
 //  IIFE PRINCIPAL: formulario, IA, publicar
@@ -1228,7 +1438,8 @@ function formatFechaSlash(str) {
     if (!precioInput) return;
 
     if (!precio) {
-      precioInput.value = "";
+      // solo borra si el precio lo puso la detección automática
+      if (precioYaSeteado) precioInput.value = "";
       precioYaSeteado = false;
       return;
     }
@@ -1274,26 +1485,34 @@ function formatFechaSlash(str) {
 
   // ────────────────────────────────────────────────────────
   //  VALIDACIÓN GENERAL (se ejecuta al escribir / cambiar imágenes)
+  //  Los botones de IA solo se muestran si el plan los habilita
+  //  (cliente_y_fidelizacion.publicidad_ofertas.ia_generativa.*)
   // ────────────────────────────────────────────────────────
   function validate() {
+    const plan = window.GEINZ_PLAN || {};
     const titulo = tituloInput.value.trim();
     const desc = descripcionInput.value.trim();
     if (!esYoutube())
       aplicarPrecioDetectado(detectarPrecioTexto(`${titulo} ${desc}`));
 
     const zonaImg = document.getElementById("iaZonaImagen");
-    if (zonaImg) alternarBloque(zonaImg, imgsCount > 0 && !esYoutube(), "flex");
+    if (zonaImg)
+      alternarBloque(
+        zonaImg,
+        imgsCount > 0 && !esYoutube() && !!plan.iaTitulo,
+        "flex",
+      );
 
     const zonaTxt = document.getElementById("iaZonaTexto");
     if (zonaTxt) {
-      const mostrar = desc.length >= 10 && !esYoutube();
+      const mostrar = desc.length >= 10 && !esYoutube() && !!plan.iaTitulo;
       alternarBloque(zonaTxt, mostrar, "flex");
       if (mostrar) renderBullets(tipoTextoIA);
     }
 
     const tieneContenido = titulo.length >= 4 && desc.length >= 15;
-    showBtn(btnMensajeWpIA, tieneContenido);
-    showBtn(btnMensajeShareIA, tieneContenido);
+    showBtn(btnMensajeWpIA, tieneContenido && !!plan.iaWhatsapp);
+    showBtn(btnMensajeShareIA, tieneContenido && !!plan.iaCompartir);
 
     actualizarCostoPublicar();
     actualizarEstadoBotonPublicar();
@@ -1353,6 +1572,7 @@ function formatFechaSlash(str) {
   //  IA: MEJORAR TEXTO (título + descripción, 3 opciones)
   // ────────────────────────────────────────────────────────
   async function mejorarTextoIA() {
+    if (!window.GEINZ_PLAN?.iaTitulo) return;
     if (!datosTienda) {
       mostrarToast("Cargando datos de tienda...", "error");
       return;
@@ -1431,6 +1651,7 @@ function formatFechaSlash(str) {
   //  IA: MENSAJE DE WHATSAPP
   // ────────────────────────────────────────────────────────
   async function generarMensajeWhatsappIA() {
+    if (!window.GEINZ_PLAN?.iaWhatsapp) return;
     if (!datosTienda) {
       mostrarToast("Cargando datos de tienda...", "error");
       return;
@@ -1472,6 +1693,7 @@ function formatFechaSlash(str) {
   //  IA: MENSAJE PARA COMPARTIR
   // ────────────────────────────────────────────────────────
   async function generarMensajeCompartirIA() {
+    if (!window.GEINZ_PLAN?.iaCompartir) return;
     if (!datosTienda) {
       mostrarToast("Cargando datos de tienda...", "error");
       return;
@@ -1513,6 +1735,7 @@ function formatFechaSlash(str) {
   //  IA: IMAGEN → TÍTULO + DESCRIPCIÓN
   // ────────────────────────────────────────────────────────
   async function generarImagenTextoIA() {
+    if (!window.GEINZ_PLAN?.iaTitulo) return;
     if (!datosTienda) {
       mostrarToast("Cargando datos de tienda...", "error");
       return;
@@ -1727,7 +1950,9 @@ function formatFechaSlash(str) {
   //  PUBLICAR SOLO EN REDES (Facebook y/o Instagram)
   //  No crea la promoción en Geinz: sube las imágenes y publica
   //  directamente en las redes elegidas, en paralelo.
-  //  Si una red falla y la otra no, avisa y considera éxito parcial.
+  //  NO lleva link de carrito: usa el link que el usuario escriba o,
+  //  si lo deja vacío, el link del negocio (dominio propio o
+  //  geinztech.com/perfil/<alias>).
   // ══════════════════════════════════════════════════════════
   async function publicarSoloRedes(titulo, descripcion) {
     const btn = document.querySelector(".btn-submit");
@@ -1743,9 +1968,18 @@ function formatFechaSlash(str) {
       return;
     }
 
+    // Link: el del usuario (si lo puso) o el del negocio. Se valida ANTES de publicar.
+    let linkFinal = null;
+    try {
+      linkFinal = leerLinkPersonalizado() || (await construirLinkNegocio());
+    } catch (e) {
+      mostrarToast(e.message || "Link inválido", "error");
+      return;
+    }
+
     const id_tienda = datosTienda.id_tienda || ID_TIENDA;
     const localidad = datosTienda.localidad || LOCALIDAD;
-    // ID usado para la carpeta de Storage y el link de carrito del post de FB
+    // ID usado solo para la carpeta de Storage (no existe como promo en Geinz)
     const id_oferta = doc(collection(db, "Promociones")).id;
 
     mostrarSkeletonPublicando();
@@ -1772,17 +2006,12 @@ function formatFechaSlash(str) {
       if (fb) {
         tareas.push(
           (async () => {
-            const link = await construirLinkCarrito(id_oferta);
-            if (!link)
-              throw new Error(
-                "No se encontró el alias de tu tienda para armar el link",
-              );
             const r = await callFirebaseFunction(CLOUD_FN_PUBLICAR_FB, {
               id_tienda,
               localidad,
               image_urls: urls.slice(0, MAX_IMAGENES_FB), // hasta 5 imágenes
               image_url: urls[0], // compatibilidad con la versión vieja
-              caption: `${titulo}\n\n${descripcion}\n\n👉 Pídelo aquí: ${link}`,
+              caption: armarCaption(titulo, descripcion, linkFinal),
             });
             if (!r?.ok)
               throw new Error(r?.mensaje || "No se pudo publicar en Facebook");
@@ -1798,7 +2027,8 @@ function formatFechaSlash(str) {
               id_tienda,
               localidad,
               image_url: igUrl || urls[0] || botUrl, // Instagram: JPEG público y proporción válida
-              caption: `${titulo}\n\n${descripcion}`.slice(0, 2200), // límite de IG
+              // límite de IG: 2200 (el link siempre se conserva al final)
+              caption: armarCaption(titulo, descripcion, linkFinal, 2200),
             });
             if (!r?.ok)
               throw new Error(r?.mensaje || "No se pudo publicar en Instagram");
@@ -1821,7 +2051,11 @@ function formatFechaSlash(str) {
 
       ocultarSkeleton();
       limpiarFormulario();
-      mostrarModalExito(id_oferta, localidad);
+      mostrarModalExito(
+        id_oferta,
+        localidad,
+        linkFinal || "https://geinztech.com",
+      );
     } catch (err) {
       console.error("❌ ERROR redes:", err);
       ocultarSkeleton();
@@ -1835,6 +2069,8 @@ function formatFechaSlash(str) {
 
   // ══════════════════════════════════════════════════════════
   //  PUBLICAR PROMOCIÓN (modo perfil, con FB / IG opcionales)
+  //  Aquí SÍ se crea la oferta, por eso Facebook lleva el link
+  //  del carrito con el UID de la oferta.
   // ══════════════════════════════════════════════════════════
   async function publicarPromocion() {
     // ── Modo YouTube: lo maneja publicaciones_youtube.js ──
@@ -1925,16 +2161,16 @@ function formatFechaSlash(str) {
       );
       return;
     }
-    // Precio
-    if (sw_precio) {
-      const precioVal = document.getElementById("precioInput")?.value?.trim();
-      if (!precioVal) {
-        mostrarToast(
-          "Precio activo: ingresa el precio de tu publicación",
-          "error",
-        );
-        return;
+    const precioVal =
+      document.getElementById("precioInput")?.value?.trim() || "";
+    if (!(Number(precioVal) > 0)) {
+      const sw = switches[3];
+      if (sw) {
+        sw.checked = true;
+        window.toggle("price", sw);
       }
+      mostrarToast("Ingresa el precio de tu publicación", "error");
+      return;
     }
     // Pagos
     if (sw_pagos) {
@@ -1979,7 +2215,11 @@ function formatFechaSlash(str) {
 
     // ── Verificar saldo ──
     const total = calcularCostoTotal();
-    const saldo = datosTienda?.saldo_tienda ?? 0;
+    const saldo = saldoCreditos ?? datosTienda?.saldo_tienda ?? 0;
+    if (saldoCreditos === null && total > 0) {
+      mostrarToast("Cargando tus créditos, intenta en un momento", "error");
+      return;
+    }
     if (saldo < total) {
       mostrarToast(
         `Saldo insuficiente. Necesitas ${total.toLocaleString("es-PE")} créditos`,
@@ -2121,15 +2361,15 @@ function formatFechaSlash(str) {
         estado: "activo",
         exclusivo: false,
         formato_fecha_hora: tipoPlazoVal,
-        fecha_inicio: formatFechaSlash(fechaInicio),
-        fecha_fin: formatFechaSlash(fechaFin),
+        fecha_inicio: new Date(tsInicio.seconds * 1000).toLocaleDateString(
+          "en-GB",
+        ),
+        fecha_fin: new Date(tsFin.seconds * 1000).toLocaleDateString("en-GB"),
         hora_inicio,
         hora_fin,
         timestamp_inicio: tsInicio,
         timestamp_fin: tsFin,
-        precio: sw_precio
-          ? document.getElementById("precioInput")?.value || "0"
-          : "0",
+        precio: precioVal,
         horario_seleccion: horario,
         contactar: sw_whatsapp,
         compartir: sw_compartir,
@@ -2159,7 +2399,7 @@ function formatFechaSlash(str) {
         referencia,
 
         // ── Financiero ──────────────────────────────────────
-        saldo_actual: datosTienda.saldo_tienda,
+        saldo_actual: saldo,
         saldo_descuento: total,
         precio_por_moneda: _precios.costo_por_moneda,
         tipo_paquete:
@@ -2176,7 +2416,17 @@ function formatFechaSlash(str) {
 
       // Crea la promoción en Geinz
       await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
-
+      await setDoc(
+        tiendaSubDoc(
+          localidad,
+          "tiendas",
+          id_tienda,
+          "promociones_geinz",
+          id_promocion,
+        ),
+        { dias: diasEntre(tsInicio.seconds, tsFin.seconds) },
+        { merge: true },
+      ).catch((e) => console.warn("No se guardaron los días:", e));
       // ── Instagram (independiente de Facebook) ──
       if (igPublicarActivo && igConectado && window.GEINZ_PLAN?.instagram) {
         skSetStep(
@@ -2209,7 +2459,7 @@ function formatFechaSlash(str) {
         }
       }
 
-      // ── Facebook ──
+      // ── Facebook (con link al carrito + UID de la oferta recién creada) ──
       if (fbPublicarActivo && fbConectado && window.GEINZ_PLAN?.fanpage) {
         skSetStep(
           3,
@@ -2219,8 +2469,10 @@ function formatFechaSlash(str) {
         );
         try {
           const linkCarrito = await construirLinkCarrito(id_promocion);
-          if (!linkCarrito) throw new Error("Sin alias de tienda");
-          const captionFb = `${titulo}\n\n${descripcion}\n\n👉 Pídelo aquí: ${linkCarrito}`;
+          // Si no hay dominio ni alias, se publica igual (sin link) en vez de fallar
+          const captionFb = linkCarrito
+            ? `${titulo}\n\n${descripcion}\n\n👉 Pídelo aquí: ${linkCarrito}`
+            : `${titulo}\n\n${descripcion}`;
           const fbResult = await callFirebaseFunction(CLOUD_FN_PUBLICAR_FB, {
             id_tienda,
             localidad,
@@ -2547,11 +2799,12 @@ function formatFechaSlash(str) {
 
   // ══════════════════════════════════════════════════════════
   //  MODAL DE ÉXITO
+  //  urlForzada: link a mostrar/compartir (modo solo redes). Si no viene,
+  //  se usa el carrito con la oferta (modo perfil).
   // ══════════════════════════════════════════════════════════
-  async function mostrarModalExito(id_promocion, localidad) {
-    // Mismo link que el del post de Facebook (carrito con la oferta).
-    // Si no hay alias, cae al link de compartir de siempre.
+  async function mostrarModalExito(id_promocion, localidad, urlForzada) {
     const url =
+      urlForzada ||
       (await construirLinkCarrito(id_promocion)) ||
       construirLinkPromo(id_promocion, localidad);
     document.getElementById("modalExitoPromo")?.remove();
@@ -2823,6 +3076,8 @@ function formatFechaSlash(str) {
     mensajeWpInput.value = "Hola, quiero esta oferta que vi en Geinz";
     mensajeShareInput.value = "Mira esta promo en Geinz 🎁";
     resultadoIAContainer.innerHTML = "";
+    const lk = document.getElementById("linkPersonalizadoInput");
+    if (lk) lk.value = "";
 
     // Resetear términos
     terminosAceptados = false;
@@ -2916,51 +3171,23 @@ function formatFechaSlash(str) {
   tipoPlazo();
   aplicarTipoPublicacionUI();
 
-  // ── Exponer para uso fuera del IIFE (ej. conectarFacebook.js) ──
+  // ── Exponer para uso fuera del IIFE ──
   window.mostrarToast = mostrarToast;
   window.callFirebaseFunction = callFirebaseFunction;
+  window.__validarFormulario = validate; // lo llama aplicarServicios cuando cambia el plan
 })();
 
 // ══════════════════════════════════════════════════════════════════════
-//  LISTENER EN TIEMPO REAL DE LA CONEXIÓN FB / IG
-// ══════════════════════════════════════════════════════════════════════
-let _unsubFbListener = null;
-function escucharConexionFacebook(id_tienda, localidad) {
-  if (_unsubFbListener) _unsubFbListener();
-  if (!id_tienda || !localidad) return;
-  const ref = tiendaSubDoc(localidad, "tiendas", id_tienda);
-  _unsubFbListener = onSnapshot(
-    ref,
-    (snap) => {
-      const data = snap.data() || {};
-      const fb = data.facebook_page;
-      const ig = data.instagram;
-      if (datosTienda) datosTienda.instagram = ig || null;
-      if (ig && ig.ig_user_id)
-        mostrarIgConectado(ig.ig_username || "tu Instagram");
-      else mostrarIgDesconectado();
-      if (datosTienda) {
-        datosTienda.facebook_page = fb || null;
-        // Mantener al día slug y dominio personalizado si cambian en Firestore
-        if (data.slug !== undefined) datosTienda.slug = data.slug;
-        if (data.dominio_personalizado !== undefined)
-          datosTienda.dominio_personalizado = data.dominio_personalizado;
-      }
-      if (fb && fb.page_id) mostrarFbConectado(fb.page_name || "tu Fanpage");
-      else mostrarFbDesconectado();
-    },
-    (err) => console.warn("⚠️ Error escuchando conexión Facebook:", err),
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════
-//  MENSAJES DESDE EL FRAME PADRE
+//  MENSAJES DESDE EL FRAME PADRE (respaldo: la fuente principal es Firestore)
 // ══════════════════════════════════════════════════════════════════════
 window.addEventListener("message", (event) => {
   // Datos completos de la tienda
   if (event.data?.type === "DATOS_TIENDA") {
     const d = event.data.payload;
+    if (!d) return;
+    const primera = !datosTienda;
     datosTienda = {
+      ...(datosTienda || {}),
       id_tienda: d.id_tienda,
       localidad: d.localidad,
       nombre_tienda: d.nombre_tienda,
@@ -2969,19 +3196,23 @@ window.addEventListener("message", (event) => {
       metodo_contacto: d.metodo_contacto,
       metodos_pago: d.metodos_pago,
       ubicacion: d.ubicacion,
-      saldo_tienda: d.saldo_tienda,
-      facebook_page: d.facebook_page,
-      slug: d.slug,
-      dominio_personalizado: d.dominio_personalizado,
+      // el saldo de Firestore manda; el del padre solo sirve si aún no llegó otro
+      saldo_tienda:
+        saldoCreditos ?? d.saldo_tienda ?? datosTienda?.saldo_tienda ?? 0,
+      facebook_page: d.facebook_page ?? datosTienda?.facebook_page,
+      slug: d.slug ?? datosTienda?.slug,
+      dominio_personalizado:
+        d.dominio_personalizado ?? datosTienda?.dominio_personalizado,
     };
-    _aplicarDatosTienda(datosTienda);
-    escucharConexionFacebook(datosTienda.id_tienda, datosTienda.localidad);
+    // Solo repinta el formulario la primera vez (no pisa lo que el usuario escribe)
+    if (primera) _aplicarDatosTienda(datosTienda);
+    iniciarListenersDirectos(datosTienda.id_tienda, datosTienda.localidad);
     actualizarEstadoBotonPublicar();
   }
 
-  // Servicios habilitados por el plan
+  // Servicios habilitados por el plan (respaldo)
   if (event.data?.type === "SERVICIOS_UPDATE") {
-    aplicarServicios(event.data.servicios);
+    if (!_listenKey) aplicarServicios(event.data.servicios);
   }
 
   // Cambios parciales (claves tipo "a.b.c") sobre datosTienda
@@ -3001,7 +3232,8 @@ window.addEventListener("message", (event) => {
         obj[parts[parts.length - 1]] = diff[key];
       }
     }
-    _aplicarDatosTienda(datosTienda);
+    // El saldo nunca lo pisa un PATCH: lo manda Firestore
+    if (saldoCreditos !== null) datosTienda.saldo_tienda = saldoCreditos;
     actualizarEstadoBotonPublicar();
   }
 
@@ -3014,64 +3246,38 @@ window.addEventListener("message", (event) => {
     if (typeof _aplicarPublicidad === "function") _aplicarPublicidad(pub);
   }
 
-  // Saldo de créditos
+  // Saldo de créditos (solo se usa si el listener directo no está activo)
   if (event.data?.type === "SALDO_UPDATE") {
-    if (window.GEINZ_CREDITOS !== undefined) return;
-    const nuevoSaldo = event.data?.saldo ?? 0;
-
-    // 1. Actualizar state local
-    if (datosTienda) {
-      datosTienda.saldo_tienda = nuevoSaldo;
-    } else {
-      // Si aún no llegó DATOS_TIENDA, guardar para cuando llegue
-      window._saldoPendiente = nuevoSaldo;
-    }
-
-    // 2. Actualizar badge de créditos en la UI
-    const el = document.getElementById("creditos_value");
-    if (el)
-      el.textContent = `${Number(nuevoSaldo).toLocaleString("en-US")} Creditos  `;
-
-    // 3. Re-validar botones IA y botón publicar
-    actualizarBotonesIA();
-    actualizarCostoPublicar();
-    actualizarEstadoBotonPublicar();
-    verificarSaldo();
+    if (_listenKey) return; // el saldo directo de Firestore manda
+    setSaldo(event.data?.saldo ?? 0);
   }
 });
+
+// Cercanía solo aplica a negocios con local físico (modelo_negocio !== false)
+function _aplicarVisibilidadGeo() {
+  const esPresencial = window.ES_PRESENCIAL !== false;
+  const boxGeo = document.getElementById("paramBoxGeo");
+  if (!boxGeo) return;
+  boxGeo.style.display = esPresencial ? "" : "none";
+  if (!esPresencial) {
+    const geoSwitch = boxGeo.querySelector('.param-row input[type="checkbox"]');
+    const geoPanel = document.getElementById("geo");
+    if (geoSwitch) geoSwitch.checked = false;
+    if (geoPanel) geoPanel.classList.remove("open");
+  }
+}
 
 // Vuelca los datos de la tienda en los campos del formulario
 function _aplicarDatosTienda(d) {
   if (!d) return;
-  if (window._saldoPendiente !== undefined) {
-    d.saldo_tienda = window._saldoPendiente;
-    delete window._saldoPendiente;
-  }
-  if (window.GEINZ_CREDITOS !== undefined)
-    d.saldo_tienda = window.GEINZ_CREDITOS;
-
-  // Cercanía solo aplica a negocios con local físico (modelo_negocio !== false)
-  const esPresencial = window.ES_PRESENCIAL !== false;
-  const boxGeo = document.getElementById("paramBoxGeo");
-  if (boxGeo) {
-    boxGeo.style.display = esPresencial ? "" : "none";
-    if (!esPresencial) {
-      const geoSwitch = boxGeo.querySelector(
-        '.param-row input[type="checkbox"]',
-      );
-      const geoPanel = document.getElementById("geo");
-      if (geoSwitch) geoSwitch.checked = false;
-      if (geoPanel) geoPanel.classList.remove("open");
-    }
-  }
+  _aplicarVisibilidadGeo();
 
   const numeroWp = d.metodo_contacto?.whatsapp?.numero || "";
   const wpInput = document.querySelector('#wp input[type="text"]');
   if (wpInput && numeroWp) wpInput.value = numeroWp;
-  const saldo = d.saldo_tienda || 0;
-  const el = document.getElementById("creditos_value");
-  if (el)
-    el.textContent = `${Number(saldo).toLocaleString("en-US")} Creditos  `;
+
+  pintarCreditos();
+
   const geoInputs = document.querySelectorAll('#geo input[type="text"]');
   if (geoInputs[0]) geoInputs[0].value = d.ubicacion?.dirección || "";
   if (geoInputs[1]) geoInputs[1].value = d.ubicacion?.referencia || "";
@@ -3102,6 +3308,7 @@ function _aplicarDatosTienda(d) {
 
 // Aplica los precios de publicidad recibidos del padre
 function _aplicarPublicidad(pub) {
+  _preciosOk = true;
   if (pub.ia_imagen_texto != null)
     _precios.ia_imagen_texto = pub.ia_imagen_texto;
   if (pub.mejora_texto_x3 != null)
@@ -3123,8 +3330,9 @@ function _aplicarPublicidad(pub) {
 // ── Validar saldo para botones IA ──────────────────────
 function actualizarBotonesIA() {
   if (!datosTienda) return;
-  const saldo = datosTienda?.saldo_tienda ?? 0;
-  actualizarBannerSaldo(saldo);
+  // Mientras el saldo no cargó no se muestra el aviso de "saldo bajo"
+  if (saldoCreditos !== null) actualizarBannerSaldo(saldoCreditos);
+  const saldo = saldoCreditos ?? 0;
 
   const botones = [
     { id: "btnImagenIA", costo: _precios.ia_imagen_texto },
@@ -3164,6 +3372,15 @@ function actualizarBotonesIA() {
 
     // Este es el que está generando → se gestiona solo con setBtnLoading
     if (esteActivo) return;
+
+    // Créditos aún cargando: botón en espera, sin aviso de "necesitas créditos"
+    if (saldoCreditos === null) {
+      btn.disabled = true;
+      btn.title = "Cargando créditos…";
+      btn.style.opacity = "0.6";
+      btn.style.cursor = "wait";
+      return;
+    }
 
     // Estado normal → evaluar saldo
     btn.style.opacity = "";
@@ -3696,24 +3913,32 @@ function aplicarServicios(servicios) {
     String(servicios?.panel_admin?.tipo_tienda ?? servicios?.tipo_tienda ?? "")
       .toLowerCase()
       .trim() === "fisica";
-  if (datosTienda) _aplicarDatosTienda(datosTienda);
+  // Solo la visibilidad de Cercanía: NO se repinta todo el formulario
+  // (cada vez que cambian los créditos se dispara este snapshot).
+  _aplicarVisibilidadGeo();
 
   const base = leer(servicios, RUTA_PUB);
 
-  // Créditos de IA desde la DB (setCreditosIA vive en otro script; si no existe, no rompe)
-  const cred = leer(servicios, "panel_admin.creditos_ia500");
-  if (cred !== undefined && typeof setCreditosIA === "function")
-    setCreditosIA(cred);
-
-  // Sin datos del plan: las redes quedan ocultas (plan por defecto = apagado)
+  // Sin datos del plan: redes e IA quedan ocultas (plan por defecto = apagado)
   if (!base) {
+    window.GEINZ_PLAN = {
+      ...window.GEINZ_PLAN,
+      fanpage: false,
+      instagram: false,
+      youtube: false,
+      iaTitulo: false,
+      iaWhatsapp: false,
+      iaCompartir: false,
+    };
     aplicarChipsPlan(window.GEINZ_PLAN);
     aplicarTipoPublicacionUI();
+    window.__validarFormulario?.();
     return;
   }
 
   const pub = base.publicidad || {};
   const of = base.ofertas || {};
+  const ia = base.ia_generativa || {};
   const maxOfertas = Number(of.cantidad_ofertas ?? base.cantidad_ofertas) || 0;
 
   // youtuve puede venir true o como texto; "" / false = apagado
@@ -3729,6 +3954,10 @@ function aplicarServicios(servicios) {
     ofertas: maxOfertas > 0,
     misPublicaciones: _on(base.mis_publicaciones),
     maxOfertas,
+    // IA generativa: solo con true explícito
+    iaTitulo: ia.generativa_titulo_descripcion === true,
+    iaWhatsapp: ia.generativa_whatsapp === true,
+    iaCompartir: ia.generativa_compartir === true,
   };
   window.GEINZ_PLAN = plan;
 
@@ -3794,11 +4023,34 @@ function aplicarServicios(servicios) {
     document.querySelector('.vista-tab[data-vista="publicar"]')?.click();
   }
 
+  // Muestra/oculta los botones de IA según el plan
+  window.__validarFormulario?.();
+  actualizarBotonesIA();
   actualizarEstadoBotonPublicar();
 
   // Avisa a publicaciones_perfil.js para repintar las celdas
   window.dispatchEvent(new CustomEvent("geinz:plan", { detail: plan }));
 }
 
-// Pide el plan al padre por si llegó antes de que este iframe cargara
-window.parent.postMessage({ type: "PEDIR_DATOS_TIENDA" }, window.location.origin);
+// ══════════════════════════════════════════════════════════════════════
+//  ARRANQUE
+//  1) Listeners directos a Firestore (créditos, plan, tienda): no dependen del padre.
+//  2) Pedido al padre con reintentos, solo para los precios de publicidad.
+// ══════════════════════════════════════════════════════════════════════
+iniciarListenersDirectos(ID_TIENDA, LOCALIDAD);
+
+let _intentosPadre = 0;
+const _retryPadre = setInterval(() => {
+  if (_preciosOk || ++_intentosPadre > 40) {
+    clearInterval(_retryPadre);
+    return;
+  }
+  window.parent.postMessage(
+    { type: "PEDIR_DATOS_TIENDA" },
+    window.location.origin,
+  );
+}, 750);
+window.parent.postMessage(
+  { type: "PEDIR_DATOS_TIENDA" },
+  window.location.origin,
+);
