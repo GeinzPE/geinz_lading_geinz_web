@@ -1,18 +1,50 @@
-param([switch]$Simular)   # con -Simular solo cuenta, no modifica nada
+param([switch]$Simular)
 
-$utf8    = New-Object System.Text.UTF8Encoding($false)
-$patron  = [regex]'console\s*\.\s*log\s*\('
-$total   = 0
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+$raiz = (Get-Location).Path
+
+# ============ 1) ARCHIVOS BASURA ============
+# .backup.js, .bak, .bank, .old, .orig, ~, "copy/copia", (1), debug .txt/.log
+$regexBasura = '(\.backup\.|\.bak$|\.bank$|\.old$|\.orig$|~$|[-_ ](copy|copia)(\.|[-_ (]|\d)|\(\d+\)\.|debug.*\.(txt|log)$)'
+
+$todos = Get-ChildItem -Path . -Recurse -File -Force |
+    Where-Object { $_.FullName -notmatch '\\(node_modules|\.git)\\' }
+
+$basura = $todos | Where-Object { $_.Name -match $regexBasura }
+$basuraRutas = @($basura | ForEach-Object { $_.FullName })
+
+# Texto de los archivos que SI se quedan (para ver si alguien usa la basura por nombre)
+$corpus = ($todos |
+    Where-Object { $basuraRutas -notcontains $_.FullName -and $_.Extension -match '^\.(js|mjs|html|json|css)$' -and $_.Length -lt 3MB } |
+    ForEach-Object { [System.IO.File]::ReadAllText($_.FullName) }) -join "`n"
+
+$borrados = 0
+$omitidos = 0
+$bytes = 0
+foreach ($f in $basura) {
+    $rel = $f.FullName.Replace($raiz + '\', '')
+    if ($corpus.Contains($f.Name)) {
+        Write-Host ("OMITIDO (otro archivo lo menciona): {0}" -f $rel) -ForegroundColor Yellow
+        $omitidos++
+        continue
+    }
+    Write-Host ("BORRAR  {0}" -f $rel)
+    $bytes += $f.Length
+    $borrados++
+    if (-not $Simular) { Remove-Item -LiteralPath $f.FullName -Force }
+}
+
+# ============ 2) CONSOLE.LOG (solo carpeta public) ============
+$patron = [regex]'console\s*\.\s*log\s*\('
 
 function Quitar-ConsoleLog([string]$t) {
-    $sb  = New-Object System.Text.StringBuilder
+    $sb = New-Object System.Text.StringBuilder
     $pos = 0
     $cant = 0
     while ($true) {
         $m = $patron.Match($t, $pos)
         if (-not $m.Success) { break }
 
-        # Buscar el paréntesis que cierra (respeta textos entre comillas y `plantillas`)
         $i = $m.Index + $m.Length
         $prof = 1
         while ($i -lt $t.Length -and $prof -gt 0) {
@@ -28,15 +60,14 @@ function Quitar-ConsoleLog([string]$t) {
             elseif ($c -eq ')') { $prof-- }
             $i++
         }
-        if ($prof -ne 0) {   # no se pudo cerrar: lo dejo tal cual
+        if ($prof -ne 0) {
             $sb.Append($t.Substring($pos, $m.Index + $m.Length - $pos)) | Out-Null
             $pos = $m.Index + $m.Length
             continue
         }
         $fin = $i
 
-        # ¿El console.log ocupa toda la línea?
-        $ini   = $t.LastIndexOf("`n", [Math]::Max(0, $m.Index - 1)) + 1
+        $ini = $t.LastIndexOf("`n", [Math]::Max(0, $m.Index - 1)) + 1
         if ($m.Index -eq 0) { $ini = 0 }
         $antes = $t.Substring($ini, $m.Index - $ini)
 
@@ -47,14 +78,14 @@ function Quitar-ConsoleLog([string]$t) {
         $finLinea = ($j -ge $t.Length) -or ($t[$j] -eq "`r") -or ($t[$j] -eq "`n")
 
         if ($antes -match '^\s*$' -and $finLinea -and $ini -ge $pos) {
-            # Revisar si es el cuerpo de un if/else sin llaves (borrarlo rompería el código)
             $k = $ini - 1
             while ($k -ge 0 -and [char]::IsWhiteSpace($t[$k])) { $k-- }
-            $previo = if ($k -ge 0) { $t.Substring([Math]::Max(0, $k - 3), [Math]::Min(4, $k + 1)) } else { '' }
-            $necesitaPuntoYComa = $previo.EndsWith(')') -or $previo.EndsWith('else') -or $previo.EndsWith('=>')
+            $previo = ''
+            if ($k -ge 0) { $previo = $t.Substring([Math]::Max(0, $k - 3), [Math]::Min(4, $k + 1)) }
+            $necesita = $previo.EndsWith(')') -or $previo.EndsWith('else') -or $previo.EndsWith('=>')
 
             $sb.Append($t.Substring($pos, $ini - $pos)) | Out-Null
-            if ($necesitaPuntoYComa) {
+            if ($necesita) {
                 $sb.Append($antes + ';') | Out-Null
                 $pos = $j
             } else {
@@ -64,7 +95,6 @@ function Quitar-ConsoleLog([string]$t) {
             }
         }
         else {
-            # Está dentro de otra expresión (=> console.log(x), if (a) console.log(b), etc.)
             $sb.Append($t.Substring($pos, $m.Index - $pos)) | Out-Null
             $sb.Append('void 0') | Out-Null
             $pos = $fin
@@ -75,25 +105,34 @@ function Quitar-ConsoleLog([string]$t) {
     return @{ Texto = $sb.ToString(); Cantidad = $cant }
 }
 
-$archivos = Get-ChildItem -Path . -Recurse -File -Include *.js, *.mjs, *.html |
+$totalLogs = 0
+$archivos = Get-ChildItem -Path .\public -Recurse -File -Include *.js, *.mjs, *.html |
     Where-Object {
         $_.FullName -notmatch '\\(node_modules|\.git)\\' -and
-        $_.Name -notlike '*.min.js'
+        $_.Name -notlike '*.min.js' -and
+        $_.Name -notmatch $regexBasura
     }
 
 foreach ($f in $archivos) {
     $orig = [System.IO.File]::ReadAllText($f.FullName)
     if ($orig -notmatch 'console\s*\.\s*log\s*\(') { continue }
-
     $r = Quitar-ConsoleLog $orig
     if ($r.Cantidad -gt 0) {
-        $total += $r.Cantidad
-        Write-Host ("{0,4}  {1}" -f $r.Cantidad, $f.FullName.Replace((Get-Location).Path + '\', ''))
-        if (-not $Simular) {
-            [System.IO.File]::WriteAllText($f.FullName, $r.Texto, $utf8)
-        }
+        $totalLogs += $r.Cantidad
+        Write-Host ("{0,4} console.log  {1}" -f $r.Cantidad, $f.FullName.Replace($raiz + '\', ''))
+        if (-not $Simular) { [System.IO.File]::WriteAllText($f.FullName, $r.Texto, $utf8) }
     }
 }
 
-if ($Simular) { Write-Host "`nSIMULACIÓN: se quitarían $total console.log (no se modificó nada)." -ForegroundColor Yellow }
-else          { Write-Host "`nListo: se quitaron $total console.log." -ForegroundColor Green }
+# ============ RESUMEN ============
+$mb = [Math]::Round($bytes / 1MB, 2)
+Write-Host ""
+if ($Simular) {
+    Write-Host "SIMULACION (no se modifico nada):" -ForegroundColor Yellow
+    Write-Host "  Archivos a borrar: $borrados ($mb MB), omitidos: $omitidos"
+    Write-Host "  console.log a quitar: $totalLogs"
+} else {
+    Write-Host "LISTO:" -ForegroundColor Green
+    Write-Host "  Archivos borrados: $borrados ($mb MB), omitidos: $omitidos"
+    Write-Host "  console.log quitados: $totalLogs"
+}
