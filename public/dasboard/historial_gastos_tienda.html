@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
-  <title>Historial de gastos</title>
+  <title>Caja y gastos</title>
 
   <!-- Fondo negro + skeleton en línea: se pinta al instante, sin esperar CSS ni fuentes -->
   <style>
@@ -52,13 +52,7 @@
 
     #skel .kp {
       display: grid;
-      grid-template-columns: 1.4fr 1fr 1fr 1fr;
-      gap: 12px;
-    }
-
-    #skel .tl {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: 1fr;
       gap: 12px;
     }
 
@@ -97,16 +91,6 @@
       }
     }
 
-    @media (max-width: 860px) {
-      #skel .kp {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      #skel .kp .sk:first-child {
-        grid-column: 1 / -1;
-      }
-    }
-
     @media (prefers-reduced-motion: reduce) {
       #skel .sk::after {
         animation: none;
@@ -122,16 +106,198 @@
     rel="stylesheet">
   <link rel="stylesheet" href="../style/dasboardcss/insumos.css">
 
-  <!-- Estilos nuevos (vista por día). Van después del CSS para poder ajustarlos -->
+  <!-- Estilos propios de esta página (van después del CSS para poder ajustarlo) -->
   <style>
     [hidden] { display: none !important; }
     .top-actions { flex-wrap: wrap; justify-content: flex-end; }
     .daynav { display: flex; align-items: center; gap: 6px; }
     .daynav .btn { padding-left: 12px; padding-right: 12px; }
-    #cuadreBox { margin-bottom: 18px; }
+    #cuadreBox, #turnosHist { margin-bottom: 18px; }
     #cuadreBox tr[data-dia] { cursor: pointer; }
     #cuadreBox tr[data-dia]:hover td { background: rgba(136, 85, 255, .08); }
     #cuadreBox tfoot td { font-weight: 800; border-top: 1px solid #221b35; }
+
+    /* ---- KPI principal (una sola tarjeta) ---- */
+    .kpis { display: grid; grid-template-columns: 1fr; }
+    .kpi-lbl { display: flex; align-items: center; gap: 2px; }
+
+    /* ---- Menú exportar ---- */
+    .exp-wrap { position: relative; }
+    .exp-menu {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+      background: #0d0d0d; border: 1px solid #221b35; border-radius: 12px;
+      padding: 6px; display: grid; gap: 4px; min-width: 140px;
+    }
+    .exp-menu .btn { text-align: left; }
+
+    /* ---- Botón "?" de ayuda (explica para qué sirve cada cosa) ---- */
+    .qm {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; margin-left: 6px; padding: 0;
+      border-radius: 50%; border: 1px solid rgba(136, 85, 255, .6);
+      background: rgba(136, 85, 255, .12); color: #b9a2ff;
+      font: 700 11px/1 Inter, system-ui, sans-serif;
+      text-transform: none; letter-spacing: 0;
+      cursor: pointer; vertical-align: middle; flex-shrink: 0;
+    }
+    .qm:hover, .qm:focus-visible { background: rgba(136, 85, 255, .35); color: #fff; outline: none; }
+    .ayuda-pop {
+      position: fixed; z-index: 1000;
+      max-width: min(280px, calc(100vw - 16px));
+      padding: 10px 12px; border-radius: 12px;
+      background: #15101f; border: 1px solid rgba(136, 85, 255, .5);
+      color: #e6dcff; font: 500 13px/1.4 Inter, system-ui, sans-serif;
+      text-transform: none; letter-spacing: 0; text-align: left;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .7);
+    }
+
+    /* ---- Cuadre del día: 3 columnas ---- */
+    .cd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .cd-c { background: #0d0d0d; border: 1px solid #221b35; border-radius: 16px; padding: 14px; }
+    .cd-c h4 { margin: 0 0 4px; font-size: 14px; color: #fff; }
+    .cd-c .tc-rows { max-width: none; margin-top: 10px; }
+    .tc-r.sub { font-size: 13px; color: #9a9a9a; padding-left: 8px; }
+    .tc-r.cajon b { color: #4ade80; }
+    .tc-r small { color: #8a8a8a; }
+
+    /* ---- Tarjeta de caja / turno ---- */
+    .turno { background: #0d0d0d; border: 1px solid #221b35; border-radius: 16px; padding: 16px; margin-bottom: 18px; }
+    .turno.abierta { border-color: rgba(136, 85, 255, .6); box-shadow: 0 0 24px rgba(136, 85, 255, .08); }
+    .tc-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .tc-head b { font-size: 17px; color: #fff; }
+    .tc-head small { display: block; color: #9a9a9a; font-size: 12.5px; margin-top: 3px; }
+    .tc-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: middle; background: #555; }
+    .tc-dot.on { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .tc-btn { min-width: 150px; font-size: 15px; padding: 12px 18px; }
+    .tc-rows { margin-top: 14px; display: grid; gap: 6px; max-width: 460px; }
+    .tc-r { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: #cfcfcf; }
+    .tc-r b { font-variant-numeric: tabular-nums; color: #fff; font-weight: 600; white-space: nowrap; }
+    .tc-r.tot { border-top: 1px solid #221b35; padding-top: 9px; margin-top: 4px; font-size: 15px; color: #fff; }
+    .tc-r.tot b { font-size: 22px; font-weight: 800; }
+    .tc-note { font-size: 12px; color: #8a8a8a; margin-top: 10px; }
+
+    /* ---- Resultado del cierre ---- */
+    .res { font-weight: 800; font-size: 15px; padding: 10px 12px; border-radius: 12px; margin: 2px 0 12px; }
+    .res.ok { background: rgba(34, 197, 94, .1); color: #4ade80; border: 1px solid rgba(34, 197, 94, .3); }
+    .res.bad { background: rgba(239, 68, 68, .1); color: #f87171; border: 1px solid rgba(239, 68, 68, .3); }
+    .res.sob { background: rgba(251, 191, 36, .1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, .3); }
+    .t-ok { color: #4ade80; font-weight: 700; }
+    .t-bad { color: #f87171; font-weight: 700; }
+    .t-sob { color: #fbbf24; font-weight: 700; }
+    .big-input { font-size: 22px !important; font-weight: 800; text-align: center; }
+    .hint { font-size: 12.5px; color: #9a9a9a; margin: -2px 0 12px; }
+
+    /* ---- Elegir turno al abrir caja: nombre + horario ---- */
+    #aTurnos button { display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.2; }
+    #aTurnos button small { display: block; font-size: 11px; font-weight: 500; opacity: .75; white-space: nowrap; }
+
+    /* ---- Configuración de turnos ---- */
+    .cfg-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr 34px; gap: 8px; align-items: end;
+      padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #221b35;
+    }
+    .cfg-row .cf { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 11px; color: #8a8a8a; text-transform: uppercase; letter-spacing: .05em; }
+    .cfg-row .cf.n { grid-column: 1 / 4; }
+    .cfg-row .x { grid-column: 4; grid-row: 1; align-self: end; }
+    .cfg-row input { width: 100%; box-sizing: border-box; }
+
+    /* ---- Turno abierto: tarjetas fáciles de leer ---- */
+    .tc-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+    .tc-tile { background: #111; border: 1px solid #221b35; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .tc-tile small { font-size: 12.5px; color: #9a9a9a; }
+    .tc-tile b { font-size: 26px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .tc-tile em { font-style: normal; font-size: 12px; color: #8a8a8a; }
+    .tc-tile.main { border-color: rgba(34, 197, 94, .45); background: rgba(34, 197, 94, .06); }
+    .tc-tile.main b { color: #4ade80; }
+    .tc-tile .mini { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: #cfcfcf; }
+    .tc-tile .mini b { font-size: 12.5px; font-weight: 600; }
+    .tc-tile.neg b { color: var(--bad, #f87171); }
+    .tc-total { margin-top: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(136, 85, 255, .1); border: 1px solid rgba(136, 85, 255, .3); font-size: 13.5px; color: #e6dcff; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .tc-total b { color: #fff; font-size: 15px; }
+    .tc-det { margin-top: 12px; }
+    .tc-det summary { cursor: pointer; font-size: 13px; color: #b9a2ff; }
+    @media (max-width: 1100px) { .tc-tiles { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ═════════ MÓVIL: más compacto y con scroll horizontal ═════════ */
+    .wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    @media (max-width: 700px) {
+      /* Barra de acciones: una sola fila que se desliza de lado */
+      .top-actions {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 8px;
+        width: 100%;
+        padding-bottom: 4px;
+      }
+      .top-actions::-webkit-scrollbar { display: none; }
+      .top-actions > * { flex-shrink: 0; scroll-snap-align: start; }
+      .top-actions #btnNuevoGasto { order: -1; }
+      .daynav { flex-shrink: 0; }
+
+      /* Menú exportar: hoja fija abajo (no se corta dentro del scroll) */
+      .exp-menu {
+        position: fixed;
+        left: 12px; right: 12px; bottom: 12px; top: auto;
+        z-index: 200;
+        grid-template-columns: repeat(3, 1fr);
+        padding: 10px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, .7);
+      }
+      .exp-menu .btn { text-align: center; }
+
+      /* Botón "?" un poco más grande para tocarlo con el dedo */
+      .qm { width: 22px; height: 22px; font-size: 12px; }
+
+      /* KPI principal más chico */
+      .kpi.big b { font-size: 34px; }
+
+      /* Caja abierta: más compacta */
+      .turno { padding: 12px; margin-bottom: 12px; }
+      .tc-btn { width: 100%; min-width: 0; }
+      .tc-rows { max-width: none; }
+      .tc-r.tot b { font-size: 20px; }
+
+      /* Tarjetas del turno: 2 por fila, la del cajón ocupa todo el ancho */
+      .tc-tiles { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .tc-tile.main { grid-column: 1 / -1; }
+      .tc-tile b { font-size: 22px; }
+      .tc-tile.main b { font-size: 30px; }
+
+      /* Cuadre ①②③: tarjetas que se deslizan de lado */
+      .cd-grid {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .cd-grid::-webkit-scrollbar { display: none; }
+      .cd-c { flex: 0 0 86%; scroll-snap-align: start; padding: 12px; }
+
+      /* Filtros en una fila deslizable */
+      .filters {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 4px;
+      }
+      .filters::-webkit-scrollbar { display: none; }
+      .filters > * { flex-shrink: 0; }
+      .filters #qGas { min-width: 170px; }
+      #fTipo { flex-wrap: nowrap; }
+      #fTipo button { white-space: nowrap; }
+
+      /* Tablas: deslizan de lado en vez de apretarse */
+      .wrap table { min-width: 440px; }
+    }
   </style>
 
   <script type="module" src="../js/dasboardjs/insumos.js"></script>
@@ -140,7 +306,7 @@
 <body>
 
   <!-- ============ SKELETON DARK ============ -->
-  <div id="skel" aria-busy="true" aria-label="Cargando historial de gastos">
+  <div id="skel" aria-busy="true" aria-label="Cargando caja y gastos">
     <div class="in">
       <div class="row">
         <div class="col">
@@ -155,18 +321,11 @@
 
       <div class="kp">
         <div class="sk" style="height:104px;border-radius:16px"></div>
-        <div class="sk" style="height:104px;border-radius:16px"></div>
-        <div class="sk" style="height:104px;border-radius:16px"></div>
-        <div class="sk" style="height:104px;border-radius:16px"></div>
       </div>
 
       <div class="line"></div>
 
-      <div class="tl">
-        <div class="sk" style="height:64px;border-radius:14px"></div>
-        <div class="sk" style="height:64px;border-radius:14px"></div>
-        <div class="sk" style="height:64px;border-radius:14px"></div>
-      </div>
+      <div class="sk" style="height:120px;border-radius:16px"></div>
 
       <div class="fl">
         <div class="sk" style="height:38px;width:340px;max-width:100%;border-radius:999px"></div>
@@ -183,8 +342,8 @@
     <div class="top-in">
       <div class="top-row">
         <div>
-          <h1>Historial de gastos</h1>
-          <p class="sub" id="subMes">Todo lo que gastas, en un solo lugar.</p>
+          <h1>Caja y gastos</h1>
+          <p class="sub" id="subMes">La plata del día: caja, gastos y retiros.</p>
         </div>
         <div class="top-actions">
           <div class="seg" id="vistaSel" role="group" aria-label="Ver por">
@@ -198,32 +357,45 @@
             <button class="btn" id="diaHoy">Hoy</button>
           </div>
           <input type="month" id="mesSel" title="Mes" hidden>
+          <button class="btn" id="btnCfgCaja" title="Configurar turnos" hidden>⚙️ Turnos</button>
+          <div class="exp-wrap">
+            <button class="btn" id="btnExport" type="button">⬇ Exportar</button>
+            <div class="exp-menu" id="exportMenu" hidden>
+              <button class="btn" type="button" data-fmt="csv">CSV</button>
+              <button class="btn" type="button" data-fmt="excel">Excel</button>
+              <button class="btn" type="button" data-fmt="pdf">PDF</button>
+            </div>
+          </div>
           <button class="btn go" id="btnNuevoGasto">+ Anotar gasto</button>
         </div>
       </div>
 
       <div class="kpis">
-        <div class="kpi big"><small id="kLblQueda">Te quedó hoy</small><b id="kMesQueda">…</b>
-          <em>lo que vendiste menos lo que gastó el negocio</em></div>
-        <div class="kpi"><small id="kLblVentas">Vendiste hoy</small><b id="kMesVentas">…</b>
-          <button class="link" id="btnRefCaja">↻ Actualizar ventas</button></div>
-        <div class="kpi"><small id="kLblGastos">Gastó el negocio hoy</small><b id="kMesGastos">…</b>
-          <em>sale de la caja</em></div>
-        <div class="kpi"><small>Caja total</small><b id="chipCaja">…</b>
-          <em>todo lo vendido − todo lo gastado, de siempre</em></div>
+        <div class="kpi big">
+          <span class="kpi-lbl"><small id="kLblQueda">Te quedó hoy</small><button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Es lo que ganaste en el período: todo lo que vendiste menos lo que gastó el negocio. Lo que pagaste con tu propia plata no se resta aquí.">?</button></span>
+          <b id="kMesQueda">…</b>
+          <em id="kSubQueda">lo que vendiste menos lo que gastó el negocio</em>
+        </div>
       </div>
     </div>
   </header>
 
   <main>
-
-    <!-- ============ HISTORIAL DE GASTOS ============ -->
     <section class="pane" id="pane-gas">
+
+      <!-- Caja abierta / cerrada (solo si el negocio trabaja por turnos) -->
+      <div class="turno" id="turnoBox" hidden></div>
+
       <div class="guide" id="guide" hidden>
         <b>Empieza aquí</b>
-        <p>1. Toca <b>“+ Anotar gasto”</b> y escribe lo que pagaste (pollo, luz, gaseosas…).<br>2. Mira cómo baja tu caja y cuánto te queda cada día.<br>3. Si ya tenías plata en caja antes de usar esto, anótala como <b>“Saldo inicial”</b>.</p>
+        <p>1. Toca <b>“+ Anotar gasto”</b> y escribe lo que pagaste (pollo, luz, gaseosas…).<br>2. Mira cuánto vendiste, cuánto gastaste y cuánto te quedó cada día.<br>3. Si sacas plata de la caja para ti, anótala como <b>“Retiro del dueño”</b>.</p>
       </div>
-      <div class="tiles" id="gastoTiles"></div>
+
+      <!-- Cuadre: ① vendiste · ② salió · ③ efectivo en el cajón -->
+      <div class="cd-grid" id="cdGrid"></div>
+
+      <!-- Cierres de caja del día / mes -->
+      <div id="turnosHist" hidden></div>
 
       <!-- Solo en "Por mes": cuadre de cada día -->
       <div id="cuadreBox" hidden></div>
@@ -233,7 +405,7 @@
           <button class="on" data-f="todos">Todos</button>
           <button data-f="compra_insumo">Insumos</button>
           <button data-f="gasto_general">Otros gastos</button>
-          <button data-f="caja">Movimientos de caja</button>
+          <button data-f="caja">Retiros y caja</button>
         </div>
         <select id="fOrigen">
           <option value="todos">De dónde salió: todos</option>
@@ -246,7 +418,7 @@
 
       <div id="chartsBox" class="charts" hidden></div>
 
-      <h2>Gastos de <span id="gastoMesTitulo"></span> <span class="mut" id="gastoCount"></span></h2>
+      <h2>Gastos de <span id="gastoMesTitulo"></span> <span class="mut" id="gastoCount"></span><button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="La lista de todo lo que se anotó en este período: gastos, insumos y retiros. Puedes filtrarla arriba, buscar por nombre, editar con ✎ o eliminar con ✕.">?</button></h2>
       <div class="wrap">
         <table id="tblGastos">
           <thead>
@@ -263,7 +435,6 @@
         </table>
       </div>
     </section>
-
   </main>
 
   <!-- ============ MODAL GASTO ============ -->
@@ -273,7 +444,7 @@
         <h3 id="gTitulo">Anotar gasto</h3><button class="x" data-close="mdGasto">✕</button>
       </div>
       <div class="sheet-body">
-        <label>¿Qué tipo de gasto es?
+        <label>¿Qué tipo de gasto es?<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Elige a qué grupo pertenece el gasto. “Retiro del dueño” es cuando sacas plata de la caja para ti (no es un gasto). “Plata con la que empezó la caja” solo se usa si no trabajan por turnos.">?</button>
           <select id="gCat">
             <option value="Insumos">Insumos de cocina (pollo, vasos, platos…)</option>
             <option value="Servicios (luz, agua, gas)">Servicios (luz, agua, gas)</option>
@@ -283,7 +454,7 @@
             <option value="Transporte">Transporte</option>
             <option value="Otro">Otro</option>
             <option value="__retiro">Retiro del dueño (saqué plata de la caja)</option>
-            <option value="__saldo">Saldo inicial (plata que ya había en caja)</option>
+            <option value="__saldo">Plata con la que empezó la caja</option>
           </select>
         </label>
         <label>¿Qué fue?
@@ -298,9 +469,9 @@
           </label>
         </div>
         <fieldset id="gOrigenBox">
-          <legend>¿Quién pagó?</legend>
+          <legend>¿Quién pagó?<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="“El negocio” descuenta la plata de la caja. “Lo pagué yo” es cuando pusiste tu propia plata: no baja la caja y queda anotado como lo que pusiste tú.">?</button></legend>
           <label class="radio"><input type="radio" name="origenG" value="negocio" checked>
-            <span><b>El negocio</b><small>Se descuenta de la caja.</small></span></label>
+            <span><b>El negocio</b><small>Sale de la caja.</small></span></label>
           <label class="radio"><input type="radio" name="origenG" value="bolsillo">
             <span><b>Lo pagué yo, con mi plata</b><small>No baja la caja. Se anota como lo que pusiste tú.</small></span></label>
         </fieldset>
@@ -313,10 +484,82 @@
     </div>
   </div>
 
+  <!-- ============ MODAL ABRIR CAJA ============ -->
+  <div class="overlay" id="mdAbrir">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3>Abrir caja</h3><button class="x" data-close="mdAbrir">✕</button>
+      </div>
+      <div class="sheet-body">
+        <div id="aTurnosWrap">
+          <p class="hint" style="margin:0 0 8px">¿Qué turno empieza?<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Elige el turno que vas a trabajar. Debajo del nombre verás el horario del turno (a qué hora empieza y termina).">?</button></p>
+          <div class="seg" id="aTurnos" style="margin-bottom:16px"></div>
+        </div>
+        <label>¿Con cuánta plata empieza la caja? (S/)<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Cuenta el efectivo que hay en el cajón al empezar el turno y escríbelo. Con este monto el sistema calcula cuánto debe haber al cerrar.">?</button>
+          <input id="aMonto" class="big-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+        </label>
+        <p class="hint" id="aHint"></p>
+      </div>
+      <div class="sheet-foot">
+        <button class="btn" data-close="mdAbrir">Cancelar</button>
+        <button class="btn go" id="btnConfirmAbrir">Abrir caja</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL CERRAR CAJA ============ -->
+  <div class="overlay" id="mdCerrar">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3 id="cTitulo">Cerrar caja</h3><button class="x" data-close="mdCerrar">✕</button>
+      </div>
+      <div class="sheet-body">
+        <div id="cResumen" style="margin-bottom:16px"></div>
+        <label>Cuenta la plata del cajón. ¿Cuánto hay? (S/)<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Cuenta el efectivo real que hay en el cajón y escríbelo. El sistema lo compara con lo que debería haber y te dice si cuadra, si falta o si sobra.">?</button>
+          <input id="cContado" class="big-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+        </label>
+        <div id="cResultado"></div>
+        <label>¿Cuánto se entrega al dueño o encargado? (S/)<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="La parte de la plata que sacas del cajón y entregas. Lo que no entregues se queda en el cajón y será la plata inicial del siguiente turno.">?</button>
+          <input id="cEntrega" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+        </label>
+        <p class="hint">Lo que no se entrega se queda en el cajón para el siguiente turno.</p>
+        <label>Nota (opcional)
+          <input id="cNota" placeholder="Ej: faltó porque di mal un vuelto" autocomplete="off">
+        </label>
+      </div>
+      <div class="sheet-foot">
+        <button class="btn" data-close="mdCerrar">Cancelar</button>
+        <button class="btn go" id="btnConfirmCerrar">Cerrar caja</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL CONFIGURAR TURNOS (solo admin) ============ -->
+  <div class="overlay" id="mdCfg">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3>Turnos de caja</h3><button class="x" data-close="mdCfg">✕</button>
+      </div>
+      <div class="sheet-body">
+        <label class="radio"><input type="checkbox" id="cfgUsa">
+          <span><b>Trabajamos abriendo y cerrando caja</b><small>Cada turno abre la caja con un monto y la cierra contando la plata. Si solo tienen un turno, deja uno solo.</small></span></label>
+        <div id="cfgBox">
+          <p class="hint" style="margin:14px 0 10px">Pon a qué hora empieza y termina cada turno (ej: Mañana de 7:00 AM a 3:00 PM) para identificarlo mejor.<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="El horario es solo para identificar el turno: se muestra al abrir la caja, en la tarjeta del turno y en los cierres. No bloquea ni cambia ningún cálculo. Si un turno termina al día siguiente (ej: 11:00 PM a 7:00 AM), ponlo igual.">?</button></p>
+          <div id="cfgLista"></div>
+          <button class="btn" id="cfgAdd" type="button">+ Agregar turno</button>
+          <p class="hint" style="margin-top:12px">Si dejas la caja inicial vacía, el cajero escribe con cuánto empieza. Si pones un monto (aunque sea 0), siempre empieza con ese.<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="“Caja inicial” es la plata con la que arranca el turno. Vacía = el cajero la cuenta y la escribe cada vez. Con un monto fijo, el turno siempre empieza con esa cantidad.">?</button></p>
+        </div>
+      </div>
+      <div class="sheet-foot">
+        <button class="btn" data-close="mdCfg">Cancelar</button>
+        <button class="btn go" id="cfgGuardar">Guardar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
-  <!-- Cierra el skeleton SOLO, sin tocar insumos.js:
-       en cuanto el KPI principal deja de decir "…" (llegaron los datos) se desvanece.
+  <!-- Cierra el skeleton cuando el KPI principal deja de decir "…".
        Respaldo: a los 12 s se cierra igual para que nunca quede pegado. -->
   <script>
     (function () {

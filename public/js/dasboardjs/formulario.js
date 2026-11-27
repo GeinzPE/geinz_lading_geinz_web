@@ -318,7 +318,6 @@ const DB = {
   brand: async () => {
     const s = await getDoc(await tienda());
     TD = s.data() || {};
-    console.log("TIENDA:", Object.keys(TD), TD);
     return brandFrom(TD);
   },
   forms: async () => {

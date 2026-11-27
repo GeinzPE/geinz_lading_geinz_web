@@ -712,7 +712,6 @@ const loginPorTokenPromise = (async () => {
 })();
 (async () => {
   ids = await resolverRuta();
-  console.log("[pedidos] ids resueltos:", ids, "| url:", location.href);
   if (!ids) {
     showEmpty();
     return;
@@ -954,16 +953,6 @@ el("leave-confirm-modal")?.addEventListener("click", (e) => {
 });
 
 function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
-  console.log("[pedidos] DIAG", {
-    uid: uidActual,
-    negocioId,
-    localidad,
-    injId: window.__NEGOCIO_ID__,
-    injLoc: window.__NEGOCIO_LOCALIDAD__,
-    projectId: db.app.options.projectId,
-    referrer: document.referrer,
-    nav: performance.getEntriesByType("navigation")[0]?.type,
-  });
   pedidoIdActual = pedidoId;
   showSkeleton();
   aplicarColoresDesdeCache(negocioId);
@@ -1035,12 +1024,10 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
   };
 
   try {
-    console.log("[pedidos] ruta negocio:", negocioRef.path);
 
     // Lectura directa al servidor (diagnóstico + respaldo)
     getDocFromServer(negocioRef)
       .then((s) => {
-        console.log("[pedidos] negocio servidor existe:", s.exists());
         if (s.exists()) aplicarNegocio(s.data());
       })
       .catch((e) =>
@@ -1081,7 +1068,6 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
     "pedidos",
     pedidoId,
   );
-  console.log("[pedidos] ruta pedido:", pedidoRef.path);
   pedidoRefGlobal = pedidoRef;
 
   let ultimoDataJSON = null; // evita re-render si el snapshot no trae cambios reales

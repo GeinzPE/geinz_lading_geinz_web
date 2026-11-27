@@ -1522,35 +1522,21 @@ function listenActivePromosRealtime({ localidad, id }) {
       const now = Date.now();
       const promos = [];
 
-      console.log(`🔎 promociones_geinz: ${snap.size} documentos encontrados`);
 
       snap.forEach((docSnap) => {
         const data = docSnap.data();
         const fh = data.datos_hora_fecha || {};
 
-        console.log(`— Promo ${docSnap.id}:`, {
-          estado: data.estado,
-          "fh.activo": fh.activo,
-          "fh.timestamp_inicio": fh.timestamp_inicio,
-          "fh.timestamp_fin": fh.timestamp_fin,
-          "fh.fecha_fin": fh.fecha_fin,
-          "fh.hora_fin": fh.hora_fin,
-        });
 
         if (data.desactivada === true) {
-          console.log(`   ❌ descartada: desactivada por el negocio`);
           return;
         }
         if (!_diaOk(data)) {
-          console.log(`   ❌ descartada: hoy no es uno de sus días`);
           return;
         }
         const estadoOk = data.estado === "activo";
         const activoOk = fh.activo !== false;
         if (!estadoOk || !activoOk) {
-          console.log(
-            `   ❌ descartada por estado/activo (estadoOk=${estadoOk}, activoOk=${activoOk})`,
-          );
           return;
         }
 
@@ -1558,7 +1544,6 @@ function listenActivePromosRealtime({ localidad, id }) {
           ? fh.timestamp_inicio.toMillis()
           : null;
         if (inicioMs && inicioMs > now) {
-          console.log(`   ❌ descartada: aún no empieza`);
           return;
         }
 
@@ -1571,21 +1556,17 @@ function listenActivePromosRealtime({ localidad, id }) {
         }
 
         if (finMs === null) {
-          console.log(`   ❌ descartada: no se pudo determinar fecha de fin`);
           return;
         }
 
         if (finMs < now) {
-          console.log(`   ❌ descartada: ya venció (finMs=${new Date(finMs)})`);
           return;
         }
 
-        console.log(`   ✅ promo válida hasta ${new Date(finMs)}`);
         promos.push({ id: docSnap.id, ...data, _finMs: finMs });
       });
 
       promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
-      console.log(`🟢 Total promos que pasaron el filtro: ${promos.length}`);
       renderActivePromos(promos.slice(0, 5), localidad);
       _promosReady = true;
       tryHideLoader();
@@ -10406,7 +10387,6 @@ function renderDiasEspeciales(biz) {
   let sec = document.getElementById("secDiasEspeciales");
   const cfg = biz?.dias_especiales;
   const dias = cfg?.activo === true ? cfg.dias || {} : {};
-  console.log("DE cfg:", cfg, "dias:", dias);
   // Busca hoy o el próximo día especial activo
   const hoy = Math.max(0, DE_KEYS.indexOf(diaHoyLima()));
   let k = null,

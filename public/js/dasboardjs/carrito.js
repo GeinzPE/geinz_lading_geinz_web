@@ -258,18 +258,9 @@ function elegirMozo() {
   });
 }
 async function validarMesaDesdePath() {
-  console.log(
-    "[MESA] path:",
-    location.pathname,
-    "| mesaIdPath:",
-    mesaIdPath,
-    "| tiendaId:",
-    tiendaId,
-  );
   if (!mesaIdPath || !tiendaId) return;
 
   const aplicar = (id, d) => {
-    console.log("[MESA] doc encontrado:", id, d);
     mesaId = id;
     mesaNombre =
       mesaNombre ||
@@ -306,7 +297,6 @@ async function validarMesaDesdePath() {
     const all = await getDocs(
       tiendaSubCol(localidad, "tiendas", tiendaId, "mesas"),
     );
-    console.log("[MESA] mesas en la DB:", all.size);
     const buscado = String(mesaIdPath).toLowerCase();
     for (const m of all.docs) {
       const d = m.data();
@@ -2210,19 +2200,9 @@ async function buscarYAplicarCupon(crudo, { desdeLink = false } = {}) {
         .filter(Boolean),
     ),
   ].slice(0, 40);
-  console.log(
-    "[CUPON] códigos recibidos:",
-    codigos,
-    "| usuario:",
-    usuarioLogeado?.id || null,
-  );
   if (!codigos.length) return;
 
   const datos = await Promise.all(codigos.map(leerCupon));
-  console.log(
-    "[CUPON] lectura:",
-    codigos.map((c, i) => `${c}=${datos[i] ? "OK" : "NO ENCONTRADO"}`),
-  );
 
   let noEncontrado = null;
   for (let i = 0; i < codigos.length; i++) {
@@ -2230,24 +2210,8 @@ async function buscarYAplicarCupon(crudo, { desdeLink = false } = {}) {
       noEncontrado = noEncontrado || codigos[i];
       continue;
     }
-    console.log(
-      "[CUPON] aplicando",
-      datos[i].codigo,
-      "| tipo:",
-      datos[i].tipo,
-      "| productoId:",
-      datos[i].productoId,
-      "| existe en catálogo:",
-      productosPorId.has(datos[i].productoId),
-    );
     await aplicarCuponDesdeDoc(datos[i]);
   }
-  console.log(
-    "[CUPON] resultado → manual:",
-    cuponAplicado?.codigo || null,
-    "| productos:",
-    [...cuponesProducto.keys()],
-  );
 
   if (noEncontrado) {
     if (!usuarioLogeado || desdeLink)
@@ -6059,13 +6023,6 @@ function renderCartList(wrap, items) {
   items.forEach((it, idx) => {
     const key = it.cartKey || it.id;
     if (it.esCanje) {
-      console.log("[CUPON] 4) renderizando línea de CANJE en el carrito:", {
-        key,
-        nombre: it.nombre,
-        seleccion: it.seleccion,
-        precio: it.precio,
-        cuponCodigo: it.cuponCodigo,
-      });
     }
     const precioNum = Number(it.precio) || 0;
     let row = rowsMap.get(key);
@@ -7231,7 +7188,6 @@ async function loadOfertasActivas() {
     const now = Date.now();
     const ofertas = [];
 
-    console.log("[OFERTAS] documentos encontrados:", snap.size);
     const esp = diaEspecialHoy();
     const grad = esp ? gradienteDiaEspecial(esp) : null;
     snap.forEach((docSnap) => {
@@ -7239,28 +7195,14 @@ async function loadOfertasActivas() {
       const fh = data.datos_hora_fecha || {};
       const info = data.informacion || data;
 
-      console.log(`[OFERTAS] revisando ${docSnap.id}:`, {
-        estado: data.estado,
-        activo: fh.activo,
-        fecha_fin: fh.fecha_fin,
-        hora_fin: fh.hora_fin,
-        precio_publicacion: data.precio_publicacion, // ← este sigue en la raíz
-      });
 
       if (data.desactivada === true) {
-        console.log(`[OFERTAS] ${docSnap.id} descartada: desactivada`);
         return;
       }
       if (!diaOk(data)) {
-        console.log(
-          `[OFERTAS] ${docSnap.id} descartada: hoy no es uno de sus días`,
-        );
         return;
       }
       if (fh.activo === false) {
-        console.log(
-          `[OFERTAS] ${docSnap.id} descartada: datos_hora_fecha.activo === false`,
-        );
         return;
       }
 
@@ -7268,7 +7210,6 @@ async function loadOfertasActivas() {
         ? fh.timestamp_inicio.toMillis()
         : null;
       if (inicioMs && inicioMs > now) {
-        console.log(`[OFERTAS] ${docSnap.id} descartada: aún no empieza`);
         return;
       }
 
@@ -7279,17 +7220,11 @@ async function loadOfertasActivas() {
         finMs = parseFechaHoraLimaOferta(fh.fecha_fin, fh.hora_fin);
       }
       if (finMs === null || finMs < now) {
-        console.log(
-          `[OFERTAS] ${docSnap.id} descartada: VENCIDA. fin=${new Date(finMs)} vs ahora=${new Date(now)}`,
-        );
         return;
       }
 
       const precio = Number(data.precio_publicacion) || 0;
       if (precio <= 0) {
-        console.log(
-          `[OFERTAS] ${docSnap.id} descartada: sin precio válido (precio_publicacion="${info.precio_publicacion}")`,
-        );
         return;
       }
 
@@ -7300,7 +7235,6 @@ async function loadOfertasActivas() {
       const titulo = String(info.titulo || "").trim();
       const descripcion = String(info.descripcion || "").trim();
 
-      console.log(`[OFERTAS] ${docSnap.id} ✅ APROBADA, precio=${precio}`);
 
       const cp = condicionesDePromo(data.condiciones);
       const nombreMA = String(data.nombre || "").trim();
@@ -7331,7 +7265,6 @@ async function loadOfertasActivas() {
       });
     });
 
-    console.log("[OFERTAS] total aprobadas:", ofertas.length);
     return ofertas;
   } catch (e) {
     console.warn("No se pudieron cargar las ofertas activas:", e.message);
@@ -7821,7 +7754,6 @@ async function seleccionarCalleCercana(lat, lng, accuracy = 0) {
   if (calleSel && calleSel._manual) return true; // si eligió a mano, no se toca
 
   const r = decidirCalle(calles, lat, lng, accuracy);
-  console.log("[CALLES]", r.tipo, r.ranking?.slice(0, 3).map((c) => `${c.nombre} ${Math.round(c.m)}m`));
 
   if (r.tipo === "auto") {
     elegirCalle(r.calle);

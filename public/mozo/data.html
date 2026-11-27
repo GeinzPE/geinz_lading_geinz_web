@@ -1,134 +1,1291 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Administrar servicios Geinz</title>
+<title>Geinz Admin</title>
 <style>
-  :root { --bg:#0f172a; --card:#1e293b; --bd:#334155; --tx:#e2e8f0; --mut:#94a3b8; --ac:#38bdf8; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; }
-  * { box-sizing: border-box; }
-  body { margin:0; padding:20px; font-family:system-ui,sans-serif; background:var(--bg); color:var(--tx); }
-  h1 { font-size:20px; margin:0 0 16px; }
-  form#f { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; background:var(--card); padding:14px; border-radius:10px; border:1px solid var(--bd); }
-  label { font-size:12px; color:var(--mut); display:flex; flex-direction:column; gap:4px; }
-  input, select, textarea { padding:7px 8px; border-radius:6px; border:1px solid var(--bd); background:var(--bg); color:var(--tx); font:inherit; font-size:13px; }
-  button { font:inherit; cursor:pointer; }
-  button:disabled { opacity:.4; cursor:not-allowed; }
-  .btn { padding:10px; border:0; border-radius:6px; background:var(--ac); color:#04202e; font-weight:700; }
-  form#f .btn { grid-column:1/-1; }
-  #estado { margin:14px 0; font-size:13px; color:var(--mut); word-break:break-all; line-height:1.5; }
-  #estado.error { color:var(--bad); } #estado.ok { color:var(--ok); }
+:root{--bg:#f4f6f5;--panel:#fff;--ink:#1c2420;--mut:#66726b;--line:#dfe3df;--ac:#0f6b4f;--acink:#fff;--bad:#a31f2b;--soft:#e4f2ec;--warn:#b45309;}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1412;--panel:#1a201d;--ink:#e8ede9;--mut:#97a39b;--line:#2c342f;--ac:#3fb88c;--acink:#06120d;--bad:#ff7a86;--soft:#16302a;--warn:#fbbf24;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:6px;align-items:center;padding:10px 18px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0 14px 0 0}
+.tab{border:0;background:none;padding:8px 14px;border-radius:999px;color:var(--mut);font:inherit;cursor:pointer}
+.tab.on{background:var(--ac);color:var(--acink);font-weight:700}
+main{max-width:1050px;margin:0 auto;padding:22px 18px 60px}
+section.pane{display:none}section.pane.on{display:block}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+h2{font-size:16px;margin:0 0 10px}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 12px}
+button{font:inherit;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button.p{background:var(--ac);border-color:var(--ac);color:var(--acink);font-weight:700}
+button.d{color:var(--bad);border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.row input[type=search]{flex:1 1 200px}.row select{width:auto}
+.chk{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--ink);margin:0}.chk input{width:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--panel);display:flex;flex-direction:column;gap:8px}
+.who{display:flex;gap:10px;align-items:center}
+.who img,.who .ph{width:44px;height:44px;border-radius:10px;object-fit:cover;background:var(--soft);flex:none;display:grid;place-items:center}
+small,.mut{color:var(--mut)}
+.tag{font-size:12px;padding:1px 9px;border-radius:99px;background:var(--soft);color:var(--ac);font-weight:600;margin-right:4px;display:inline-block}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--mut);font-size:14px}.pager div{display:flex;gap:8px;align-items:center}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:500}
+a{color:var(--ac);word-break:break-all}
+.made{margin-top:8px;padding:10px 12px;border:1px solid var(--ac);background:var(--soft);border-radius:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.made[hidden]{display:none}
+#bar{position:fixed;top:0;left:0;right:0;height:3px;overflow:hidden;opacity:0;transition:.25s;z-index:60}#bar.on{opacity:1}
+#bar i{display:block;height:100%;width:35%;background:var(--ac);animation:sl 1.1s ease-in-out infinite}@keyframes sl{from{margin-left:-35%}to{margin-left:100%}}
+#toast{position:fixed;bottom:20px;left:50%;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s;z-index:70;max-width:90vw}
+#toast.on{opacity:1;transform:translate(-50%,0)}#toast.err{background:var(--bad);color:#fff}
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);padding:0;width:min(820px,95vw);max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.dh{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
+.db{padding:6px 20px 16px;overflow:auto;max-height:74vh}
+fieldset{border:1px solid var(--line);border-radius:12px;margin:12px 0 0;padding:8px 14px 14px}legend{font-size:13px;color:var(--mut);padding:0 6px}
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:8px 0}
+.pc{border:2px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;text-align:center;background:var(--bg)}
+.pc.sel{border-color:var(--ac);background:var(--soft)}.pc.cur{box-shadow:0 0 0 2px var(--warn) inset}
+.pc .e{font-size:28px}.pc b{display:block}.pc .pr{font-size:18px;font-weight:700;color:var(--ac)}
+.pill{display:inline-block;font-size:11px;padding:0 8px;border-radius:99px;background:var(--warn);color:#000;margin-top:4px}
+.sum{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:13px;margin:10px 0}
+.ok{color:var(--ac)}.er{color:var(--bad)}
+.pl{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;background:var(--bg)}
+.pl label{display:inline-flex;align-items:center;gap:4px;margin:2px 10px 2px 0;font-size:12px}.pl input{width:auto}
+.dirty{color:var(--warn);font-size:12px}
 
-  /* Barra de herramientas: búsqueda + filtros + guardar */
-  #barra { display:none; position:sticky; top:0; z-index:5; background:var(--bg); padding:10px 0; gap:10px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--bd); margin-bottom:12px; }
-  #buscar { flex:1 1 260px; min-width:200px; font-size:14px; padding:9px 12px; }
-  .chips { display:flex; gap:6px; }
-  .chip { padding:6px 12px; border-radius:999px; border:1px solid var(--bd); background:var(--card); color:var(--mut); font-size:12px; }
-  .chip.on { background:var(--ac); color:#04202e; border-color:var(--ac); font-weight:700; }
-  #cuenta { font-size:12px; color:var(--mut); }
-  #barra small { color:var(--mut); flex-basis:100%; }
+.dtabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;position:sticky;top:0;background:var(--panel);z-index:7;padding:6px 0}
+.dtab{border-radius:999px;color:var(--mut);padding:6px 14px}.dtab.on{background:var(--ac);color:var(--acink);border-color:var(--ac);font-weight:700}
+.dpane{display:none}.dpane.on{display:block}
+#tbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+#tbuscar{flex:1 1 220px;width:auto}
+.chip{padding:5px 12px;border-radius:999px;font-size:12px;color:var(--mut)}.chip.on{background:var(--ac);color:var(--acink);border-color:var(--ac);font-weight:700}
+#tree details{margin:4px 0 4px 14px;border-left:2px solid var(--line);padding-left:10px}
+#tree details>summary{cursor:pointer;padding:4px 0;font-weight:600}
+#tree>details{margin-left:0;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:10px}
+#tree>details>summary{color:var(--ac);font-size:16px}
+.tipo{font-weight:400;font-size:11px;color:var(--mut);margin-left:6px}
+.acc{margin-left:12px}
+.fila{display:flex;align-items:center;gap:8px;padding:4px 0 4px 14px;font-size:13px;flex-wrap:wrap;border-radius:8px}
+.fila:hover{background:var(--soft)}
+.fila .k{min-width:220px}.fila .k small{font-size:11px;margin-left:4px}
+.fila input[type=text],.fila input[type=number],.fila input[type=datetime-local]{width:auto;min-width:180px}
+#tree select{width:auto}
+.v-null{color:var(--mut);font-style:italic}
+.mini{padding:2px 8px;border-radius:6px;font-size:12px;font-weight:400}
+.mini.verde{background:var(--soft);border-color:var(--ac)}.mini.rojo{color:var(--bad);border-color:var(--bad)}
+mark{background:var(--warn);color:#000;border-radius:3px;padding:0 2px}
+.sw{position:relative;display:inline-block;width:40px;height:22px;flex:none;margin:0}
+.sw input{opacity:0;width:100%;height:100%;margin:0;padding:0;position:absolute;inset:0;cursor:pointer;z-index:1}
+.sw span{position:absolute;inset:0;background:#8b958f;border-radius:999px;transition:background .15s}
+.sw span::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw input:checked+span{background:var(--ac)}.sw input:checked+span::after{transform:translateX(18px)}
+.sw input:focus-visible+span{outline:2px solid var(--ac);outline-offset:2px}
+.sino{font-size:12px;min-width:26px;color:var(--mut)}
+pre{background:var(--bg);padding:12px;border-radius:10px;overflow:auto;font-size:12px;border:1px solid var(--line);max-height:50vh}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 14px}
+#dlgAdd{width:min(420px,92vw);padding:18px}#dlgAdd h2{word-break:break-all}
 
-  details { margin:4px 0 4px 14px; border-left:2px solid var(--bd); padding-left:10px; }
-  details > summary { cursor:pointer; padding:4px 0; font-weight:600; }
-  .tipo { font-weight:400; font-size:11px; color:var(--mut); margin-left:6px; }
-  .raiz > details { margin-left:0; background:var(--card); border:1px solid var(--bd); border-radius:10px; padding:8px 12px; margin-bottom:10px; }
-  .raiz > details > summary { color:var(--ac); font-size:16px; }
-  .fila { display:flex; align-items:center; gap:8px; padding:3px 0 3px 14px; font-size:13px; flex-wrap:wrap; }
-  .fila .k { color:var(--tx); min-width:220px; }
-  .fila .k small { color:var(--mut); font-size:11px; margin-left:4px; }
-  .fila input[type=text], .fila input[type=number], .fila input[type=datetime-local] { min-width:180px; }
-  .v-null { color:var(--mut); font-style:italic; }
-  .acc { margin-left:12px; }
-  .mini { padding:2px 8px; border-radius:5px; border:1px solid var(--bd); background:var(--bg); color:var(--tx); font-size:12px; font-weight:400; }
-  .mini.verde { background:#14532d; border-color:#166534; }
-  .mini.rojo { background:#450a0a; border-color:#7f1d1d; }
-  .dirty { color:var(--warn); font-size:11px; font-weight:400; margin-left:8px; }
-  mark { background:#854d0e; color:#fef3c7; border-radius:3px; padding:0 2px; }
-
-  /* Interruptor para booleanos */
-  .sw { position:relative; display:inline-block; width:40px; height:22px; flex:none; }
-  .sw input { opacity:0; width:100%; height:100%; margin:0; position:absolute; inset:0; cursor:pointer; z-index:1; }
-  .sw span { position:absolute; inset:0; background:#475569; border-radius:999px; transition:background .15s; }
-  .sw span::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .15s; }
-  .sw input:checked + span { background:#16a34a; }
-  .sw input:checked + span::after { transform:translateX(18px); }
-  .sw input:focus-visible + span { outline:2px solid var(--ac); outline-offset:2px; }
-  .sino { font-size:12px; min-width:26px; color:var(--mut); }
-
-  pre { background:var(--card); padding:12px; border-radius:8px; overflow:auto; font-size:12px; border:1px solid var(--bd); }
-  dialog { background:var(--card); color:var(--tx); border:1px solid var(--bd); border-radius:12px; padding:18px; width:min(420px,92vw); }
-  dialog::backdrop { background:rgba(0,0,0,.6); }
-  dialog h2 { font-size:15px; margin:0 0 12px; word-break:break-all; }
-  dialog .campo { margin-bottom:10px; }
-  dialog .campo input, dialog .campo select, dialog .campo textarea { width:100%; }
-  dialog .botones { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+/* ───── MAPA: diagrama de nodos ───── */
+#dlg{width:min(1040px,96vw)}
+#mbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0;position:sticky;top:52px;z-index:6;background:var(--panel);padding:6px 0}
+#mbuscar{flex:1 1 240px;width:auto}
+.dgw{overflow:auto;padding:10px 4px 90px;min-height:300px}
+.dg,.dg ul{list-style:none;margin:0;padding:0}
+.dg li{display:flex;align-items:center}
+.dg ul{display:flex;flex-direction:column;position:relative}
+.dg ul>li{position:relative;padding:4px 0 4px 36px}
+.dg ul>li::before{content:"";position:absolute;left:18px;top:50%;width:18px;border-top:1.5px solid var(--line)}
+.dg ul>li::after{content:"";position:absolute;left:18px;top:0;bottom:0;border-left:1.5px solid var(--line)}
+.dg ul>li:first-child::after{top:50%}.dg ul>li:last-child::after{bottom:50%}.dg ul>li:only-child::after{display:none}
+.dg li>ul::before{content:"";position:absolute;left:0;top:50%;width:18px;border-top:1.5px solid var(--line)}
+.nd{position:relative;display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;flex:none;transition:.12s}
+.nd:hover{border-color:var(--ac)}
+.nd .car{color:var(--mut);font-size:11px;transition:transform .15s}.nd.op .car{transform:rotate(90deg)}
+.nd.rt{background:var(--soft);color:var(--ac)}
+.nd.rt0{background:var(--ac);color:var(--acink);cursor:default;font-size:14px}
+.nd .cnt{font-size:11px;color:var(--mut);font-weight:400}.nd.rt0 .cnt{color:var(--acink);opacity:.85}
+.nd .mprog{width:38px;height:5px;border-radius:99px;background:var(--line);overflow:hidden;flex:none}.nd .mprog i{display:block;height:100%;background:var(--ac)}
+.nd .macc{display:none;position:absolute;top:calc(100% - 2px);left:0;z-index:8;gap:4px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.nd:hover .macc{display:flex}
+.mb{padding:1px 8px;border-radius:7px;font-size:12px;font-weight:400;color:var(--ink)}
+.mb.verde{background:var(--soft);border-color:var(--ac)}.mb.rojo{color:var(--bad);border-color:var(--bad)}
+.mdirty{color:var(--warn);font-size:12px}
+.leaves{display:flex;flex-wrap:wrap;gap:6px;max-width:470px;padding:8px;border:1px dashed var(--line);border-radius:12px;background:var(--bg)}
+.mchip{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--mut);font-size:13px;cursor:pointer;transition:.12s}
+.mchip b{width:9px;height:9px;border-radius:50%;background:#8b958f;flex:none}
+.mchip.on{background:var(--soft);border-color:var(--ac);color:var(--ink)}
+.mchip.on b{background:var(--ac);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 25%,transparent)}
+.mchip:hover,.mfld:hover{border-color:var(--ac)}.mchip.nul{cursor:default;font-style:italic}
+.mx{display:none;font-style:normal;color:var(--bad);font-weight:700;padding:0 2px}
+.mchip:hover .mx,.mfld:hover .mx{display:inline}
+.mfld{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:13px;margin:0;color:var(--ink)}
+.mfld span{color:var(--mut)}.mfld input{width:84px;padding:3px 9px;border-radius:999px;font-size:13px}
+.mfld input[type=text]{width:130px}.mfld input[type=datetime-local]{width:195px}
 </style>
-<script type="module" src="data.js"></script>
 </head>
 <body>
-  <h1>Administrar tiendas_servicios_geinz_activos</h1>
+<div id="bar"><i></i></div><div id="toast" role="status"></div>
+<header>
+  <h1>🏬 Geinz Admin</h1>
+  <button class="tab on" data-tab="tiendas">🏪 Tiendas</button>
+  <button class="tab" data-tab="crear">➕ Crear tienda</button>
+  <button class="tab" data-tab="dominios">🌐 Dominios</button>
+  <button class="tab" data-tab="planes">💳 Planes</button>
+  <button class="tab" data-tab="conexion" style="margin-left:auto">🔑 Conexión</button>
+</header>
+<main>
 
-  <form id="f">
-    <label>País <input name="pais" value="peru"></label>
-    <label>Departamento <input name="departamento" value="lima"></label>
-    <label>Provincia <input name="provincia" value="barranca"></label>
-    <label>Localidad (distrito) <input name="localidad" value="barranca"></label>
-    <label>Negocio ID <input name="negocioId" value="loPE3dhhbkNgy2pvmkNx"></label>
-    <button type="submit" class="btn">Obtener datos</button>
-  </form>
-
-  <div id="estado"></div>
-
-  <div id="barra">
-    <input id="buscar" type="search" placeholder="Buscar en los datos: nombre, ruta o valor (ej: mesas, delivery, true, 10)" autocomplete="off">
-    <div class="chips" id="chips">
-      <button type="button" class="chip on" data-f="todos">Todos</button>
-      <button type="button" class="chip" data-f="true">Activados</button>
-      <button type="button" class="chip" data-f="false">Desactivados</button>
-    </div>
-    <button type="button" class="mini" id="expandir">Expandir todo</button>
-    <button type="button" class="mini" id="contraer">Contraer todo</button>
-    <span id="cuenta"></span>
-    <button id="guardarTodo" class="btn" type="button">Guardar todo lo modificado</button>
-    <small>"Guardar" reemplaza el apartado completo en Firestore con lo que ves aquí.</small>
+<section class="pane" id="p-conexion"><div class="box"><h2>🔑 Conexión</h2>
+  <div class="grid">
+    <div><label for="base">URL base de las funciones</label><input id="base" value="https://us-central1-geinzworkapp.cloudfunctions.net"></div>
+    <div><label for="key">Clave de administrador</label><input id="key" type="password" autocomplete="off"></div>
   </div>
+  <label class="chk"><input type="checkbox" id="remember"> Recordar la clave en este navegador</label>
+  <p><button class="p" id="conn">Conectar y cargar tiendas</button></p></div></section>
 
-  <div id="resultado" class="raiz"></div>
+<section class="pane on" id="p-tiendas"><div class="box">
+  <h2>🏪 Mis tiendas <span id="count" class="mut"></span></h2>
+  <div class="row">
+    <input type="search" id="q" placeholder="🔎 Buscar por nombre, alias, lugar o dominio">
+    <select id="fdom"><option value="all">Todas</option><option value="with">Con dominio</option><option value="without">Sin dominio</option></select>
+    <label class="chk"><input type="checkbox" id="mine"> Solo las mías</label>
+    <input id="myuid" placeholder="Mi UID" style="width:170px">
+    <button id="reload">↻ Actualizar</button>
+  </div>
+  <div id="list" class="cards"><p class="mut">Ve a 🔑 Conexión, pega tu clave y conecta.</p></div>
+  <div class="pager" id="pager"></div>
+</div></section>
 
-  <details style="margin-left:0">
-    <summary>Ver JSON crudo</summary>
-    <pre id="crudo"></pre>
-  </details>
+<section class="pane" id="p-crear"><div class="box">
+  <h2>➕ Crear tienda (vacía)</h2>
+  <p class="mut" style="margin:0">Solo se crea la tienda y su ID. Después le asignas plan y dominio desde 🏪 Tiendas → Administrar.</p>
+  <div class="grid">
+    <div><label for="nombre">Nombre del negocio</label><input id="nombre"></div>
+    <div><label for="cat">Categoría</label><select id="cat"><option value="">Cargando…</option></select></div>
+  </div>
+  <label>Subcategorías</label><div id="subcat" class="grid"><span class="mut">Elige una categoría</span></div>
+  <label for="desc">Descripción</label><input id="desc">
+  <div class="grid">
+    <div><label for="pais">País</label><input id="pais" list="dl-pais" value="peru"></div>
+    <div><label for="dep">Departamento</label><input id="dep" list="dl-dep"></div>
+    <div><label for="prov">Provincia</label><input id="prov" list="dl-prov"></div>
+    <div><label for="dist">Distrito</label><input id="dist" list="dl-dist"></div>
+    <div><label for="loc">Localidad (si es distinta)</label><input id="loc"></div>
+    <div><label for="owners">UID del dueño (varios con coma)</label><input id="owners"></div>
+    <div><label for="dias">Días de acceso</label><input id="dias" type="number" value="30" min="1"></div>
+  </div>
+  <fieldset><legend>👤 Dueño (opcional)</legend><div class="grid">
+    <div><label for="odni">DNI</label><input id="odni" inputmode="numeric" maxlength="8"></div>
+    <div><label for="onom">Nombres</label><input id="onom"></div>
+    <div><label for="oape">Apellidos</label><input id="oape"></div>
+    <div><label for="otel">Teléfono</label><input id="otel" inputmode="numeric" maxlength="15"></div></div></fieldset>
+  <p><button class="p" id="create">Crear tienda</button></p>
+  <div class="made" id="made" hidden></div>
+  <datalist id="dl-pais"></datalist><datalist id="dl-dep"></datalist><datalist id="dl-prov"></datalist><datalist id="dl-dist"></datalist>
+</div></section>
 
-  <!-- Diálogo para agregar campos -->
-  <dialog id="dlg">
-    <form id="df">
-      <h2 id="dlgTitulo"></h2>
-      <div class="campo" id="nombreWrap">
-        <label>Nombre del campo <input id="dnombre" type="text" autocomplete="off"></label>
+<section class="pane" id="p-dominios"><div class="box">
+  <h2>🌐 Dominios <span id="dcount" class="mut"></span></h2>
+  <div class="row">
+    <input id="newdom" placeholder="dominiodelcliente.com" style="flex:1 1 200px;width:auto">
+    <label class="chk"><input type="checkbox" id="newwww" checked> con www</label>
+    <button class="p" id="adddom">Agregar dominio</button>
+    <input type="search" id="dq" placeholder="🔎 Buscar dominio" style="flex:1 1 160px">
+  </div>
+  <div id="dlist"></div><div class="pager" id="dpager"></div>
+</div></section>
+
+<section class="pane" id="p-planes"><div class="box">
+  <h2>💳 Planes GEINZ <small>(costos_geinz_saas/config_planes)</small></h2>
+  <div class="row">
+    <button id="plFile">📂 Subir .json</button><input type="file" id="plFileIn" accept=".json" hidden>
+    <button id="plPegarBtn">📋 Pegar JSON</button>
+  </div>
+  <div id="plPegar" style="display:none;margin-bottom:10px"><textarea id="plTxt" rows="9" style="font-family:monospace;font-size:12px" placeholder='{ "planes": { "basico": { ... } } }'></textarea><button class="p" id="plUsar" style="margin-top:6px">Usar este JSON</button></div>
+  <div id="planesBody"></div>
+</div></section>
+</main>
+
+<dialog id="dlg">
+  <div class="dh"><div><b id="dname" style="font-size:17px"></b><br><small id="durl"></small></div>
+    <div style="display:flex;gap:8px;align-items:flex-start"><button id="dcpjson" title="Copia el JSON completo del negocio">📋 JSON</button><button id="dcpid">Copiar ID</button><button id="dclose">✕</button></div></div>
+  <div class="db">
+    <p id="dstor" class="mut" style="margin:10px 0 0">Calculando almacenamiento…</p>
+    <div class="dtabs" id="dtabs">
+      <button class="dtab on" data-dt="plan">💳 Plan</button>
+      <button class="dtab" data-dt="mapa">🗺 Mapa</button>
+      <button class="dtab" data-dt="func">🎛 Árbol</button>
+      <button class="dtab" data-dt="json">🧾 JSON</button>
+      <button class="dtab" data-dt="dom">🌐 Dominio</button>
+      <button class="dtab" data-dt="viejo">📦 Servicios anteriores</button>
+    </div>
+    <div class="dpane on" id="dt-plan"><div id="pmsg" class="mut"></div><div id="asig"></div></div>
+    <div class="dpane" id="dt-mapa">
+      <div id="mbar">
+        <input id="mbuscar" type="search" placeholder="🔎 Buscar función… (mesas, delivery, cupones, true, 10)" autocomplete="off">
+        <button type="button" class="chip on" data-f="todos">Todos</button>
+        <button type="button" class="chip" data-f="true">✅ Activados</button>
+        <button type="button" class="chip" data-f="false">⛔ Desactivados</button>
+        <button type="button" class="mini" id="mexpandir">Expandir</button>
+        <button type="button" class="mini" id="mcontraer">Contraer</button>
+        <span id="mcuenta" class="mut" style="font-size:12px"></span>
+        <button type="button" class="mini" id="mcopiar">📋 Copiar JSON</button>
+        <button type="button" class="p" id="mguardarTodo">💾 Guardar todo</button>
       </div>
-      <div class="campo">
-        <label>Tipo
-          <select id="dtipo">
-            <option value="string">string (texto)</option>
-            <option value="number">number (int64 / double)</option>
-            <option value="boolean">boolean</option>
-            <option value="map">map (objeto vacío)</option>
-            <option value="array">array (vacío)</option>
-            <option value="json">json (map/array con contenido)</option>
-            <option value="timestamp">timestamp</option>
-            <option value="null">null</option>
-          </select>
-        </label>
+      <div id="mapa"></div>
+    </div>
+    <div class="dpane" id="dt-func">
+      <div id="tinfo" class="mut" style="font-size:12px"></div>
+      <div id="tbar">
+        <input id="tbuscar" type="search" placeholder="🔎 Buscar: nombre, ruta o valor (ej: mesas, delivery, true, 10)" autocomplete="off">
+        <button type="button" class="chip on" data-f="todos">Todos</button>
+        <button type="button" class="chip" data-f="true">✅ Activados</button>
+        <button type="button" class="chip" data-f="false">⛔ Desactivados</button>
+        <button type="button" class="mini" id="texpandir">Expandir todo</button>
+        <button type="button" class="mini" id="tcontraer">Contraer todo</button>
+        <span id="tcuenta" class="mut" style="font-size:12px"></span>
+        <button type="button" class="mini" id="tcopiar">📋 Copiar JSON</button>
+        <button type="button" class="p" id="tguardarTodo">💾 Guardar todo lo modificado</button>
+        <small class="mut" style="flex-basis:100%">«Guardar» reemplaza el apartado completo en Firestore con lo que ves aquí.</small>
       </div>
-      <div class="campo" id="dvalorWrap"></div>
-      <div class="botones">
-        <button type="button" class="mini" id="dcancel">Cancelar</button>
-        <button type="submit" class="btn">Agregar</button>
-      </div>
-    </form>
-  </dialog>
+      <div id="tree"></div>
+    </div>
+    <div class="dpane" id="dt-json">
+      <div class="row" style="margin-top:10px"><button class="p" id="jcopiar">📋 Copiar JSON del negocio</button><small class="mut">Los Timestamp salen en formato ISO.</small></div>
+      <pre id="crudo"></pre>
+    </div>
+    <div class="dpane" id="dt-dom">
+      <div class="row" style="margin:12px 0 0"><span id="dcur"></span><select id="dsel"></select><button id="dassign">Asignar</button><button class="d" id="dunassign">Quitar</button></div>
+      <div class="row" style="margin:8px 0 0"><input id="dnew" placeholder="Dominio nuevo ya comprado" style="flex:1;width:auto"><button id="dadd">Agregar y asignar</button></div>
+    </div>
+    <div class="dpane" id="dt-viejo"><div id="dform"></div><p><button class="p" id="dsave" hidden>Guardar cambios</button></p></div>
+  </div>
+</dialog>
+<dialog id="dlgAdd">
+  <form id="adForm">
+    <h2 id="adTitulo"></h2>
+    <div id="adNombreWrap"><label>Nombre del campo <input id="adNombre" type="text" autocomplete="off"></label></div>
+    <label>Tipo <select id="adTipo">
+      <option value="string">string (texto)</option><option value="number">number (int64 / double)</option><option value="boolean">boolean</option>
+      <option value="map">map (objeto vacío)</option><option value="array">array (vacío)</option><option value="json">json (map/array con contenido)</option>
+      <option value="timestamp">timestamp</option><option value="null">null</option></select></label>
+    <div id="adValorWrap"></div>
+    <div class="row" style="justify-content:flex-end;margin:14px 0 0"><button type="button" id="adCancel">Cancelar</button><button type="submit" class="p">Agregar</button></div>
+  </form>
+</dialog>
+
+<script type="module">
+import { Timestamp, getDoc, setDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const $ = (id) => document.getElementById(id);
+const n = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const DEFAULT_URL = (a) => `https://geinztech.com/perfil/${a}`;
+const PAGE = 9;
+
+// ───────── UI base ─────────
+let pending = 0, tt;
+const busy = (d) => { pending += d; $("bar").classList.toggle("on", pending > 0); };
+function toast(t, ok = true, ms = 3200) { const e = $("toast"); e.textContent = t; e.className = "on" + (ok ? "" : " err"); clearTimeout(tt); tt = setTimeout(() => (e.className = ""), ms); }
+async function copyText(text, btn, label = "Copiar") {
+  try { await navigator.clipboard.writeText(text); } catch (e) { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+  if (btn) { btn.textContent = "Copiado"; setTimeout(() => (btn.textContent = label), 1200); }
+}
+document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("on", p.id === "p-" + b.dataset.tab));
+  if (b.dataset.tab === "planes" && !planesCargado) cargarPlanes();
+}));
+const goTab = (t) => document.querySelector(`.tab[data-tab="${t}"]`).click();
+
+try {
+  const k = localStorage.getItem("geinz_admin_key"); if (k) { $("key").value = k; $("remember").checked = true; }
+  const u = localStorage.getItem("geinz_my_uid"); if (u) { $("myuid").value = u; $("mine").checked = true; }
+} catch (e) {}
+
+async function api(fn, body = {}) {
+  const key = $("key").value.trim();
+  if (!key) { goTab("conexion"); throw new Error("Falta la clave de administrador."); }
+  try { $("remember").checked ? localStorage.setItem("geinz_admin_key", key) : localStorage.removeItem("geinz_admin_key"); } catch (e) {}
+  busy(1);
+  try {
+    const res = await fetch(`${$("base").value.replace(/\/+$/, "")}/${fn}`, { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": key }, body: JSON.stringify(body) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || d.ok === false) throw new Error(d.error || `Error ${res.status}`);
+    return d;
+  } finally { busy(-1); }
+}
+
+// ───────── Ubicaciones ─────────
+const fill = (id, arr) => { $(id).innerHTML = [...new Set(arr)].map((v) => `<option value="${esc(v)}">`).join(""); };
+const UBU = "https://raw.githubusercontent.com/joseluisq/ubigeos-peru/master/json/";
+let ub = null;
+async function loadUb() {
+  if (ub) return ub;
+  const [d, p, s] = await Promise.all(["departamentos", "provincias", "distritos"].map((f) => fetch(UBU + f + ".json").then((r) => r.json()).then((x) => (Array.isArray(x) ? x : Object.values(x)))));
+  return (ub = { d, p, s });
+}
+const names = (a) => a.map((x) => n(x.nombre_ubigeo)).sort();
+const findDep = () => ub && ub.d.find((x) => n(x.nombre_ubigeo) === n($("dep").value));
+const findProv = () => { const d = findDep(); return d && ub.p.find((x) => x.id_padre_ubigeo == d.id_ubigeo && n(x.nombre_ubigeo) === n($("prov").value)); };
+async function onPais() {
+  if (n($("pais").value) !== "peru") { ["dl-dep", "dl-prov", "dl-dist"].forEach((i) => fill(i, [])); return; }
+  try { await loadUb(); fill("dl-dep", names(ub.d)); } catch (e) {}
+}
+$("pais").addEventListener("change", onPais);
+$("dep").addEventListener("input", () => { const d = findDep(); fill("dl-prov", d ? names(ub.p.filter((x) => x.id_padre_ubigeo == d.id_ubigeo)) : []); });
+$("prov").addEventListener("input", () => { const p = findProv(); fill("dl-dist", p ? names(ub.s.filter((x) => x.id_padre_ubigeo == p.id_ubigeo)) : []); });
+fetch("https://restcountries.com/v3.1/all?fields=name,translations").then((r) => r.json())
+  .then((a) => fill("dl-pais", a.map((c) => n((c.translations && c.translations.spa && c.translations.spa.common) || c.name.common)))).catch(() => fill("dl-pais", ["peru"]));
+onPais();
+
+// ───────── Crear tienda ─────────
+let CATS = [];
+function fillSub() {
+  const c = CATS.find((x) => x.id === $("cat").value), subs = (c && c.subcategorias) || [];
+  $("subcat").innerHTML = subs.length ? subs.map((s) => `<label class="chk"><input type="checkbox" value="${esc(s)}">${esc(s)}</label>`).join("") : '<span class="mut">Sin subcategorías</span>';
+}
+$("cat").addEventListener("change", fillSub);
+async function loadCats() {
+  try {
+    CATS = (await api("extra-listCategories")).categories;
+    $("cat").innerHTML = '<option value="">Elegir categoría…</option>' + CATS.map((c) => `<option value="${esc(c.id)}">${esc(c.id)}</option>`).join("");
+    fillSub();
+  } catch (e) { toast(e.message, false); }
+}
+$("create").addEventListener("click", async () => {
+  $("create").disabled = true;
+  try {
+    const d = await api("tiendas-createStore", {
+      nombre: $("nombre").value, categoria: $("cat").value,
+      subcategorias: [...$("subcat").querySelectorAll("input:checked")].map((i) => i.value),
+      descripcion: $("desc").value, pais: $("pais").value, departamento: $("dep").value, provincia: $("prov").value, distrito: $("dist").value,
+      localidad: $("loc").value, dias: +$("dias").value || 30,
+      dueno_dni: $("odni").value, dueno_nombre: $("onom").value, dueno_apellido: $("oape").value, dueno_telefono: $("otel").value,
+      propietarios: $("owners").value.split(",").map((s) => s.trim()).filter(Boolean) });
+    STORES.unshift(d.store); page = 1; render();
+    $("made").hidden = false;
+    $("made").innerHTML = `<span>✅ Tienda creada · alias <b>${esc(d.alias)}</b> · ID <code>${esc(d.id)}</code></span><button data-cpid="${esc(d.id)}">Copiar ID</button><button class="p" data-edit="${esc(d.id)}">Asignar plan →</button>`;
+    $("nombre").value = ""; $("desc").value = "";
+    toast(`Tienda creada · alias ${d.alias}`);
+  } catch (e) { toast(e.message, false); } finally { $("create").disabled = false; }
+});
+
+// ───────── Lista de tiendas ─────────
+const USAGE = {}, ASKED = new Set();
+const mb = (b) => (b / 1048576).toFixed(2) + " MB";
+function paintUsage() { document.querySelectorAll("[data-mb]").forEach((el) => { const u = USAGE[el.dataset.mb]; el.textContent = u ? "💾 " + mb(u.bytes) : "💾 …"; }); }
+function showStor() {
+  const u = cur && USAGE[cur.id];
+  $("dstor").innerHTML = u ? `<b>💾 ${mb(u.bytes)}</b> · ${u.files} archivos<br><small>` + (Object.entries(u.folders).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)}: ${mb(v)}`).join(" · ") || "sin archivos") + "</small>" : "Calculando almacenamiento…";
+}
+async function loadUsage(ids) {
+  const need = ids.filter((i) => !USAGE[i] && !ASKED.has(i)); need.forEach((i) => ASKED.add(i));
+  if (need.length) { try { Object.assign(USAGE, (await api("extra-storageUsage", { ids: need })).usage); } catch (e) { need.forEach((i) => ASKED.delete(i)); toast(e.message, false); } }
+  paintUsage(); showStor();
+}
+let STORES = [], LINKS = [], DOMS = [], page = 1, dpage = 1;
+const linkOf = (id) => LINKS.find((k) => k.id === id);
+async function loadStores() {
+  loadCats();
+  try {
+    const [s, d] = await Promise.all([api("tiendas-listStores"), api("domains-listDomains")]);
+    STORES = s.stores; LINKS = s.links; DOMS = (d.domains || []).filter((x) => x.status !== "released");
+    page = 1; render();
+  } catch (e) { toast(e.message, false); }
+}
+function filtered() {
+  const q = n($("q").value), uid = $("myuid").value.trim(), f = $("fdom").value;
+  return STORES.filter((s) => {
+    const l = linkOf(s.id);
+    if ($("mine").checked && !(uid && (s.owners || []).includes(uid))) return false;
+    if (f === "with" && !l) return false; if (f === "without" && l) return false;
+    return !q || n(`${s.nombre} ${s.alias} ${s.distrito} ${s.provincia} ${l ? l.domain : ""}`).includes(q);
+  });
+}
+function render() {
+  const all = filtered(), pages = Math.max(1, Math.ceil(all.length / PAGE)); page = Math.min(page, pages);
+  const rows = all.slice((page - 1) * PAGE, page * PAGE);
+  $("count").textContent = `(${all.length} de ${STORES.length})`;
+  $("list").innerHTML = !rows.length ? `<p class="mut">${$("mine").checked && !$("myuid").value.trim() ? "Escribe tu UID para ver solo tus tiendas." : "No hay tiendas con esos filtros."}</p>` : rows.map((s) => {
+    const l = linkOf(s.id), url = l ? `https://${l.domain}` : DEFAULT_URL(s.alias), p = s.propietario;
+    return `<article class="card"><div class="who">${s.logo ? `<img src="${esc(s.logo)}" alt="">` : '<span class="ph">🏪</span>'}<div><b>${esc(s.nombre)}</b><br><small>${esc(s.alias)}${p ? " · " + esc(p.nombre + " " + p.apellido) : ""}</small></div></div>
+      <small>📍 ${esc(s.distrito)}, ${esc(s.provincia)}, ${esc(s.departamento)}</small>
+      <div><span class="tag">${l ? "🌐 dominio" : "🔗 por defecto"}</span><a href="${esc(url)}" target="_blank" rel="noopener"><small>${esc(url.replace("https://", ""))}</small></a></div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:auto"><small data-mb="${esc(s.id)}">💾 …</small><span style="flex:1"></span>
+      <button data-cpid="${esc(s.id)}" title="Copiar ID">ID</button><button class="p" data-edit="${esc(s.id)}">⚙ Administrar</button></div></article>`;
+  }).join("");
+  const from = all.length ? (page - 1) * PAGE + 1 : 0;
+  $("pager").innerHTML = `<span>${from}–${Math.min(page * PAGE, all.length)} de ${all.length}</span><div><button id="pp" ${page <= 1 ? "disabled" : ""}>←</button><span>${page} / ${pages}</span><button id="pn" ${page >= pages ? "disabled" : ""}>→</button></div>`;
+  renderDomains(); paintUsage(); loadUsage(rows.map((s) => s.id));
+}
+["q", "fdom", "mine"].forEach((id) => $(id).addEventListener("input", () => { page = 1; render(); }));
+$("myuid").addEventListener("input", () => { try { localStorage.setItem("geinz_my_uid", $("myuid").value.trim()); } catch (e) {} page = 1; render(); });
+$("reload").addEventListener("click", loadStores);
+$("conn").addEventListener("click", () => { goTab("tiendas"); loadStores(); });
+
+// ───────── Dominios ─────────
+const ST = { pending_nameservers: "⏳ Esperando nameservers", pending_validation: "🔐 Validando certificado", active: "✅ Activo" };
+const upsertDom = (d) => { const i = DOMS.findIndex((x) => x.domain === d.domain); if (i < 0) DOMS.unshift(d); else DOMS[i] = { ...DOMS[i], ...d }; };
+function renderDomains() {
+  const q = n($("dq").value), all = DOMS.filter((d) => !q || n(d.domain).includes(q));
+  const pages = Math.max(1, Math.ceil(all.length / PAGE)); dpage = Math.min(dpage, pages);
+  const rows = all.slice((dpage - 1) * PAGE, dpage * PAGE);
+  $("dcount").textContent = `(${DOMS.length})`;
+  $("dlist").innerHTML = !rows.length ? '<p class="mut">No hay dominios.</p>' : '<table><tr><th>Dominio</th><th>Estado</th><th>Tienda</th><th></th></tr>' + rows.map((d) => {
+    const l = LINKS.find((k) => k.domain === d.domain), s = l && STORES.find((x) => x.id === l.id), ns = d.nameservers || [];
+    const help = d.status === "pending_nameservers" && ns.length ? `<br><small>Pon en tu proveedor: ${ns.map((x) => `<code>${esc(x)}</code>`).join(" y ")} <button data-copy="${esc(ns.join(" "))}">Copiar</button></small>` : "";
+    return `<tr><td><b>${esc(d.domain)}</b>${help}</td><td><span class="tag">${esc(ST[d.status] || d.status)}</span></td><td>${s ? esc(s.nombre) : "<small>sin asignar</small>"}</td><td><button data-chk="${esc(d.domain)}">Revisar</button> <button class="d" data-rm="${esc(d.domain)}">Quitar</button></td></tr>`;
+  }).join("") + "</table>";
+  const from = all.length ? (dpage - 1) * PAGE + 1 : 0;
+  $("dpager").innerHTML = `<span>${from}–${Math.min(dpage * PAGE, all.length)} de ${all.length}</span><div><button id="dpp" ${dpage <= 1 ? "disabled" : ""}>←</button><span>${dpage} / ${pages}</span><button id="dpn" ${dpage >= pages ? "disabled" : ""}>→</button></div>`;
+}
+$("dq").addEventListener("input", () => { dpage = 1; renderDomains(); });
+const nsMsg = (d) => `Agregado. Cambia los nameservers en tu proveedor a: ${(d.nameservers || []).join(" y ")}`;
+$("adddom").addEventListener("click", async () => {
+  const domain = $("newdom").value.trim(); if (!domain) return toast("Escribe el dominio.", false);
+  $("adddom").disabled = true;
+  try { const r = await api("domains-addDomain", { domain, includeWww: $("newwww").checked }); upsertDom(r.domain); $("newdom").value = ""; dpage = 1; renderDomains(); toast(nsMsg(r.domain), true, 9000); }
+  catch (e) { toast(e.message, false); } finally { $("adddom").disabled = false; }
+});
+
+// ───────── Diálogo de tienda: dominio + plan ─────────
+let cur = null;
+const pre = (s) => ({ id: s.id, pais: s.pais, departamento: s.departamento, provincia: s.provincia, distrito: s.distrito });
+function openStore(id) {
+  cur = STORES.find((s) => s.id === id); if (!cur) return;
+  datos = null; dirty.clear(); asg.tipo = null; consulta = ""; $("tbuscar").value = ""; $("mbuscar").value = ""; mcerr.clear(); viejoFor = null; $("dform").innerHTML = ""; $("dsave").hidden = true; $("tinfo").innerHTML = "";
+  renderTree(); selectDT("plan");
+  drawDomain(); showStor(); loadUsage([cur.id]); $("dlg").showModal(); cargarServicios();
+}
+function drawDomain() {
+  const l = linkOf(cur.id);
+  $("dname").textContent = cur.nombre; $("dcpid").dataset.cpid = cur.id;
+  $("durl").innerHTML = `Sitio por defecto: <a href="${DEFAULT_URL(esc(cur.alias))}" target="_blank" rel="noopener">${DEFAULT_URL(esc(cur.alias)).replace("https://", "")}</a>`;
+  $("dcur").textContent = l ? `Actual: ${l.domain}` : "Sin dominio propio";
+  $("dsel").innerHTML = '<option value="">Elegir dominio…</option>' + DOMS.map((x) => {
+    const k = LINKS.find((z) => z.domain === x.domain), s = k && k.id !== cur.id && STORES.find((t) => t.id === k.id);
+    return `<option value="${esc(x.domain)}">${esc(x.domain)}${s ? ` (en uso: ${esc(s.nombre)})` : ""}</option>`;
+  }).join("");
+  $("dunassign").hidden = !l;
+}
+$("dclose").addEventListener("click", () => $("dlg").close());
+$("dassign").addEventListener("click", async () => {
+  const domain = $("dsel").value; if (!domain) return toast("Elige un dominio.", false);
+  const k = LINKS.find((z) => z.domain === domain);
+  if (k && k.id !== cur.id && !confirm(`${domain} ya apunta a otra tienda. ¿Moverlo a ${cur.nombre}?`)) return;
+  try { await api("tiendas-assignDomain", { domain, ...pre(cur) }); LINKS = LINKS.filter((k) => k.domain !== domain && k.id !== cur.id); LINKS.push({ domain, id: cur.id, alias: cur.alias }); drawDomain(); render(); toast(`${domain} ahora apunta a ${cur.nombre}`); }
+  catch (e) { toast(e.message, false); }
+});
+$("dunassign").addEventListener("click", async () => {
+  const l = linkOf(cur.id); if (!l) return;
+  try { await api("tiendas-unassignDomain", { domain: l.domain }); LINKS = LINKS.filter((k) => k.domain !== l.domain); drawDomain(); render(); toast("Dominio desvinculado"); }
+  catch (e) { toast(e.message, false); }
+});
+$("dadd").addEventListener("click", async () => {
+  const domain = $("dnew").value.trim(); if (!domain) return toast("Escribe el dominio.", false);
+  $("dadd").disabled = true;
+  try {
+    const r = await api("domains-addDomain", { domain, includeWww: true, tenantId: cur.id }), d = r.domain.domain;
+    upsertDom(r.domain); await api("tiendas-assignDomain", { domain: d, ...pre(cur) });
+    LINKS = LINKS.filter((k) => k.domain !== d && k.id !== cur.id); LINKS.push({ domain: d, id: cur.id, alias: cur.alias });
+    $("dnew").value = ""; drawDomain(); render(); toast(nsMsg(r.domain), true, 9000);
+  } catch (e) { toast(e.message, false); } finally { $("dadd").disabled = false; }
+});
+
+document.addEventListener("click", async (e) => {
+  if (e.target.id === "pp") { page--; render(); }
+  if (e.target.id === "pn") { page++; render(); }
+  if (e.target.id === "dpp") { dpage--; renderDomains(); }
+  if (e.target.id === "dpn") { dpage++; renderDomains(); }
+  const b = e.target.closest("[data-edit]"); if (b) openStore(b.dataset.edit);
+  const c = e.target.closest("[data-cpid]"); if (c) copyText(c.dataset.cpid, c, c.textContent === "Copiado" ? "ID" : c.textContent);
+  const cp = e.target.closest("[data-copy]"); if (cp) copyText(cp.dataset.copy, cp);
+  const chk = e.target.closest("[data-chk]"), rm = e.target.closest("[data-rm]");
+  try {
+    if (chk) { const r = await api("domains-checkDomain", { domain: chk.dataset.chk }); upsertDom(r.domain); renderDomains(); toast(r.domain.nextStep || "Revisado", true, 6000); }
+    if (rm) {
+      const d = rm.dataset.rm; if (!confirm(`¿Quitar ${d} de tu plataforma?`)) return;
+      if (LINKS.find((k) => k.domain === d)) { await api("tiendas-unassignDomain", { domain: d }); LINKS = LINKS.filter((k) => k.domain !== d); }
+      await api("domains-removeDomain", { domain: d }); DOMS = DOMS.filter((x) => x.domain !== d); render(); toast(`${d} quitado`);
+    }
+  } catch (err) { toast(err.message, false); }
+});
+
+// ═════════════ FIRESTORE: servicios del negocio (misma lógica de tu data.js) ═════════════
+const CANDIDATOS = ["./servicio_geinz_admin.js"];   // ← ajusta si cambia la ruta
+const RUTAS_PATHS = ["../js/rutas/rutas.js"];       // ← ajusta si cambia la ruta
+let api2 = null, _paths = null;
+async function cargarApi() {
+  if (api2) return api2;
+  const f = { obtener: null, guardar: null, detalle: [] };
+  for (const ruta of CANDIDATOS) {
+    try {
+      const m = await import(ruta);
+      f.detalle.push(`${ruta} → exports: ${Object.keys(m).join(", ") || "(ninguno)"}`);
+      if (!f.obtener && typeof m.obtenerServiciosGeinz === "function") f.obtener = m.obtenerServiciosGeinz;
+      if (!f.guardar && typeof m.guardarServiciosGeinz === "function") f.guardar = m.guardarServiciosGeinz;
+    } catch (e) { f.detalle.push(`${ruta} → no se pudo cargar (${e.message})`); }
+  }
+  if (!f.obtener) throw new Error("No existe obtenerServiciosGeinz en ningún archivo.\n" + f.detalle.join("\n"));
+  return (api2 = f);
+}
+async function cargarPaths() {
+  if (_paths) return _paths;
+  const fallos = [];
+  for (const r of RUTAS_PATHS) {
+    try { const m = await import(r); if (typeof m.planesConfigDoc === "function") return (_paths = m); fallos.push(r + " (sin planesConfigDoc)"); }
+    catch (e) { fallos.push(r + " → " + e.message); }
+  }
+  throw new Error("No encontré rutas.js con planesConfigDoc.\n" + fallos.join("\n"));
+}
+const planesDoc = async () => (await cargarPaths()).planesConfigDoc();
+
+let datos = null, params = null, rutaDoc = "", ignorados = [];
+const dirty = new Set();
+const DIRECTOS = new Set(["plan", "fecha_fin", "creditos_ia500", "creditos_ia", "roles_max"]);
+const pad2 = (x) => String(x).padStart(2, "0");
+const fmtDMY = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+const fmtFecha = (v) => (v instanceof Timestamp ? v.toDate().toLocaleString("es-PE") : "—");
+const msg = (t, cls = "mut") => { $("pmsg").className = cls; $("pmsg").textContent = t; };
+
+async function cargarServicios() {
+  params = { pais: cur.pais, departamento: cur.departamento, provincia: cur.provincia, localidad: cur.localidad || cur.distrito, negocioId: cur.id };
+  $("asig").innerHTML = ""; msg("Consultando servicios del negocio…");
+  try {
+    const A = await cargarApi(), r = await A.obtener(params);
+    if (!r.existe) { msg(`No existe el documento de servicios: ${r.ruta}`, "er"); return; }
+    datos = r.datos; rutaDoc = r.ruta; ignorados = r.ignorados || []; dirty.clear();
+    msg(`✔ ${r.ruta}`, "ok");
+    $("tinfo").innerHTML = `Traídos: ${esc(Object.keys(r.datos).join(", ") || "(ninguno)")}` + (r.faltantes?.length ? `<br>No existen en el doc: ${esc(r.faltantes.join(", "))}` : "") + `<br>Ignorados (a mano): ${esc((r.ignorados || []).join(", ") || "(ninguno)")}`;
+    if (!planes && !planesCargado) await cargarPlanes();
+    pintarAsignar(); renderTree();
+  } catch (e) { console.error(e); msg("Error: " + e.message, "er"); }
+}
+
+async function refServicios() {
+  const m = await cargarPaths();
+  if (typeof m.setUbicacion === "function") m.setUbicacion({ pais: params.pais, departamento: params.departamento, provincia: params.provincia });
+  const ref = m.tiendaServiciosDoc(params.localidad, params.negocioId), nn = (x) => String(x).replace(/^\/+/, "");
+  if (!rutaDoc || nn(ref.path) === nn(rutaDoc)) return ref;
+  const { db } = await import("../js/db/db.js");
+  return doc(db, ...nn(rutaDoc).split("/"));
+}
+
+async function guardar(raices) {
+  if (!params || !datos) return;
+  if (!raices.length) return alert("No hay cambios sin guardar");
+  const Pa = datos.panel_admin;
+  if (Pa?.timestamp_fin instanceof Timestamp && raices.includes("panel_admin")) {
+    Pa.fecha_fin = fmtDMY(Pa.timestamp_fin.toDate()); datos.fecha_fin = Pa.timestamp_fin;
+    if (!raices.includes("fecha_fin")) raices.push("fecha_fin");
+  }
+  try {
+    const directos = raices.filter((k) => DIRECTOS.has(k) || ignorados.includes(k));
+    const normales = raices.filter((k) => !directos.includes(k));
+    if (!confirm(`Se reemplazarán en Firestore:\n• ${raices.join("\n• ")}\n\n${rutaDoc}`)) return;
+    const guardados = [];
+    if (normales.length) {
+      const A = await cargarApi();
+      if (!A.guardar) return msg("No existe guardarServiciosGeinz en ningún archivo; no se guardó nada. Agrega su ruta en CANDIDATOS.", "er");
+      const cambios = {}; normales.forEach((k) => (cambios[k] = datos[k]));
+      const r = await A.guardar({ ...params, cambios }); guardados.push(...(r.guardados || normales));
+    }
+    if (directos.length) {
+      const cambios = {}; directos.forEach((k) => (cambios[k] = datos[k]));
+      await updateDoc(await refServicios(), cambios); guardados.push(...directos);
+    }
+    raices.forEach((k) => dirty.delete(k));
+    msg(`✔ Guardado: ${guardados.join(", ")}`, "ok"); toast("Guardado en Firestore"); pintarAsignar(); renderTree();
+  } catch (e) { console.error(e); msg("Error al guardar: " + e.message, "er"); }
+}
+
+// ═════════════ PLANES  →  /costos_geinz_saas/config_planes  (JSON SIN CAMBIOS) ═════════════
+const r2 = (x) => Math.round(x * 100) / 100;
+const U = "ilimitado";
+const MODS_STD = { perfil_negocio: true, comprobantes: true, mis_trabajadores: true, legal: true, pedidos_en_vivo: true, carrito_compras: true, historial_ventas: true, clientes: true, cupones_puntos: true, publicidad_ofertas: true, reseñas: true, qr_tech: true, modo_avanzado_productos: true };
+const LIM_KEYS = ["colecciones", "productos_por_coleccion", "trabajadores", "mesas", "repartidores", "cupones", "creditos_ia"];
+const mkPlan = (nombre, descripcion, m, a, badge, pop, lim, mods = MODS_STD, extra = {}) => ({
+  nombre, descripcion, precio_mensual: m, precio_anterior: a, mostrar_precio_anterior: a > 0, etiqueta_badge: badge, mostrar_badge: true, es_mas_popular: pop, ...extra,
+  moneda: "PEN", prueba_dias: 7, dominio_personalizado_permitido: true,
+  limites: Object.fromEntries(LIM_KEYS.map((k, i) => [k, lim[i]])), modulos: { ...mods },
+});
+const PLANES_INICIALES = {
+  basico: mkPlan("Plan Básico", "Todo el poder de GEINZ activado desde el primer día para emprendedores que arrancan con fuerza.", 49.9, 79.9, "Emprendedor", false, [15, 20, 2, 5, 10, 5, 100]),
+  pro: mkPlan("Plan Pro", "Para negocios activos con mayor rotación de stock, mesas y equipo de trabajo en expansión.", 89.9, 129.9, "Más Popular 🔥", true, [35, 40, 8, 20, 30, 20, 350]),
+  avanzado: mkPlan("Plan Avanzado", "Sin frenos. Capacidad masiva, control total de planilla y alta potencia de IA para marketing.", 149.9, 199.9, "Escala Total", false, [U, U, 24, U, U, U, 1000]),
+  enterprise: mkPlan("Plan Enterprise", "Infraestructura corporativa a medida, multi-sucursales, WhatsApp API oficial y marca blanca.", 0, 0, "Corporativo", false, [U, U, U, U, U, U, U],
+    { multi_sucursal: true, whatsapp_cloud_api: true, facturacion_sunat: true, white_label: true, soporte_prioritario_24_7: true }, { es_cotizacion: true }),
+};
+const LIM_MAP = [
+  ["mesas", "mesas", "cantidad_max"], ["repartidores", "mis_delivery", "maximo_delivery"], ["cupones", "cupones_puntos", "maximo_cupones"],
+  ["colecciones", "carta", "colecciones"], ["colecciones", "config_avanzado", "max_colecciones"], ["productos_por_coleccion", "config_avanzado", "max_productos_por_colecciones"],
+];
+const VALOR_ILIMITADO = 999999;
+const ESQUEMA_BASE = {
+  cliente_y_fidelizacion: {
+    formulario: { activo: false, creacion_formulario: false, creacion_campa: false },
+    mis_usuarios: { mis_usuarios: true, entrega_costos: false, chats: false, campa: false },
+    publicidad_ofertas: {
+      publicidad: { fanpage: true, instagram: false, youtuve: false, review: true },
+      ia_generativa: { generativa_compartir: false, generativa_titulo_descripcion: false, generativa_whatsapp: false },
+      ofertas: { cantidad_ofertas: 5, baner: true, generador_promociones: false },
+      mis_publicaciones: true,
+    },
+    review: { capturador_datos: false, activo: true },
+    cupones_puntos: { activo: true, creacion_cupones: true, maximo_cupones: 20 },
+    miqr: { mis_productos: true, review: true, mesas: { cantidad_max: 5, activo: true }, perfil: true, carta: true, libro_reclamaciones: true },
+  },
+  mi_negocio: { comprobantes: true, negocio: true, mis_trabajadores: true, perfil: true, legal: { terminos: true, politicas: true, libro_reclamaciones: true } },
+  operacion_ventas: {
+    produtos: {
+      uso_celular_scaner: true, adicionales: { activo: true, cantidad_adicionales: 20 },
+      carta: { config_avanzado: { max_colecciones: 20, max_productos_por_colecciones: 10, variantes_maximas: 10 }, super_avanzado: false, modo_avanzado: true, cantidad_imagenes_colecciones: 10, colecciones: 10, activo: true, modo_basico: true },
+      uso_camara_scaner: true,
+    },
+    pedidos_vivos: {
+      mesa: { config_mesas: true, reservas: true, activo: true, mozos: true },
+      carrito: { activo: true, mis_delivery: { maximo_delivery: 10, activo: true }, tiempos: true, auto_reserva: true, auto_off: true, delivery_config: true, estado_pedidos: true },
+      nuevo_pedido: { uso_celular_scaner: true, activo: true, uso_camara_scaner: true },
+    },
+    insumos: { activo: false }, historial_gastos: { activo: false }, historial_ventas: { activo: true },
+  },
+  panel_admin: { footer_cabezero: { baner_descuble_mas_negocios_geinz: false, cabezero_geinz: false, columnaexplora_soporte_registra_geinz: true, derechos_autor_geinz: true, footer_geinz: true } },
+};
+const RAICES_OK = new Set(["cliente_y_fidelizacion", "mi_negocio", "operacion_ventas", "panel_admin"]);
+
+let planes = null, planesDirty = false, planesCargado = false, planesMsg = "Sin cargar.";
+
+function recalcular(p, recAnt = true, fijarAnual = false, recAntAn = true) {
+  if (p.es_cotizacion) return;
+  const m = Number(p.precio_mensual) || 0;
+  if (recAnt) p.precio_anterior = m > 0 ? r2(Math.round(m * (1 + (p.markup_pct ?? 40) / 100)) - 0.1) : 0;
+  p.mostrar_precio_anterior = p.precio_anterior > m;
+  if (fijarAnual && p.precio_anual != null) p.descuento_anual_pct = m > 0 ? Math.round((1 - p.precio_anual / (m * 12)) * 1000) / 10 : 0;
+  else p.precio_anual = r2(m * 12 * (1 - (p.descuento_anual_pct ?? 20) / 100));
+  if (recAntAn || p.precio_anterior_anual == null) p.precio_anterior_anual = p.precio_anual > 0 ? r2(Math.round(p.precio_anual * (1 + (p.markup_anual_pct ?? 40) / 100)) - 0.1) : 0;
+  p.mostrar_precio_anterior_anual = p.precio_anterior_anual > p.precio_anual;
+}
+const esMapa = (v) => v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Timestamp);
+const contar = (o) => Object.values(o).reduce((a, v) => a + (v && typeof v === "object" ? contar(v) : 1), 0);
+function extraer(o) {
+  const r = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (typeof v === "boolean" || typeof v === "number") r[k] = v;
+    else if (esMapa(v)) { const x = extraer(v); if (Object.keys(x).length) r[k] = x; }
+  }
+  return r;
+}
+
+// ── Gestor de planes ──
+const $pb = $("planesBody");
+function pintarPlanes() {
+  if (!planes) {
+    $pb.innerHTML = `<p class="mut" style="white-space:pre-line">${esc(planesMsg)}</p><button data-pl="cargar">Cargar planes</button> <button class="p" data-pl="subir">⬆ Subir JSON inicial a Firestore</button>`;
+    return pintarAsignar();
+  }
+  const emo = ["🌱", "🚀", "⚡", "🏢", "💎", "🎯"];
+  const num = (lbl, k, id, v, w = 80, step = "0.1") => `<label>${lbl} <input type="number" step="${step}" data-pl="${k}" data-id="${id}" value="${v}" style="width:${w}px"></label>`;
+  $pb.innerHTML = `<div class="row"><button class="p" data-pl="guardar">💾 Guardar planes</button><button data-pl="cargar">↻ Recargar</button><button data-pl="nuevo">+ Nuevo plan</button><span class="dirty">${planesDirty ? "● sin guardar" : ""}</span><small>${esc(planesMsg)}</small></div>` +
+    Object.entries(planes).map(([id, p], i) => {
+      const I = esc(id);
+      const lims = Object.entries(p.limites || {}).map(([k, v]) => `<label>${esc(k)} <input data-pl="lim" data-id="${I}" data-k="${esc(k)}" value="${esc(v)}" style="width:84px"></label>`).join("");
+      const dv = p.precio_anterior > p.precio_mensual ? Math.round((1 - p.precio_mensual / p.precio_anterior) * 100) : 0;
+      const dva = p.precio_anterior_anual > p.precio_anual ? Math.round((1 - p.precio_anual / p.precio_anterior_anual) * 100) : 0;
+      const precios = p.es_cotizacion ? `<em class="mut">Cotización personalizada (sin precio fijo)</em>` :
+        num("Mensual S/", "m", I, p.precio_mensual) + num('Margen "antes" %', "mk", I, p.markup_pct ?? 40, 60, "1") + num("Antes S/", "ant", I, p.precio_anterior) +
+        num('Margen anual "antes" %', "mka", I, p.markup_anual_pct ?? 40, 60, "1") + num("Desc. anual %", "da", I, p.descuento_anual_pct ?? 20, 60) +
+        `<div>` + num("Anual S/", "an", I, p.precio_anual ?? r2(p.precio_mensual * 12), 90) + num("Anual antes S/", "antan", I, p.precio_anterior_anual ?? 0, 90) + `</div>
+        <small>Dcto. visible mensual: <b class="ok">${dv}%</b> · anual: <b class="ok">${dva}%</b> · anual = <b>S/ ${r2((p.precio_anual ?? p.precio_mensual * 12) / 12)}/mes</b></small>`;
+      return `<div class="pl"><div class="row" style="margin:0 0 6px"><b>${emo[i % emo.length]} ${esc(p.nombre)}</b> <small>(${I})</small><span style="flex:1"></span>
+        <button data-pl="capturar" data-id="${I}" ${datos ? "" : "disabled"} title="Copia booleanos y números del negocio abierto como plantilla">📸 Plantilla desde negocio</button>
+        ${p.plantilla ? `<button data-pl="quitarpl" data-id="${I}">Quitar plantilla</button>` : ""}<button class="d" data-pl="del" data-id="${I}">🗑</button></div>
+        <div>${precios}</div><div>${lims}</div>
+        <small>Módulos: ${Object.keys(p.modulos || {}).length} · Plantilla: ${p.plantilla ? contar(p.plantilla) + " campos" : "sin plantilla (usa la estructura base)"}</small></div>`;
+    }).join("");
+  pintarAsignar();
+}
+async function cargarPlanes() {
+  if (planesDirty && !confirm("Hay cambios de planes sin guardar. ¿Recargar y perderlos?")) return;
+  planesMsg = "Consultando…"; pintarPlanes();
+  try {
+    const s = await getDoc(await planesDoc()); planesCargado = true; planesDirty = false;
+    if (!s.exists()) { planes = null; planesMsg = "No existe costos_geinz_saas/config_planes. Sube el JSON inicial."; }
+    else { planes = s.data().planes || {}; planesMsg = "✔ Planes cargados."; }
+  } catch (e) { console.error(e); planes = null; planesMsg = "Error: " + e.message; }
+  pintarPlanes();
+}
+async function guardarPlanes() {
+  if (!planes || !confirm("Se reemplazarán los planes en costos_geinz_saas/config_planes")) return;
+  try { Object.values(planes).forEach((p) => recalcular(p, false, true, false)); await setDoc(await planesDoc(), { planes, actualizado: Timestamp.now() }); planesDirty = false; planesMsg = "✔ Planes guardados."; }
+  catch (e) { console.error(e); planesMsg = "Error al guardar: " + e.message; }
+  pintarPlanes();
+}
+async function subirIniciales() {
+  try {
+    const ref = await planesDoc(), s = await getDoc(ref);
+    if (s.exists() && !confirm("Ya existe config_planes. ¿Sobrescribir con el JSON inicial?")) return;
+    const ini = structuredClone(PLANES_INICIALES);
+    Object.values(ini).forEach((p) => { if (!p.es_cotizacion) { p.markup_pct = 40; recalcular(p, false); } });
+    await setDoc(ref, { planes: ini, actualizado: Timestamp.now() });
+    planes = ini; planesDirty = false; planesCargado = true; planesMsg = "✔ JSON inicial subido.";
+  } catch (e) { console.error(e); planesMsg = "Error: " + e.message; }
+  pintarPlanes();
+}
+
+// ── Aplicar plan ──
+function recorrer(cb) {
+  const rec = (cont, padre, raiz) => { for (const k of Object.keys(cont)) { const r = raiz ?? k; cb(cont, k, padre, r); if (esMapa(cont[k])) rec(cont[k], k, r); } };
+  rec(datos, null, null);
+}
+function addMeses(d, k) {
+  const r = new Date(d), dia = r.getDate(); r.setDate(1); r.setMonth(r.getMonth() + k);
+  r.setDate(Math.min(dia, new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate())); return r;
+}
+const planActual = () => datos?.panel_admin?.plan;
+function calcFin(o) {
+  const ts = datos.panel_admin?.timestamp_fin, act = ts instanceof Timestamp ? ts.toDate() : null;
+  const base = o.sumar && act && act.getTime() > Date.now() ? act : new Date();
+  const fin = addMeses(base, (o.periodo === "anual" ? 12 : 1) * Math.max(1, o.cant)); fin.setHours(23, 59, 59, 0); return fin;
+}
+function volcar(dest, tpl, raiz, log, raices, sobrescribir = true) {
+  for (const [k, v] of Object.entries(tpl)) {
+    const r = raiz ?? k;
+    if (esMapa(v)) {
+      if (!esMapa(dest[k])) { if (k in dest && !sobrescribir && typeof dest[k] !== "boolean") continue; dest[k] = {}; raices.add(r); log.push(`${k} (creado)`); }
+      volcar(dest[k], v, r, log, raices, sobrescribir);
+    } else if (!(k in dest)) { dest[k] = v; raices.add(r); log.push(`${k} = ${v} (creado)`); }
+    else if (sobrescribir && dest[k] !== v) { dest[k] = v; raices.add(r); log.push(`${k} = ${v}`); }
+  }
+}
+function mezclar(a, b) {
+  const out = structuredClone(a);
+  const rec = (d, s) => { for (const [k, v] of Object.entries(s)) { if (esMapa(v)) { if (!esMapa(d[k])) d[k] = {}; rec(d[k], v); } else d[k] = v; } };
+  rec(out, b); return out;
+}
+const asg = { plan: "", periodo: "mensual", cant: 1, sumar: true, creditos: "reset", modo: "completar", tipo: null };
+const rango = (id) => { const p = planes?.[id]; return !p ? 0 : p.es_cotizacion ? Infinity : Number(p.precio_mensual) || 0; };
+const tipoCambio = (nuevo) => {
+  const act = planActual(); if (!act || !planes?.[act]) return "plan actual no reconocido";
+  return act === nuevo ? "mismo plan (renovación)" : rango(nuevo) > rango(act) ? "⬆ subida de plan" : "⬇ bajada de plan";
+};
+
+function pintarAsignar() {
+  const $a = $("asig");
+  if (!cur || !datos) { $a.innerHTML = ""; return; }
+  if (!planes) { $a.innerHTML = `<small class="mut">${esc(planesMsg)}</small>`; return; }
+  if (!planes[asg.plan]) { asg.plan = planes[planActual()] ? planActual() : Object.keys(planes)[0]; asg.sumar = asg.plan === planActual(); }
+  const pl = planes[asg.plan], emo = ["🌱", "🚀", "⚡", "🏢", "💎", "🎯"];
+  const ilim = pl.limites?.creditos_ia === U;
+  const credAct = typeof datos.panel_admin?.creditos_ia === "number" ? datos.panel_admin.creditos_ia : 0;
+  const credPlan = ilim ? VALOR_ILIMITADO : Number(pl.limites?.creditos_ia) || 0;
+  const credNuevo = ilim ? VALOR_ILIMITADO : asg.creditos === "arrastrar" && credAct < VALOR_ILIMITADO ? credAct + credPlan : credPlan;
+  const precio = pl.es_cotizacion ? "a cotizar" : "S/ " + r2(asg.periodo === "anual" ? (pl.precio_anual ?? pl.precio_mensual * 12) * asg.cant : pl.precio_mensual * asg.cant);
+  const cards = Object.entries(planes).map(([id, p], i) => `<div class="pc ${id === asg.plan ? "sel" : ""} ${id === planActual() ? "cur" : ""}" data-as="pick" data-id="${esc(id)}">
+    <div class="e">${emo[i % emo.length]}</div><b>${esc(p.nombre)}</b><div class="pr">${p.es_cotizacion ? "Cotizar" : "S/ " + p.precio_mensual}</div>${id === planActual() ? '<span class="pill">actual</span>' : ""}</div>`).join("");
+  const sel = (k, arr) => `<select data-as="${k}">${arr.map(([v, t]) => `<option value="${v}" ${asg[k] === v ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+  $a.innerHTML = `<div class="sum">Ahora: <b>${esc(planActual() ?? "—")}</b> · vence ${esc(fmtFecha(datos.panel_admin?.timestamp_fin))} · créditos <b>${credAct}</b></div>
+    <div class="plans">${cards}</div>
+    <div class="grid">
+      <div><label>Periodo</label>${sel("periodo", [["mensual", "Mensual"], ["anual", "Anual"]])}</div>
+      <div><label>Cantidad</label><input type="number" min="1" data-as="cant" value="${asg.cant}"></div>
+      <div><label>Créditos</label>${sel("creditos", [["reset", "Restablecer mes completo"], ["arrastrar", "Arrastrar (saldo + plan)"]])}</div>
+      <div><label>Modo</label>${sel("modo", [["completar", "Crear lo que falta y reemplazar lo del plan"], ["reemplazar", "Reemplazar secciones completas"]])}</div>
+      <div><label>Tipo de tienda</label><input data-as="tipo" list="tiposTienda" value="${esc(asg.tipo ?? datos.panel_admin?.tipo_tienda ?? "")}" placeholder="virtual"><datalist id="tiposTienda"><option value="virtual"><option value="fisica"><option value="mixta"></datalist></div>
+    </div>
+    <label class="chk"><input type="checkbox" data-as="sumar" ${asg.sumar ? "checked" : ""}> Sumar al vencimiento vigente</label>
+    <div class="sum">${esc(tipoCambio(asg.plan))} · nuevo vencimiento <b>${esc(fmtFecha(Timestamp.fromDate(calcFin(asg))))}</b> · créditos quedan en <b>${credNuevo}</b> · cobro <b>${esc(precio)}</b> · estructura: ${pl.plantilla ? "plantilla del plan sobre la base" : "base (sin plantilla propia)"}</div>
+    <button class="p" data-as="aplicar">✅ Aplicar plan a este negocio</button> ${dirty.size ? '<span class="dirty">● cambios sin guardar</span> <button data-as="guardar">💾 Guardar</button>' : ""}`;
+}
+$("asig").addEventListener("change", (e) => {
+  const el = e.target, k = el.dataset.as; if (!k) return;
+  if (k === "cant") asg.cant = Math.max(1, parseInt(el.value) || 1);
+  else if (k === "sumar") asg.sumar = el.checked;
+  else asg[k] = el.value;
+  pintarAsignar();
+});
+$("asig").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-as]"); if (!b) return;
+  if (b.dataset.as === "pick") { asg.plan = b.dataset.id; asg.sumar = asg.plan === planActual(); pintarAsignar(); }
+  if (b.dataset.as === "aplicar") aplicarPlan(asg.plan, { ...asg, tipo: asg.tipo ?? datos?.panel_admin?.tipo_tienda ?? "" });
+  if (b.dataset.as === "guardar") guardar([...dirty]);
+});
+
+function aplicarPlan(id, o) {
+  const plan = planes?.[id]; if (!plan || !datos) return alert("Carga un negocio y los planes primero");
+  const cambio = tipoCambio(id), log = [], raices = new Set(["panel_admin"]);
+  const marcar = (r, t) => { raices.add(r); log.push(t); };
+  if (!esMapa(datos.panel_admin)) datos.panel_admin = {};
+  const P = datos.panel_admin;
+  const credPrev = typeof P.creditos_ia === "number" && P.creditos_ia < VALOR_ILIMITADO ? P.creditos_ia : 0;
+
+  const base = structuredClone(ESQUEMA_BASE), baseP = base.panel_admin || {}; delete base.panel_admin;
+  const tpl = plan.plantilla ? structuredClone(plan.plantilla) : {}, tplP = tpl.panel_admin || {}; delete tpl.panel_admin;
+  volcar(P, baseP, "panel_admin", log, raices, false);
+  if (plan.plantilla) volcar(P, tplP, "panel_admin", log, raices, true);
+  const descartadas = [];
+  for (const o2 of [base, tpl]) for (const k of Object.keys(o2)) if (!RAICES_OK.has(k)) { descartadas.push(k); delete o2[k]; }
+  if (descartadas.length) console.warn("Raíces no permitidas descartadas:", [...new Set(descartadas)]);
+  const efectivo = mezclar(base, tpl);
+
+  if (o.modo === "reemplazar") for (const [raiz, val] of Object.entries(efectivo)) { datos[raiz] = structuredClone(val); marcar(raiz, `${raiz} (reemplazado completo)`); }
+  else { volcar(datos, base, null, log, raices, false); if (plan.plantilla) volcar(datos, tpl, null, log, raices, true); }
+
+  const fin = calcFin(o);
+  P.plan = id; P.timestamp_fin = Timestamp.fromDate(fin); P.fecha_fin = fmtDMY(fin);
+  log.push(`panel_admin.plan = ${id}`, `panel_admin.fecha_fin = ${P.fecha_fin}`);
+  const lt = plan.limites?.trabajadores;
+  if (lt !== undefined) { P.roles_max = lt === U ? VALOR_ILIMITADO : Number(lt); log.push(`panel_admin.roles_max = ${P.roles_max}`); }
+  const lc = plan.limites?.creditos_ia;
+  if (lc !== undefined) {
+    let nv = lc === U ? VALOR_ILIMITADO : Number(lc);
+    if (o.creditos === "arrastrar" && nv !== VALOR_ILIMITADO) nv += credPrev;
+    ["creditos_ia500", "creditos_ia"].forEach((k) => { P[k] = nv; datos[k] = nv; raices.add(k); });
+    log.push(`panel_admin.creditos_ia500 / creditos_ia = ${nv}`);
+  }
+  if (o.tipo && String(o.tipo).trim()) { P.tipo_tienda = String(o.tipo).trim(); log.push(`panel_admin.tipo_tienda = ${P.tipo_tienda}`); }
+
+  datos.plan = id; raices.add("plan");
+  datos.fecha_fin = Timestamp.fromDate(fin); raices.add("fecha_fin");
+  if (typeof P.roles_max === "number") { datos.roles_max = P.roles_max; raices.add("roles_max"); }
+  if (typeof P.creditos_ia === "number") { datos.creditos_ia500 = P.creditos_ia; raices.add("creditos_ia500"); }
+
+  recorrer((c, k, padre, raiz) => {
+    for (const [lim, par, clave] of LIM_MAP) {
+      if (k !== clave || (par && padre !== par) || !(lim in (plan.limites || {})) || typeof c[k] === "object") continue;
+      const v = plan.limites[lim]; c[k] = v === U ? VALOR_ILIMITADO : Number(v); marcar(raiz, `${clave} = ${c[k]}`);
+    }
+  });
+
+  raices.forEach((r) => dirty.add(r));
+  pintarAsignar(); renderTree();
+  msg(`Plan "${plan.nombre}" aplicado en pantalla (${cambio}, ${log.length} cambios). Falta guardar.`, "ok");
+  if (confirm(`Plan "${plan.nombre}" aplicado (${cambio}).\nVence: ${P.fecha_fin}\nCréditos: ${P.creditos_ia}\nSecciones a guardar: ${[...raices].join(", ")}\n\n¿Guardar en Firestore ahora?`)) guardar([...dirty]);
+}
+
+// ── Eventos del gestor de planes ──
+$pb.addEventListener("change", (e) => {
+  const el = e.target, a = el.dataset.pl, p = planes?.[el.dataset.id]; if (!a || !p) return;
+  const v = parseFloat(el.value);
+  if (a === "m") { p.precio_mensual = v || 0; recalcular(p); }
+  if (a === "mk") { p.markup_pct = v || 0; recalcular(p); }
+  if (a === "ant") { p.precio_anterior = v || 0; recalcular(p, false); }
+  if (a === "da") { p.descuento_anual_pct = v || 0; recalcular(p, false); }
+  if (a === "mka") { p.markup_anual_pct = v || 0; recalcular(p, false); }
+  if (a === "an") { p.precio_anual = v || 0; recalcular(p, false, true); }
+  if (a === "antan") { p.precio_anterior_anual = v || 0; recalcular(p, false, true, false); }
+  if (a === "lim") p.limites[el.dataset.k] = el.value.trim().toLowerCase() === U ? U : Number.isNaN(v) ? el.value : v;
+  planesDirty = true; pintarPlanes();
+});
+$pb.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-pl]"); if (!b) return;
+  const a = b.dataset.pl, id = b.dataset.id;
+  if (a === "cargar") cargarPlanes();
+  if (a === "subir") subirIniciales();
+  if (a === "guardar") guardarPlanes();
+  if (a === "capturar") {
+    if (!datos) return alert("Abre primero un negocio modelo (Administrar)");
+    const base = extraer(datos);
+    ["plan", "fecha_fin", "creditos_ia500", "creditos_ia", "roles_max"].forEach((x) => delete base[x]);
+    if (base.panel_admin) ["creditos_ia", "creditos_ia500", "roles_max"].forEach((x) => delete base.panel_admin[x]);
+    if (!confirm(`Guardar ${contar(base)} campos como plantilla de "${planes[id].nombre}"?\nReemplaza la plantilla anterior.`)) return;
+    planes[id].plantilla = base; planesDirty = true; pintarPlanes();
+  }
+  if (a === "quitarpl") { delete planes[id].plantilla; planesDirty = true; pintarPlanes(); }
+  if (a === "del" && confirm(`¿Eliminar el plan "${id}"?`)) { delete planes[id]; planesDirty = true; pintarPlanes(); }
+  if (a === "nuevo") {
+    const nid = (prompt("ID del nuevo plan (ej: starter)") || "").trim().toLowerCase().replace(/\s+/g, "_");
+    if (!nid || planes[nid]) return alert("ID vacío o ya existe");
+    planes[nid] = structuredClone(planes.pro || Object.values(planes)[0]); planes[nid].nombre = "Plan " + nid; planes[nid].es_mas_popular = false;
+    planesDirty = true; pintarPlanes();
+  }
+});
+
+// ── Importar JSON de planes ──
+function importarJson(txt) {
+  let obj; try { obj = JSON.parse(txt); } catch (e) { return alert("JSON inválido: " + e.message); }
+  const nuevos = obj && obj.planes && typeof obj.planes === "object" && !Array.isArray(obj.planes) ? obj.planes : obj;
+  if (!nuevos || typeof nuevos !== "object" || Array.isArray(nuevos) || !Object.keys(nuevos).length) return alert('Formato no válido. Usa { "planes": { "id_plan": {...} } }');
+  const ids = Object.keys(nuevos), errores = [];
+  for (const id of ids) {
+    const p = nuevos[id];
+    if (!p || typeof p !== "object") { errores.push(`${id}: no es un objeto`); continue; }
+    if (!p.nombre) errores.push(`${id}: falta "nombre"`);
+    if (!p.limites || typeof p.limites !== "object") errores.push(`${id}: falta "limites"`);
+    if (!p.modulos || typeof p.modulos !== "object") errores.push(`${id}: falta "modulos"`);
+  }
+  if (errores.length) return alert("Corrige el JSON:\n• " + errores.join("\n• "));
+  ids.forEach((id) => {
+    const p = nuevos[id]; if (p.es_cotizacion) return;
+    const m = Number(p.precio_mensual) || 0, a = Number(p.precio_anterior) || 0;
+    if (p.markup_pct == null) p.markup_pct = m > 0 && a > m ? Math.round((a / m - 1) * 100) : 40;
+    recalcular(p, false, p.precio_anual != null, p.precio_anterior_anual == null);
+  });
+  let reemplazar = true;
+  if (planes && Object.keys(planes).length) reemplazar = confirm(`Se leyeron ${ids.length} plan(es): ${ids.join(", ")}\n\nAceptar = REEMPLAZAR todos los planes actuales\nCancelar = COMBINAR (agrega o actualiza solo esos)`);
+  planes = reemplazar ? nuevos : { ...planes, ...nuevos };
+  planesDirty = true; planesCargado = true; planesMsg = `✔ ${ids.length} plan(es) leídos del JSON. Falta guardar.`;
+  pintarPlanes(); guardarPlanes();
+}
+$("plFile").onclick = () => $("plFileIn").click();
+$("plFileIn").addEventListener("change", async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importarJson(await f.text()); });
+$("plPegarBtn").onclick = () => { const w = $("plPegar"); w.style.display = w.style.display === "none" ? "" : "none"; };
+$("plUsar").onclick = () => importarJson($("plTxt").value);
 
 
+// ═════════════ EDITOR DE FUNCIONES (árbol del JSON: activar / desactivar / editar) ═════════════
+const ETQ = {
+  plan: "Tu plan", fecha_fin: "Vence el", creditos_ia500: "Créditos de IA", creditos_ia: "Créditos de IA", roles_max: "Trabajadores / roles permitidos",
+  cliente_y_fidelizacion: "Clientes y fidelización", mi_negocio: "Mi negocio", operacion_ventas: "Operación y ventas", panel_admin: "Panel y límites",
+  cupones_puntos: "Cupones y puntos", cupones_metricas: "Estadísticas de cupones", miqr: "Mi QR", carta: "Carta digital", libro_reclamaciones: "Libro de reclamaciones",
+  mesas: "Mesas", cantidad_max: "Máximo de mesas", mis_productos: "Mis productos", perfil: "Perfil del negocio", review: "Reseñas", mis_usuarios: "Mis usuarios",
+  publicidad_ofertas: "Publicidad y ofertas", mis_publicaciones: "Mis publicaciones", ofertas: "Ofertas", baner: "Banner", cantidad_ofertas: "Máximo de ofertas",
+  publicidad: "Publicidad", fanpage: "Fan page", comprobantes: "Comprobantes", legal: "Legal", politicas: "Políticas de privacidad", terminos: "Términos y condiciones",
+  mis_trabajadores: "Mis trabajadores", historial_ventas: "Historial de ventas", pedidos_vivos: "Pedidos en vivo", activo: "Activado", auto_off: "Apagado automático",
+  auto_reserva: "Reserva automática", delivery_config: "Configuración de delivery", estado_pedidos: "Estados de pedidos", mis_delivery: "Mis repartidores",
+  maximo_delivery: "Máximo de repartidores", tiempos: "Tiempos de entrega", mesa: "Pedidos por mesa", config_mesas: "Configurar mesas", mozos: "Mozos",
+  nuevo_pedido: "Nuevo pedido", uso_camara_scaner: "Escanear con la cámara", uso_celular_scaner: "Escanear con el celular", produtos: "Productos",
+  cantidad_imagenes_colecciones: "Imágenes por colección", colecciones: "Colecciones", config_avanzado: "Configuración avanzada", variantes_maximas: "Variantes máximas por producto",
+  max_colecciones: "Máximo de colecciones", max_productos_por_colecciones: "Máximo de productos por colección", modo_avanzado: "Modo avanzado", modo_basico: "Modo básico",
+  carrito: "Carrito de compras", creacion_cupones: "Crear cupones", maximo_cupones: "Máximo de cupones", adicionales: "Adicionales", cantidad_adicionales: "Máximo de adicionales",
+  reservas: "Reservas", footer_cabezero: "Cabezote y pie de página", tipo_tienda: "Tipo de tienda", negocio: "Negocio",
+  formulario: "Formulario", creacion_formulario: "Crear formulario", creacion_campa: "Crear campañas", entrega_costos: "Entrega de costos", chats: "Chats", campa: "Campañas",
+  instagram: "Instagram", youtuve: "YouTube", ia_generativa: "IA generativa", generativa_compartir: "IA para compartir", generativa_titulo_descripcion: "IA para título y descripción",
+  generativa_whatsapp: "IA para WhatsApp", generador_promociones: "Generador de promociones", capturador_datos: "Capturador de datos", super_avanzado: "Modo súper avanzado",
+  insumos: "Insumos", historial_gastos: "Historial de gastos",
+};
+const etiquetaDe = (k) => (typeof k === "string" && ETQ[k]) || null;
+const TIPOS = ["string", "number", "boolean", "null", "timestamp"];
+let consulta = "", filtroEstado = "todos", forzarAbrir = null, visibles = 0;
+const cerrados = new Set();
+const attr = (path) => esc(JSON.stringify(path));
+function tipoDe(v) {
+  if (v === null || v === undefined) return "null"; if (Array.isArray(v)) return "array";
+  if (v instanceof Timestamp) return "timestamp"; if (typeof v === "object") return "map"; return typeof v;
+}
+const getAt = (path) => path.reduce((o, k) => o[k], datos);
+const parentOf = (path) => path.slice(0, -1).reduce((o, k) => o[k], datos);
+function aLocalInput(d) { const p = (x) => String(x).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+const jsonCrudo = () => JSON.stringify(datos, function (k, v) { const raw = this[k]; return raw instanceof Timestamp ? raw.toDate().toISOString() : v; }, 2);
+const qT = () => n(consulta.trim());
+function textoValor(v) { const t = tipoDe(v); if (t === "timestamp") return v.toDate().toISOString(); if (t === "null") return "null"; return String(v); }
+function nombreCoincide(clave) { const b = qT(); if (!b) return true; return n(clave).includes(b) || n(etiquetaDe(clave) || "").includes(b); }
+function visible(clave, valor, forzar) {
+  const t = tipoDe(valor), coincide = !qT() || forzar || nombreCoincide(clave);
+  if (t === "map" || t === "array") {
+    const ent = t === "map" ? Object.entries(valor) : valor.map((x, i) => [i, x]);
+    if (!ent.length) return filtroEstado === "todos" && coincide;
+    return ent.some(([k, x]) => visible(k, x, coincide && (!!qT() ? forzar || nombreCoincide(clave) : false)));
+  }
+  if (filtroEstado === "true" && valor !== true) return false;
+  if (filtroEstado === "false" && valor !== false) return false;
+  if (!qT()) return true;
+  return forzar || nombreCoincide(clave) || n(textoValor(valor)).includes(qT());
+}
+function resaltar(texto) {
+  const b = consulta.trim(), s2 = esc(texto); if (!b) return s2;
+  try { const re = new RegExp(b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[<>&"']/g, ""), "gi"); return s2.replace(re, (m) => `<mark>${m}</mark>`); } catch { return s2; }
+}
+function control(t, v, p) {
+  if (t === "boolean") return `<label class="sw"><input type="checkbox" data-act="val" data-path="${p}" ${v ? "checked" : ""}><span></span></label><span class="sino">${v ? "Sí" : "No"}</span>`;
+  if (t === "number") return `<input type="number" step="any" value="${v}" data-act="val" data-path="${p}">`;
+  if (t === "string") return `<input type="text" value="${esc(v)}" data-act="val" data-path="${p}">`;
+  if (t === "timestamp") return `<input type="datetime-local" value="${aLocalInput(v.toDate())}" data-act="val" data-path="${p}">`;
+  return `<span class="v-null">null</span>`;
+}
+function nombreHtml(clave, esItem) {
+  if (esItem) return `[${esc(clave)}]`;
+  const bonito = etiquetaDe(clave);
+  return bonito ? `${resaltar(bonito)}<small>${resaltar(clave)}</small>` : resaltar(clave);
+}
+function renderNodo(clave, valor, path, forzar) {
+  if (!visible(clave, valor, forzar)) return "";
+  const t = tipoDe(valor), p = attr(path), raiz = path.length === 1, enArray = Array.isArray(parentOf(path)) && !raiz;
+  const del = raiz ? "" : `<button class="mini rojo" data-act="del" data-path="${p}" title="Eliminar">🗑</button>`;
+  const coincide = !!qT() && (forzar || nombreCoincide(clave));
+  if (t === "map" || t === "array") {
+    const entradas = t === "map" ? Object.entries(valor) : valor.map((x, i) => [i, x]);
+    const hijos = entradas.map(([k, x]) => renderNodo(k, x, [...path, k], coincide)).join("");
+    const pk = JSON.stringify(path);
+    let abierto = !cerrados.has(pk); if (forzarAbrir !== null) abierto = forzarAbrir; if (qT() || filtroEstado !== "todos") abierto = true;
+    const extra = raiz ? `<button class="mini" data-act="copy" data-path="${p}" title="Copiar este apartado">📋</button> <button class="mini verde" data-act="save" data-path="${p}">💾 Guardar</button><span class="dirty">${dirty.has(clave) ? "● sin guardar" : ""}</span>` : "";
+    return `<details ${abierto ? "open" : ""} data-pk="${esc(pk)}" ${raiz ? `data-root="${esc(clave)}"` : ""}><summary>${nombreHtml(clave, enArray)}<span class="tipo">${t} · ${entradas.length}</span>
+      <span class="acc"><button class="mini" data-act="add" data-path="${p}">+ campo</button> ${extra} ${del}</span></summary>${hijos || '<div class="fila"><span class="v-null">(vacío)</span></div>'}</details>`;
+  }
+  visibles++;
+  const opciones = TIPOS.map((x) => `<option value="${x}" ${x === t ? "selected" : ""}>${x}</option>`).join("");
+  return `<div class="fila"><span class="k">${nombreHtml(clave, enArray)}</span>${control(t, valor, p)}<select data-act="tipo" data-path="${p}" title="Cambiar tipo">${opciones}</select>${del}</div>`;
+}
+function refrescarCrudo() { $("crudo").textContent = datos ? jsonCrudo() : ""; }
+function renderTree() {
+  const T = $("tree");
+  if (!datos) { T.innerHTML = '<p class="mut">Sin datos del negocio todavía.</p>'; $("tcuenta").textContent = ""; refrescarCrudo(); return; }
+  visibles = 0;
+  const html = Object.keys(datos).map((k) => renderNodo(k, datos[k], [k], false)).join("");
+  forzarAbrir = null;
+  T.innerHTML = html || '<p class="v-null">Nada coincide con la búsqueda o el filtro.</p>';
+  $("tcuenta").textContent = qT() || filtroEstado !== "todos" ? `${visibles} campo(s)` : "";
+  refrescarCrudo();
+}
+function marcarSucio(raiz) {
+  dirty.add(raiz);
+  const el = $("tree").querySelector(`details[data-root="${CSS.escape(raiz)}"] > summary .dirty`); if (el) el.textContent = "● sin guardar";
+  refrescarCrudo(); pintarAsignar();
+}
+function convertir(v, a) {
+  switch (a) {
+    case "string": return v === null ? "" : v instanceof Timestamp ? v.toDate().toISOString() : String(v);
+    case "number": { const x = v instanceof Timestamp ? v.toMillis() : Number(v); return Number.isFinite(x) ? x : 0; }
+    case "boolean": return v === "false" ? false : Boolean(v);
+    case "timestamp": { const d = typeof v === "string" ? new Date(v) : new Date(); return Timestamp.fromDate(isNaN(d) ? new Date() : d); }
+    default: return null;
+  }
+}
+let tmr;
+$("tbuscar").addEventListener("input", () => buscar($("tbuscar").value));
+$("tbar").addEventListener("click", (e) => { const c = e.target.closest(".chip"); if (c) setFiltro(c.dataset.f); });
+$("texpandir").onclick = () => { cerrados.clear(); forzarAbrir = true; if (datos) renderTree(); };
+$("tcontraer").onclick = () => {
+  if (!datos) return;
+  const marcar = (v, path) => { const t = tipoDe(v); if (t !== "map" && t !== "array") return; cerrados.add(JSON.stringify(path)); (t === "map" ? Object.entries(v) : v.map((x, i) => [i, x])).forEach(([k, x]) => marcar(x, [...path, k])); };
+  Object.keys(datos).forEach((k) => marcar(datos[k], [k])); forzarAbrir = false; renderTree();
+};
+const copiarJson = (btn, label) => { if (!datos) return toast("Aún no hay datos del negocio", false); copyText(jsonCrudo(), btn, label); };
+$("tcopiar").onclick = (e) => copiarJson(e.target, "📋 Copiar JSON");
+$("jcopiar").onclick = (e) => copiarJson(e.target, "📋 Copiar JSON del negocio");
+$("dcpjson").onclick = (e) => copiarJson(e.target, "📋 JSON");
+$("tguardarTodo").onclick = () => guardar([...dirty]);
+
+$("tree").addEventListener("change", (e) => {
+  const el = e.target, act = el.dataset.act; if (!act) return;
+  const path = JSON.parse(el.dataset.path);
+  if (act === "val") {
+    let nuevo;
+    if (el.type === "checkbox") { nuevo = el.checked; const si = el.closest(".fila")?.querySelector(".sino"); if (si) si.textContent = nuevo ? "Sí" : "No"; }
+    else if (el.type === "number") { nuevo = parseFloat(el.value); if (Number.isNaN(nuevo)) { alert("Número inválido"); el.value = getAt(path); return; } }
+    else if (el.type === "datetime-local") { const d = new Date(el.value); if (isNaN(d)) return alert("Fecha inválida"); nuevo = Timestamp.fromDate(d); }
+    else nuevo = el.value;
+    parentOf(path)[path.at(-1)] = nuevo; marcarSucio(path[0]);
+    if (filtroEstado !== "todos" && el.type === "checkbox") renderTree();
+  }
+  if (act === "tipo") { const padre = parentOf(path); padre[path.at(-1)] = convertir(padre[path.at(-1)], el.value); marcarSucio(path[0]); renderTree(); }
+});
+$("tree").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const path = JSON.parse(b.dataset.path), act = b.dataset.act;
+  if (act === "add") abrirAdd(path);
+  if (act === "copy") copyText(JSON.stringify({ [path[0]]: datos[path[0]] }, function (k, v) { const raw = this[k]; return raw instanceof Timestamp ? raw.toDate().toISOString() : v; }, 2), b, "📋");
+  if (act === "del") {
+    if (!confirm(`¿Eliminar "${path.join(" › ")}"?`)) return;
+    const padre = parentOf(path); if (Array.isArray(padre)) padre.splice(path.at(-1), 1); else delete padre[path.at(-1)];
+    marcarSucio(path[0]); renderTree();
+  }
+  if (act === "save") guardar([path[0]]);
+});
+$("tree").addEventListener("toggle", (e) => {
+  const d = e.target; if (d.tagName !== "DETAILS" || !d.dataset.pk) return;
+  if (qT() || filtroEstado !== "todos") return; d.open ? cerrados.delete(d.dataset.pk) : cerrados.add(d.dataset.pk);
+}, true);
+
+// ── Diálogo agregar campo ──
+let destinoPath = null;
+function pintarValorAdd() {
+  const t = $("adTipo").value;
+  const h = {
+    string: `<label>Valor <input id="advalor" type="text"></label>`,
+    number: `<label>Valor <input id="advalor" type="number" step="any" value="0"></label>`,
+    boolean: `<label>Valor <select id="advalor"><option value="true">true</option><option value="false">false</option></select></label>`,
+    json: `<label>JSON <textarea id="advalor" rows="6" placeholder='{"activo": true, "max": 10}'></textarea></label>`,
+    timestamp: `<label>Fecha y hora <input id="advalor" type="datetime-local" value="${aLocalInput(new Date())}"></label>`,
+  };
+  $("adValorWrap").innerHTML = h[t] || `<small class="mut">Se creará ${t === "null" ? "null" : "vacío"}.</small>`;
+}
+$("adTipo").addEventListener("change", pintarValorAdd);
+function abrirAdd(path) {
+  destinoPath = path; const destino = getAt(path);
+  $("adTitulo").textContent = "Agregar a: " + path.join(" › ");
+  $("adNombreWrap").style.display = Array.isArray(destino) ? "none" : ""; $("adNombre").value = ""; $("adTipo").value = "string"; pintarValorAdd(); $("dlgAdd").showModal();
+}
+$("adCancel").onclick = () => $("dlgAdd").close();
+$("adForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const destino = getAt(destinoPath), esArray = Array.isArray(destino), t = $("adTipo").value, raw = $("advalor")?.value; let valor;
+  try {
+    if (t === "string") valor = raw ?? "";
+    else if (t === "number") { valor = parseFloat(raw); if (Number.isNaN(valor)) throw new Error("Número inválido"); }
+    else if (t === "boolean") valor = raw === "true";
+    else if (t === "map") valor = {}; else if (t === "array") valor = []; else if (t === "null") valor = null;
+    else if (t === "json") valor = JSON.parse(raw);
+    else if (t === "timestamp") { const d = new Date(raw); if (isNaN(d)) throw new Error("Fecha inválida"); valor = Timestamp.fromDate(d); }
+  } catch (err) { return alert(err.message); }
+  if (esArray) destino.push(valor);
+  else {
+    const nombre = $("adNombre").value.trim();
+    if (!nombre) return alert("Escribe el nombre del campo");
+    if (nombre in destino) return alert(`Ya existe "${nombre}" aquí`);
+    destino[nombre] = valor;
+  }
+  marcarSucio(destinoPath[0]); $("dlgAdd").close(); renderTree();
+});
+window.addEventListener("beforeunload", (e) => { if (dirty.size || planesDirty) { e.preventDefault(); e.returnValue = ""; } });
+
+// ═════════════ SERVICIOS ANTERIORES (tiendas-getServices / updateServices) ═════════════
+const GROUPS = [
+  ["Apartados del panel", "apartados_dasboard", ["creditos_AI:int", "roles_maximos:int", "fb_page", "fidelizacion", "historial_ventas", "libro_reclamaciones", "pedidios_vivos", "pedidos_mesas", "pedidos_presencial", "politicas_privacidad", "productos", "publicidad_dias", "publicidad_estatica", "publicidad_perfil", "qr_general", "review", "terminos_condiciones"]],
+  ["Footer", "footer", ["activo", "footer_derechos_autor", "footer_derechos_autor_geinz", "geinz", "libro_reclamaciones", "politicas_privacidad", "terminos_condiciones"]],
+  ["General", "", ["mesa.reserva", "negocio"]],
+  ["Plan y vencimiento", "panel_admin", ["plan:str", "fecha_fin:date"]],
+  ["Límites de productos", "productos", ["carta.cantidad:int", "carta.colecciones:int", "colecciones:int", "productos:int"]],
+  ["Pedidos en vivo", "modulos.pedidos_vivos", ["carrito", "mesas", "pedidos", "mozos", "config_mesas", "whatsapp_autorechazo", "delivery_tarifa", "delivery_repartidores", "estados_pedido", "tiempo_estimado"]],
+  ["Productos (opciones)", "modulos.productos", ["cartas", "ia_cartas", "por_coleccion:int"]],
+  ["Mis usuarios · campos obligatorios", "modulos.mis_usuarios", ["nombre", "apellido", "dni", "telefono", "genero", "ubicacion", "fecha_nacimiento", "nacionalidad", "correo", "contrasena"]],
+  ["Fidelización (opciones)", "modulos.fidelizacion", ["cupones", "detalle_clientes", "puntos", "historial_canje", "estado_vencimiento", "max_productos_canje:int"]],
+  ["Publicidad y ofertas", "modulos.publicidad", ["fanpage", "banner_negocio", "ofertas_max:int"]],
+  ["QR", "modulos.qr", ["perfil", "productos", "libro_reclamaciones", "resenas", "max_generaciones:int"]],
+  ["QR por mesas", "modulos.qr", ["mesas", "max_mesas:int"], (s2) => n(s2.categoria).includes("restaurante")],
+];
+let viejoFor = null;
+const getp = (o, p) => p.split(".").reduce((a, k) => (a == null ? a : a[k]), o);
+async function cargarViejos() {
+  if (!cur || viejoFor === cur.id) return; viejoFor = cur.id;
+  $("dform").innerHTML = '<p class="mut">Consultando…</p>'; $("dsave").hidden = true;
+  try {
+    const d = await api("tiendas-getServices", pre(cur));
+    d.services.panel_admin = { ...(d.services.panel_admin || {}), fecha_fin: d.fecha_fin_iso };
+    $("dform").innerHTML = (d.exists ? "" : '<p class="mut">Esta tienda aún no tiene servicios configurados. Se muestran los valores por defecto; al guardar se crean.</p>') +
+      GROUPS.filter((g) => !g[3] || g[3](cur)).map(([title, pfx, fields]) => `<fieldset><legend>${title}</legend><div class="fg">` + fields.map((f) => {
+        const [name, t = "bool"] = f.split(":"), path = pfx ? `${pfx}.${name}` : name, v = getp(d.services, path), label = esc(name.replace(/[._]/g, " "));
+        if (t === "bool") return `<label class="chk"><input type="checkbox" data-p="${path}" data-t="bool" ${v ? "checked" : ""}>${label}</label>`;
+        return `<div><label>${label}<input data-p="${path}" data-t="${t}" type="${t === "int" ? "number" : t === "date" ? "date" : "text"}" ${t === "int" ? 'min="0"' : ""} value="${esc(v ?? "")}"></label></div>`;
+      }).join("") + "</div></fieldset>").join("");
+    $("dsave").hidden = false;
+  } catch (e) { toast(e.message, false); $("dform").innerHTML = ""; viejoFor = null; }
+}
+$("dsave").addEventListener("click", async () => {
+  const values = {};
+  $("dform").querySelectorAll("[data-p]").forEach((i) => { values[i.dataset.p] = i.dataset.t === "bool" ? i.checked : i.value; });
+  $("dsave").disabled = true;
+  try { await api("tiendas-updateServices", { ...pre(cur), values }); toast("Cambios guardados"); }
+  catch (e) { toast(e.message, false); } finally { $("dsave").disabled = false; }
+});
+
+// ── Pestañas del diálogo ──
+function selectDT(name) {
+  document.querySelectorAll(".dtab").forEach((b) => b.classList.toggle("on", b.dataset.dt === name));
+  document.querySelectorAll(".dpane").forEach((p) => p.classList.toggle("on", p.id === "dt-" + name));
+  if (name === "viejo") cargarViejos();
+  if (name === "mapa" || name === "func") renderTree();
+}
+$("dtabs").addEventListener("click", (e) => { const b = e.target.closest(".dtab"); if (b) selectDT(b.dataset.dt); });
+
+
+// ═════════════ 🗺 MAPA: diagrama de nodos (todo cerrado; clic en un nodo para abrirlo) ═════════════
+const mcerr = new Set(); // guarda los nodos ABIERTOS (por defecto todo cerrado)
+const ICON = { cliente_y_fidelizacion: "👥", mi_negocio: "🏪", operacion_ventas: "🛒", panel_admin: "🎛", cupones_puntos: "🎟", miqr: "🔳", publicidad_ofertas: "📣", review: "⭐", formulario: "📝", mis_usuarios: "🙋", legal: "⚖️", produtos: "📦", pedidos_vivos: "⚡", carta: "📖", mesa: "🍽", mesas: "🪑", carrito: "🛍", nuevo_pedido: "🧾", mis_delivery: "🛵", ofertas: "🏷", publicidad: "📢", ia_generativa: "🤖", adicionales: "➕", footer_cabezero: "🧩", insumos: "🧪", historial_gastos: "💸", historial_ventas: "📈", config_avanzado: "🛠" };
+const jsonDe = (o) => JSON.stringify(o, function (k, v) { const raw = this[k]; return raw instanceof Timestamp ? raw.toDate().toISOString() : v; }, 2);
+const mLabel = (k, enArr) => (enArr ? `[${esc(k)}]` : resaltar(etiquetaDe(k) || String(k).replace(/_/g, " ")));
+function mStats(v) { let on = 0, total = 0; const rec = (x) => { if (typeof x === "boolean") { total++; if (x) on++; } else if (esMapa(x)) Object.values(x).forEach(rec); else if (Array.isArray(x)) x.forEach(rec); }; rec(v); return { on, total }; }
+function setAll(v, val) { for (const [k, x] of (Array.isArray(v) ? v.map((a, i) => [i, a]) : Object.entries(v))) { if (typeof x === "boolean") v[k] = val; else if (esMapa(x) || Array.isArray(x)) setAll(x, val); } }
+function mLeaf(k, v, path, enArr) {
+  const t = tipoDe(v), p = attr(path), l = mLabel(k, enArr), ti = `title="${esc(path.join(" › "))}"`;
+  const x = `<i class="mx" data-m="del" data-path="${p}" title="Eliminar">×</i>`;
+  if (t === "boolean") return `<button type="button" class="mchip ${v ? "on" : ""}" data-m="tog" data-path="${p}" ${ti}><b></b>${l}${x}</button>`;
+  if (t === "number") return `<label class="mfld" ${ti}><span>${l}</span><input type="number" step="any" value="${v}" data-m="val" data-path="${p}">${x}</label>`;
+  if (t === "string") return `<label class="mfld" ${ti}><span>${l}</span><input type="text" value="${esc(v)}" data-m="val" data-path="${p}">${x}</label>`;
+  if (t === "timestamp") return `<label class="mfld" ${ti}><span>${l}</span><input type="datetime-local" value="${aLocalInput(v.toDate())}" data-m="val" data-path="${p}">${x}</label>`;
+  return `<span class="mchip nul" ${ti}>${l}: null${x}</span>`;
+}
+function mNode(k, v, path, forzar, enArr, root) {
+  if (!visible(k, v, forzar)) return "";
+  const pk = JSON.stringify(path), p = attr(path), st = mStats(v), arr = Array.isArray(v);
+  const coincide = !!qT() && (forzar || nombreCoincide(k));
+  const open = mcerr.has(pk) || !!qT() || filtroEstado !== "todos";
+  let leaves = "", subs = "";
+  if (open) for (const [kk, x] of (arr ? v.map((a, i) => [i, a]) : Object.entries(v))) {
+    if (!visible(kk, x, coincide)) continue;
+    const t = tipoDe(x);
+    if (t === "map" || t === "array") subs += mNode(kk, x, [...path, kk], coincide, arr, false);
+    else leaves += mLeaf(kk, x, [...path, kk], arr);
+  }
+  const pct = st.total ? Math.round((st.on / st.total) * 100) : 0;
+  const acc = `<span class="macc"><button class="mb" data-m="add" data-path="${p}" title="Agregar campo">＋</button><button class="mb" data-m="all1" data-path="${p}" title="Activar todo">✓</button><button class="mb" data-m="all0" data-path="${p}" title="Apagar todo">○</button>${root ? `<button class="mb" data-m="copy" data-path="${p}" title="Copiar apartado">📋</button><button class="mb verde" data-m="save" data-path="${p}">💾 Guardar</button>` : `<button class="mb rojo" data-m="del" data-path="${p}" title="Eliminar">🗑</button>`}</span>`;
+  const kids = open ? `<ul>${leaves ? `<li class="lv"><div class="leaves">${leaves}</div></li>` : ""}${subs}${!leaves && !subs ? '<li class="lv"><span class="v-null">(vacío)</span></li>' : ""}</ul>` : "";
+  return `<li><div class="nd ${root ? "rt" : ""} ${open ? "op" : ""}" data-m="fold" data-pk="${esc(pk)}" ${root ? `data-mroot="${esc(k)}"` : ""} title="${esc(path.join(" › "))}"><span class="car">▸</span><span>${ICON[k] ? ICON[k] + " " : ""}${mLabel(k, enArr)}</span>${st.total ? `<span class="mprog"><i style="width:${pct}%"></i></span><span class="cnt">${st.on}/${st.total}</span>` : ""}<span class="mdirty">${dirty.has(k) ? "●" : ""}</span>${acc}</div>${kids}</li>`;
+}
+function renderMapa() {
+  const M = $("mapa");
+  if (!datos) { M.innerHTML = '<p class="mut">Sin datos del negocio todavía.</p>'; $("mcuenta").textContent = ""; return; }
+  const claves = Object.keys(datos), cont = (v) => esMapa(v) || Array.isArray(v), forzar = !!qT() || filtroEstado !== "todos";
+  const gk = claves.filter((k) => !cont(datos[k]) && visible(k, datos[k], false));
+  let kids = "";
+  if (gk.length) {
+    const open = forzar || mcerr.has('["__gen"]');
+    kids += `<li><div class="nd rt ${open ? "op" : ""}" data-m="fold" data-pk="${esc('["__gen"]')}" data-mgen><span class="car">▸</span><span>⚙ General</span><span class="cnt">${gk.length}</span><span class="mdirty">${gk.some((k) => dirty.has(k)) ? "●" : ""}</span><span class="macc"><button class="mb verde" data-m="gsave">💾 Guardar</button></span></div>${open ? `<ul><li class="lv"><div class="leaves">${gk.map((k) => mLeaf(k, datos[k], [k], false)).join("")}</div></li></ul>` : ""}</li>`;
+  }
+  for (const k of claves) if (cont(datos[k])) kids += mNode(k, datos[k], [k], false, false, true);
+  const st = mStats(datos);
+  M.innerHTML = kids ? `<div class="dgw"><ul class="dg"><li><div class="nd rt0">🏪 ${esc(cur?.nombre || "Negocio")}<span class="cnt">${st.on}/${st.total}</span></div><ul>${kids}</ul></li></ul></div>` : '<p class="v-null">Nada coincide con la búsqueda o el filtro.</p>';
+  $("mcuenta").textContent = `✅ ${st.on} activas · ⛔ ${st.total - st.on} apagadas`;
+}
+function mRefresh() {
+  const sc = $("dlg").querySelector(".db"), y = sc.scrollTop, g = $("mapa").querySelector(".dgw"), gl = g ? g.scrollLeft : 0, gt = g ? g.scrollTop : 0;
+  renderMapa(); sc.scrollTop = y; const g2 = $("mapa").querySelector(".dgw"); if (g2) { g2.scrollLeft = gl; g2.scrollTop = gt; }
+}
+function mapaDirty(raiz) {
+  const m = $("mapa"), c = m.querySelector(`[data-mroot="${CSS.escape(raiz)}"] .mdirty`) || m.querySelector("[data-mgen] .mdirty");
+  if (c) c.textContent = "●";
+}
+const mTodas = () => { const r = ['["__gen"]']; const rec = (v, p) => { const t = tipoDe(v); if (t !== "map" && t !== "array") return; r.push(JSON.stringify(p)); (t === "map" ? Object.entries(v) : v.map((x, i) => [i, x])).forEach(([k, x]) => rec(x, [...p, k])); }; Object.keys(datos).forEach((k) => rec(datos[k], [k])); return r; };
+
+// renderTree y marcarSucio también mantienen el mapa al día
+const _rt = renderTree; renderTree = function () { _rt(); renderMapa(); };
+const _ms = marcarSucio; marcarSucio = function (r) { _ms(r); mapaDirty(r); };
+
+function setFiltro(f) { filtroEstado = f; document.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x.dataset.f === f)); if (datos) renderTree(); }
+function buscar(v) { clearTimeout(tmr); tmr = setTimeout(() => { consulta = v; $("tbuscar").value = v; $("mbuscar").value = v; if (datos) renderTree(); }, 150); }
+$("mbuscar").addEventListener("input", () => buscar($("mbuscar").value));
+$("mbar").addEventListener("click", (e) => { const c = e.target.closest(".chip"); if (c) setFiltro(c.dataset.f); });
+$("mexpandir").onclick = () => { if (!datos) return; mTodas().forEach((k) => mcerr.add(k)); renderMapa(); };
+$("mcontraer").onclick = () => { mcerr.clear(); renderMapa(); };
+$("mcopiar").onclick = (e) => copiarJson(e.target, "📋 Copiar JSON");
+$("mguardarTodo").onclick = () => guardar([...dirty]);
+
+$("mapa").addEventListener("click", (e) => {
+  const el = e.target.closest("[data-m]"); if (!el) return;
+  const act = el.dataset.m; if (act === "val") return;
+  e.preventDefault(); e.stopPropagation();
+  if (act === "fold") { const pk = el.dataset.pk; mcerr.has(pk) ? mcerr.delete(pk) : mcerr.add(pk); return mRefresh(); }
+  if (act === "gsave") return guardar([...dirty].filter((k) => !(esMapa(datos[k]) || Array.isArray(datos[k]))));
+  const path = JSON.parse(el.dataset.path);
+  if (act === "tog") { const pa = parentOf(path); pa[path.at(-1)] = !pa[path.at(-1)]; marcarSucio(path[0]); mRefresh(); }
+  if (act === "add") abrirAdd(path);
+  if (act === "all1" || act === "all0") { setAll(getAt(path), act === "all1"); marcarSucio(path[0]); mRefresh(); }
+  if (act === "copy") copyText(jsonDe({ [path[0]]: datos[path[0]] }), el, "📋");
+  if (act === "save") guardar([path[0]]);
+  if (act === "del") {
+    if (!confirm(`¿Eliminar "${path.join(" › ")}"?`)) return;
+    const pa = parentOf(path); if (Array.isArray(pa)) pa.splice(path.at(-1), 1); else delete pa[path.at(-1)];
+    marcarSucio(path[0]); renderTree();
+  }
+});
+$("mapa").addEventListener("change", (e) => {
+  const el = e.target; if (el.dataset.m !== "val") return;
+  const path = JSON.parse(el.dataset.path); let nuevo;
+  if (el.type === "number") { nuevo = parseFloat(el.value); if (Number.isNaN(nuevo)) { alert("Número inválido"); el.value = getAt(path); return; } }
+  else if (el.type === "datetime-local") { const d = new Date(el.value); if (isNaN(d)) return alert("Fecha inválida"); nuevo = Timestamp.fromDate(d); }
+  else nuevo = el.value;
+  parentOf(path)[path.at(-1)] = nuevo; marcarSucio(path[0]);
+});
+
+pintarPlanes();
+renderTree();
+if ($("key").value) loadStores(); else goTab("conexion");
+</script>
 </body>
 </html>

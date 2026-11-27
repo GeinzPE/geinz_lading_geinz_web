@@ -117,178 +117,350 @@
   <!-- <script src="https://cdn.tailwindcss.com"></script> -->
   <link rel="stylesheet" href="../../style/tailwind.css">
 
-  <!-- OJO: xlsx, jsPDF y jsPDF-autotable YA NO se cargan aquí.
-       Eran ~1 MB de scripts bloqueantes que retrasaban el primer pintado y que
-       solo se usan al exportar. Ahora el JS los descarga la primera vez que se exporta. -->
+<style>
+  /* ============ TOKENS ============ */
+  :root {
+    --h-bg: #050507;
+    --h-surface: #0e0e12;
+    --h-surface-2: #15151b;
+    --h-field: #121217;
+    --h-line: rgba(255, 255, 255, .07);
+    --h-line-strong: rgba(255, 255, 255, .12);
+    --h-dim: #a1a1aa;
+    --h-acc: #8855ff;
+    --h-acc-soft: rgba(136, 85, 255, .14);
+    --h-ease: cubic-bezier(.32, .72, 0, 1);
+  }
 
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background: #000000;
-      color: #FFFFFF;
-    }
+  html, body { background: var(--h-bg); }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #fff;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-tap-highlight-color: transparent;
+    background:
+      radial-gradient(900px 420px at 8% -8%, rgba(136, 85, 255, .12), transparent 60%),
+      radial-gradient(700px 380px at 100% 0%, rgba(136, 85, 255, .06), transparent 55%),
+      var(--h-bg);
+    background-attachment: fixed;
+  }
+  ::selection { background: rgba(136, 85, 255, .4); color: #fff; }
 
-    .font-display {
-      font-family: 'Bricolage Grotesque', sans-serif;
-    }
+  /* Tipografía: todo Inter, números tabulares y títulos más ajustados */
+  .font-display {
+    font-family: 'Inter', system-ui, sans-serif;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .font-mono {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+  h1.font-display { font-size: 20px; font-weight: 700; letter-spacing: -.03em; }
+  h2.font-display { font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
+  .uppercase { letter-spacing: .06em !important; }
 
-    .font-mono {
-      font-family: 'JetBrains Mono', monospace;
-    }
+  /* ============ CABECERA ============ */
+  header.sticky {
+    background: rgba(5, 5, 7, .72) !important;
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--h-line) !important;
+  }
+  #btnCostConfig {
+    background: var(--h-surface-2) !important;
+    border: 1px solid var(--h-line) !important;
+    border-radius: 14px !important;
+    padding: 9px 14px !important;
+    transition: background .15s, border-color .15s, transform .1s;
+  }
+  #btnCostConfig:hover { background: #1b1b22 !important; border-color: var(--h-line-strong) !important; }
+  #btnExport {
+    background: linear-gradient(135deg, #9a6bff, #7a45f0) !important;
+    border-radius: 14px !important;
+    padding: 9px 16px !important;
+    box-shadow: 0 8px 22px -8px rgba(136, 85, 255, .7) !important;
+  }
+  #exportMenu {
+    background: #121217 !important;
+    border: 1px solid var(--h-line-strong) !important;
+    border-radius: 18px !important;
+    padding: 6px;
+    margin-top: 10px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .65) !important;
+  }
+  #exportMenu button {
+    border: 0 !important;
+    border-radius: 12px;
+    padding: 11px 12px !important;
+  }
+  #exportMenu button:hover { background: var(--h-acc-soft) !important; }
+  #connDot { box-shadow: 0 0 0 3px rgba(136, 85, 255, .18); }
 
-    .chip {
-      transition: all .15s ease;
-      background: #0D0D0D;
-      border: 1px solid #221B35;
-      color: #CCCCCC;
-    }
+  /* ============ TARJETAS ============ */
+  main .bg-panel {
+    background: linear-gradient(180deg, #121217 0%, #0d0d11 100%) !important;
+    border: 1px solid var(--h-line) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 12px 30px -18px rgba(0, 0, 0, .8);
+  }
+  main .bg-panel .bg-panel {          /* tarjetas dentro de tarjetas */
+    background: var(--h-surface-2) !important;
+    border-radius: 20px !important;
+    box-shadow: none;
+  }
+  main .bg-panel2 { background: var(--h-field) !important; }
+  main section > .grid > .bg-panel,
+  main .grid > .bg-panel { padding: 18px !important; }
 
-    .chip:hover {
-      border-color: #8855FF;
-      color: #FFFFFF;
-    }
+  /* tarjetas destacadas (antes borde morado fuerte) */
+  main .border-primary\/40 {
+    border-color: rgba(136, 85, 255, .28) !important;
+    background:
+      radial-gradient(120% 140% at 0% 0%, rgba(136, 85, 255, .16), transparent 55%),
+      linear-gradient(180deg, #131219, #0d0d11) !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 16px 40px -22px rgba(136, 85, 255, .55) !important;
+  }
 
-    .chip.active {
-      background: #8855FF;
-      color: #FFFFFF;
-      border-color: #8855FF;
-      box-shadow: 0 0 12px rgba(136, 85, 255, 0.4);
-    }
+  /* etiquetas pequeñas y cifras grandes */
+  main p.text-\[11px\] { font-size: 11.5px; font-weight: 600; }
+  main p.text-inkdim, main .text-inkdim { color: #a1a1aa; }
+  main p.font-display.text-2xl,
+  main p.font-display.text-3xl { font-weight: 800; letter-spacing: -.04em; line-height: 1.1; }
+  main .grid p.mb-1 + p.font-display { margin-top: 6px; }
 
-    tr.row-hover:hover {
-      background: #0D0D0D;
-    }
+  /* barras de progreso (las que dibuja el JS) */
+  main .rounded-full { border-radius: 999px; }
+  #barPago > div, #origenBarList > div, #barIngresoCosto > div { transition: opacity .2s; }
 
-    .fade-in {
-      animation: fadeIn .25s ease both;
-    }
+  /* ============ FILTROS ============ */
+  main section.space-y-3 { padding: 20px !important; }
+  .chip {
+    background: var(--h-field);
+    border: 1px solid var(--h-line);
+    color: #d4d4d8;
+    padding: 8px 16px !important;
+    border-radius: 999px !important;
+    font-weight: 600;
+    transition: background .2s var(--h-ease), color .15s, border-color .15s, box-shadow .2s, transform .1s;
+  }
+  .chip:hover { border-color: rgba(136, 85, 255, .5); color: #fff; }
+  .chip:active { transform: scale(.96); }
+  .chip.active {
+    background: linear-gradient(135deg, #9a6bff, #7a45f0);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 8px 20px -8px rgba(136, 85, 255, .8);
+  }
 
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(4px)
-      }
+  select,
+  input[type="text"],
+  input[type="date"],
+  input[type="number"] {
+    color-scheme: dark;
+    background-color: var(--h-field) !important;
+    border: 1.5px solid transparent !important;
+    border-radius: 14px !important;
+    min-height: 40px;
+    padding: 8px 14px !important;
+    color: #fff;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s, background-color .15s;
+  }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 36px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    cursor: pointer;
+  }
+  select:focus, input:focus {
+    border-color: var(--h-acc) !important;
+    box-shadow: 0 0 0 4px var(--h-acc-soft);
+  }
+  #searchBox { padding-left: 38px !important; }
+  #searchBox::placeholder { color: rgba(255, 255, 255, .3); }
+  #btnResetFilters {
+    padding: 8px 12px;
+    border-radius: 99px;
+    transition: background .15s;
+  }
+  #btnResetFilters:hover { background: var(--h-acc-soft); text-decoration: none; }
 
-      to {
-        opacity: 1;
-        transform: translateY(0)
-      }
-    }
+  /* avisos de turno / caja */
+  #turnoActualBox > *, #avisoFuera { border-radius: 16px !important; }
 
-    .modal-panel {
-      animation: slideIn .28s cubic-bezier(.16, 1, .3, 1) both;
-    }
+  /* ============ TABLA ============ */
+  main table { border-collapse: separate; border-spacing: 0; }
+  main thead tr { background: transparent !important; }
+  main thead th {
+    padding: 14px 16px !important;
+    font-size: 11px;
+    font-weight: 600;
+    color: #71717a;
+    background: rgba(255, 255, 255, .02);
+    border-bottom: 1px solid var(--h-line);
+  }
+  main tbody td { padding-top: 14px; padding-bottom: 14px; border-color: var(--h-line); }
+  main .divide-line > * + * { border-color: var(--h-line) !important; }
+  tr.row-hover { transition: background .15s; cursor: pointer; }
+  tr.row-hover:hover { background: rgba(136, 85, 255, .06); }
+  main .md\:block { border-radius: 24px !important; overflow: hidden; }
 
-    @keyframes slideIn {
-      from {
-        transform: translateX(24px);
-        opacity: 0
-      }
+  /* tarjetas de pedido en móvil */
+  #cardsBody > * {
+    border-radius: 22px !important;
+    background: linear-gradient(180deg, #121217, #0d0d11) !important;
+    border: 1px solid var(--h-line) !important;
+    transition: transform .12s, border-color .15s;
+  }
+  #cardsBody > *:active { transform: scale(.985); }
 
-      to {
-        transform: translateX(0);
-        opacity: 1
-      }
-    }
+  /* estados */
+  [data-est] {
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    white-space: nowrap;
+  }
+  [data-est="pendiente"] { background: rgba(245, 158, 11, .12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, .25); }
+  [data-est="en_proceso"] { background: rgba(56, 189, 248, .12); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, .25); }
+  [data-est="entregado"] { background: var(--h-acc); color: #fff; border: 1px solid transparent; font-weight: 700; box-shadow: 0 6px 16px -8px rgba(136, 85, 255, .8); }
+  [data-est="rechazado"] { background: rgba(255, 255, 255, .05); color: #a1a1aa; border: 1px solid var(--h-line-strong); }
 
-    [data-est="pendiente"] {
-      background: rgba(136, 85, 255, .15);
-      color: #FFFFFF;
-      border: 1px solid rgba(136, 85, 255, .4);
-    }
+  #btnLoadMore {
+    background: var(--h-surface-2) !important;
+    border: 1px solid var(--h-line) !important;
+    border-radius: 16px !important;
+    padding: 12px 22px !important;
+    transition: background .15s, border-color .15s, transform .1s;
+  }
+  #btnLoadMore:hover { background: #1b1b22 !important; border-color: rgba(136, 85, 255, .5) !important; }
+  #emptyState { padding: 64px 0; }
 
-    [data-est="en_proceso"] {
-      background: rgba(136, 85, 255, .30);
-      color: #FFFFFF;
-      border: 1px solid rgba(136, 85, 255, .6);
-    }
+  /* ============ PANELES LATERALES (detalle y costos) ============ */
+  #modalOverlay, #costModalOverlay {
+    background: rgba(0, 0, 0, .6) !important;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .modal-panel {
+    background: linear-gradient(180deg, #121217, #0b0b0f) !important;
+    border: 1px solid var(--h-line-strong) !important;
+    box-shadow: -30px 0 80px rgba(0, 0, 0, .6) !important;
+    animation: slideIn .34s var(--h-ease) both;
+  }
+  @media (min-width: 640px) {
+    #modalOverlay, #costModalOverlay { padding: 12px; }
+    .modal-panel { height: 100% !important; border-radius: 28px; }
+  }
+  .modal-panel > div { padding: 24px !important; }
+  .modal-panel button[onclick*="closeCostModal"],
+  #modalContent button[aria-label],
+  #modalContent .rounded-full {
+    transition: background .15s, transform .1s;
+  }
+  .modal-panel button[onclick*="closeCostModal"] { background: rgba(255, 255, 255, .07) !important; }
+  .modal-panel button[onclick*="closeCostModal"]:hover { background: rgba(255, 255, 255, .13) !important; }
+  .modal-panel .rounded-xl, .modal-panel .rounded-2xl { border-radius: 18px !important; }
+  .modal-panel button.bg-primary,
+  .modal-panel button[class*="bg-primary"] {
+    border-radius: 16px !important;
+    min-height: 48px;
+    background: linear-gradient(135deg, #9a6bff, #7a45f0) !important;
+    box-shadow: 0 10px 24px -10px rgba(136, 85, 255, .8);
+  }
+  #modalContent button:not([class*="bg-primary"]):not(.rounded-full) {
+    border-radius: 16px !important;
+    min-height: 48px;
+    background: var(--h-surface-2);
+    border: 1px solid var(--h-line);
+    transition: background .15s, transform .1s;
+  }
+  #modalContent button:active { transform: scale(.97); }
 
-    [data-est="entregado"] {
-      background: #8855FF;
-      color: #FFFFFF;
-      border: 1px solid #8855FF;
-      font-weight: 700;
-    }
+  /* ============ TOOLTIP, TOAST, ANIMACIONES ============ */
+  #comparativaTooltip {
+    background: #1a1a21 !important;
+    border: 1px solid var(--h-line-strong) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .6) !important;
+  }
+  #comparativaTooltip > span { background: #1a1a21 !important; }
+  #toast {
+    background: rgba(24, 24, 30, .92) !important;
+    border: 1px solid var(--h-line-strong);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border-radius: 16px !important;
+    padding: 12px 20px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .6) !important;
+  }
 
-    [data-est="rechazado"] {
-      background: rgba(255, 255, 255, .05);
-      color: #888888;
-      border: 1px solid rgba(255, 255, 255, .15);
-    }
+  .fade-in { animation: fadeIn .28s var(--h-ease) both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes slideIn { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes loadingBarSlide { 0% { transform: translateX(-100%); } 50% { transform: translateX(60%); } 100% { transform: translateX(220%); } }
+  .loading-bar-fill { animation: loadingBarSlide 1.1s ease-in-out infinite; }
+  @keyframes fadeInTip { from { opacity: 0; transform: translate(-50%, 4px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  #comparativaTooltip:not(.hidden) { animation: fadeInTip .15s ease-out both; }
+  #metricsSections { transition: opacity .25s ease; }
 
-    select,
-    input {
-      color-scheme: dark;
-    }
+  /* ============ SCROLLBAR ============ */
+  * { scrollbar-width: thin; scrollbar-color: #2a2a31 transparent; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2a31; border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #3d3d46; background-clip: padding-box; }
 
-    * {
-      scrollbar-width: thin;
-      scrollbar-color: #2a2a2a #000000;
-    }
+  @media (max-width: 640px) {
+    main { padding-left: 14px !important; padding-right: 14px !important; }
+    h2.font-display { font-size: 20px; }
+    main .bg-panel { border-radius: 22px !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01s !important; transition-duration: .01s !important; }
+  }
+  /* ============ PERSONALIZAR VISTA ============ */
+.vista-oculta { display: none !important; }
+.grid-auto { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)) !important; }
 
-    ::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
+#btnVista {
+  background: var(--h-surface-2) !important;
+  border: 1px solid var(--h-line) !important;
+  border-radius: 14px !important;
+  padding: 9px 14px !important;
+}
+#btnVista:hover { background: #1b1b22 !important; border-color: var(--h-line-strong) !important; }
 
-    ::-webkit-scrollbar-track {
-      background: #000000;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #2a2a2a;
-      border-radius: 5px;
-      border: 2px solid #000000;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #3d3d3d;
-    }
-
-    @keyframes loadingBarSlide {
-      0% {
-        transform: translateX(-100%);
-      }
-
-      50% {
-        transform: translateX(60%);
-      }
-
-      100% {
-        transform: translateX(220%);
-      }
-    }
-
-    .loading-bar-fill {
-      animation: loadingBarSlide 1.1s ease-in-out infinite;
-    }
-
-    @keyframes fadeInTip {
-      from {
-        opacity: 0;
-        transform: translate(-50%, 4px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translate(-50%, 0);
-      }
-    }
-
-    #comparativaTooltip:not(.hidden) {
-      animation: fadeInTip .15s ease-out both;
-    }
-
-    #metricsSections {
-      transition: opacity .25s ease;
-    }
-  </style>
-
-  <!-- JS separado del historial de pedidos. Ruta ABSOLUTA a propósito:
-       si esta página se sirve alguna vez detrás de una URL "bonita" con
-       segmentos extra (ej. /dashboard/{tiendaId}/algo), una ruta relativa
-       tipo "../js/..." se rompe porque se resuelve contra la URL visible,
-       no contra la ubicación física del archivo. -->
+.vista-grupo { font-size: 11px; font-weight: 600; color: #71717a; letter-spacing: .06em; text-transform: uppercase; margin: 16px 0 6px; }
+.vista-opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 16px; cursor: pointer;
+  background: var(--h-surface-2); border: 1px solid var(--h-line);
+  transition: border-color .15s;
+}
+.vista-opt:hover { border-color: rgba(136, 85, 255, .45); }
+.vista-opt span { flex: 1; font-size: 14px; color: #fff; }
+.vista-opt input {
+  appearance: none; -webkit-appearance: none; margin: 0; cursor: pointer;
+  width: 42px; height: 24px; border-radius: 99px; flex-shrink: 0;
+  background: #2a2a31; position: relative; transition: background .2s;
+}
+.vista-opt input::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  transition: transform .2s var(--h-ease);
+}
+.vista-opt input:checked { background: var(--h-acc); }
+.vista-opt input:checked::after { transform: translateX(18px); }
+</style>
   <script type="module" src="../js/dasboardjs/historial_venta.js"></script>
 
 </head>
@@ -335,10 +507,17 @@
       </div>
       <div class="flex items-center gap-3">
         <span class="hidden sm:inline text-xs font-mono text-inkfaint" id="clockNow"></span>
+
+        <button id="btnVista" title="Elegir qué apartados ver"
+          class="flex items-center gap-1.5 bg-panel2 border border-line text-white font-semibold text-sm px-3 py-2 rounded-xl hover:border-primary active:scale-95 transition">
+          👁️ <span class="hidden sm:inline">Vista</span>
+        </button>
+
         <button id="btnCostConfig" title="Configurar costos"
           class="flex items-center gap-1.5 bg-panel2 border border-line text-white font-semibold text-sm px-3 py-2 rounded-xl hover:border-primary active:scale-95 transition">
           ⚙️ <span class="hidden sm:inline">Costos</span>
         </button>
+
         <div class="relative" id="exportDropdownWrap">
           <button id="btnExport"
             class="flex items-center gap-2 bg-primary text-white font-semibold text-sm px-4 py-2 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">
@@ -378,7 +557,7 @@
           <span id="rangeLabelEcho" class="text-xs font-mono text-primary"></span>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <div data-vista="resumen" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <div
             class="bg-panel border border-primary/40 rounded-2xl p-4 relative overflow-hidden shadow-lg shadow-primary/5">
             <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Total vendido</p>
@@ -397,14 +576,13 @@
           </div>
           <div class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1" id="labelItemsVendidos">
-              Productos
-              vendidos</p>
+              Productos vendidos</p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiItems">0</p>
             <p class="text-[11px] text-inkfaint mt-1">unidades totales</p>
           </div>
         </div>
 
-        <div class="bg-panel border border-line rounded-2xl p-4">
+        <div data-vista="desglose" class="bg-panel border border-line rounded-2xl p-4">
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
             <div class="bg-panel border border-primary/40 rounded-2xl p-4">
               <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Venta neta</p>
@@ -435,13 +613,13 @@
           <span class="text-xs font-mono text-inkfaint">¿de dónde vienen tus pedidos?</span>
         </div>
 
-        <div class="grid sm:grid-cols-2 gap-3">
-          <div class="bg-panel border border-primary/40 rounded-2xl p-4">
+        <div class="grid grid-auto sm:grid-cols-2 gap-3">
+          <div data-vista="canal" class="bg-panel border border-primary/40 rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-2">📍 Canal principal</p>
             <p class="font-display font-extrabold text-lg text-white leading-tight" id="origenTopLabel">—</p>
             <p class="text-xs text-inkfaint mt-1"><span id="origenTopCant">0</span> pedidos en el rango</p>
           </div>
-          <div class="bg-panel border border-line rounded-2xl p-4">
+          <div data-vista="distribucion" class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Distribución por canal</p>
             <div class="space-y-2.5" id="origenBarList"></div>
           </div>
@@ -455,21 +633,21 @@
           <span class="text-xs font-mono text-inkfaint">insights automáticos</span>
         </div>
 
-        <div class="grid sm:grid-cols-3 gap-3">
-          <div class="bg-panel border border-line rounded-2xl p-4">
+        <div class="grid grid-auto sm:grid-cols-3 gap-3">
+          <div data-vista="top_producto" class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2" id="labelTopProducto">🏆
               Producto más vendido</p>
             <p class="font-display font-extrabold text-lg text-white leading-tight" id="topProductoNombre">—</p>
             <p class="text-xs text-inkfaint mt-1"><span id="topProductoCant">0</span> unidades en el rango</p>
           </div>
 
-          <div class="bg-panel border border-line rounded-2xl p-4">
+          <div data-vista="hora_pico" class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2">⏰ Hora pico</p>
             <p class="font-display font-extrabold text-lg text-white leading-tight" id="horaPicoLabel">—</p>
             <p class="text-xs text-inkfaint mt-1"><span id="horaPicoCant">0</span> pedidos en esa franja</p>
           </div>
 
-          <div class="bg-panel border border-primary/40 rounded-2xl p-4">
+          <div data-vista="comparativa" class="bg-panel border border-primary/40 rounded-2xl p-4">
             <div class="flex items-center gap-1.5 mb-2">
               <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold">📈 Vs. período anterior</p>
               <div class="relative inline-block" id="comparativaInfoWrap">
@@ -489,7 +667,7 @@
           </div>
         </div>
 
-        <div class="bg-panel border border-line rounded-2xl p-4 mt-3">
+        <div data-vista="horas" class="bg-panel border border-line rounded-2xl p-4 mt-3">
           <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Pedidos por franja horaria</p>
           <div class="flex items-end gap-1 h-24" id="horaChart"></div>
         </div>
@@ -502,7 +680,7 @@
           <span class="text-xs font-mono text-inkfaint">basado en costos configurados</span>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+        <div data-vista="rent_kpis" class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
           <div class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ingresos</p>
             <p class="font-display font-extrabold text-2xl text-white" id="kpiIngresos">S/ 0.00</p>
@@ -528,13 +706,13 @@
           </div>
         </div>
 
-        <div class="grid lg:grid-cols-2 gap-3">
-          <div class="bg-panel border border-line rounded-2xl p-4">
+        <div class="grid grid-auto lg:grid-cols-2 gap-3">
+          <div data-vista="rent_barras" class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Ingresos vs. Costos</p>
             <div class="space-y-2.5" id="barIngresoCosto"></div>
           </div>
 
-          <div class="bg-panel border border-line rounded-2xl p-4">
+          <div data-vista="rent_productos" class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3" id="labelGananciaProducto">
               Ganancia por producto</p>
             <div class="space-y-2 max-h-56 overflow-y-auto" id="gananciaProductoList"></div>
@@ -586,6 +764,27 @@
       </div>
     </div>
 
+    <!-- ======================= PANEL PERSONALIZAR VISTA ======================= -->
+    <div id="vistaModalOverlay" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex justify-end">
+      <div class="modal-panel bg-panel w-full sm:w-[440px] h-full overflow-y-auto shadow-2xl border-l border-line">
+        <div class="p-5">
+          <div class="flex justify-between items-start mb-5">
+            <div>
+              <h3 class="font-display font-bold text-xl text-white">Personalizar vista</h3>
+              <p class="text-xs text-inkfaint mt-1">Elige qué apartados quieres ver. Se guarda en este dispositivo.</p>
+            </div>
+            <button id="btnCerrarVista"
+              class="w-8 h-8 rounded-full bg-panel2 hover:bg-line flex items-center justify-center text-lg text-white">✕</button>
+          </div>
+          <div id="vistaOpciones" class="space-y-2"></div>
+          <button id="btnVistaTodo"
+            class="w-full bg-primary text-white font-semibold text-sm py-2.5 rounded-xl mt-4">
+            Mostrar todo
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ======================= FILTROS ======================= -->
     <section class="bg-panel border border-line rounded-2xl p-4 space-y-3">
       <div class="flex flex-wrap items-center gap-2" id="dateChips">
@@ -602,6 +801,24 @@
           <input type="date" id="customTo"
             class="text-sm border border-line rounded-lg px-2 py-1.5 font-mono bg-panel2 text-white">
         </div>
+      </div>
+
+      <!-- Solo aparece si el admin activó los turnos en Caja y Gastos -->
+      <div id="turnoFiltro" class="hidden pt-2 border-t border-line">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mr-1">Turno</span>
+          <div id="turnoChips" class="flex flex-wrap items-center gap-2"></div>
+        </div>
+        <p id="turnoInfo" class="text-[11px] text-inkfaint font-mono mt-1.5"></p>
+        <div id="turnoActualBox" class="hidden"></div>
+        <div id="avisoFuera"
+          class="hidden mt-2 text-xs rounded-xl px-3 py-2 bg-amber-400/10 border border-amber-400/30 text-amber-300">
+        </div>
+        <p class="text-[11px] text-inkfaint mt-2 leading-relaxed">
+          Cada pedido pertenece al turno que estaba abierto <b class="text-white">a la hora en que se vendió</b>.
+          <b class="text-white">Fuera de turno</b> = se vendió con la caja cerrada.
+          Usa los botones de arriba para ver solo un turno.
+        </p>
       </div>
 
       <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-line">

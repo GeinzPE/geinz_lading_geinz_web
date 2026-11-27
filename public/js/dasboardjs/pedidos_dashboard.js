@@ -485,6 +485,23 @@ img[data-fade].loaded{opacity:1;}
 /* Botones del carrito del panel derecho, más grandes */
 .npc-ico{width:34px !important;height:34px !important;font-size:17px !important;border-radius:9px !important;}
 .npc-edit{font-size:12.5px !important;padding:4px 0 !important;}
+.np-det-img.sin-foto{
+  aspect-ratio:16/9;
+  max-height:26vh;
+  background:radial-gradient(circle at center, rgba(124,92,255,.18), rgba(124,92,255,.05)), #14101f;
+  animation:none;
+}
+.np-det-img.sin-foto>img{
+  width:auto;
+  height:62%;
+  aspect-ratio:1/1;
+  object-fit:contain;
+  border-radius:50%;
+  background:#14101f;
+  border:1px solid rgba(124,92,255,.35);
+  box-shadow:0 4px 14px rgba(0,0,0,.4);
+  opacity:1;
+}
 `;
 const DELI_CSS = `
 #deliModo, .deli-inp{
@@ -746,6 +763,32 @@ const NP_CSS = `
   background:radial-gradient(circle at center, rgba(124,92,255,.18), rgba(124,92,255,.05)), #14101f;
   display:flex;align-items:center;justify-content:center;
 }
+  /* Miniatura del carrito sin foto: círculo con el logo llenándolo */
+.npc-thumb:has(.npc-thumb-ph){
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  background:transparent;
+  border:none;
+}
+.npc-thumb-ph{
+  border-radius:50%;
+  padding:0;
+}
+.npc-thumb .np-logo-circle{
+  width:100%;
+  border:none;
+  box-shadow:none;
+  background:transparent;
+}
+.npc-thumb-ph img,
+.npc-thumb .np-logo-circle img{
+  width:100%;
+  height:100%;
+  padding:0;
+  object-fit:cover;
+  border-radius:50%;
+}
 .npc-cat{color:#7c5cff !important;text-transform:uppercase;font-size:10px !important;font-weight:700 !important;letter-spacing:.03em;}
 .npc-subtotal{font-weight:800;flex-shrink:0;}
 
@@ -927,7 +970,24 @@ let bizDataGlobal = null;
 let bizAliasGlobal = null;
 let bizDominioGlobal = null;
 const SND_NUEVO_PEDIDO = "../../sounds/nuevo_pedido_en_geinz.mp3";
-
+const NPAdicionales = {
+  lista: [],
+  unsub: null,
+  iniciar() {
+    if (this.unsub || !tiendaId || !localidad) return;
+    this.unsub = onSnapshot(
+      query(tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales"), orderBy("createdAt", "asc")),
+      (snap) => {
+        this.lista = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((a) => a.activo !== false);
+        this.pintar?.();
+      },
+      (e) => console.warn("adicionales:", e),
+    );
+  },
+};
+NPAdicionales.iniciar();
 /* ══════════ Delivery por fijar (el negocio pone el precio) ══════════ */
 const deliveryBrillo = new Set(); // pedidos cuyo cliente aceptó el delivery (brillan hasta abrirlos)
 let dlvDraft = { id: null, v: "" };
@@ -1152,7 +1212,6 @@ function reproducirSiguienteAlarmaMesa() {
 
   function reproducirNumeroMesa() {
     const url = urlAudioMesa(numero); // ← numero viene del closure, no de un argumento
-    console.log("🔍 URL que se va a pedir:", url);
     const numAudio = new Audio(url);
     numAudio.addEventListener("ended", reproducirSiguienteAlarmaMesa);
     numAudio.play().catch((err) => {
@@ -2203,7 +2262,10 @@ async function cargarNegocio() {
 }
 
 /* ══════════════ Sonido de notificación (Web Audio, sin archivos externos) ══════════════ */
+let audioDesbloqueado = false;
+
 function ensureAudio() {
+  if (!audioDesbloqueado) return null; // todavía no hubo toque del usuario
   if (!audioCtx) {
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2214,11 +2276,18 @@ function ensureAudio() {
   if (audioCtx.state === "suspended") audioCtx.resume();
   return audioCtx;
 }
-// desbloquea el audio en la primera interacción real del operador con la página
-document.addEventListener("click", () => ensureAudio(), {
-  once: true,
-  capture: true,
-});
+
+// Se desbloquea en la primera interacción real (clic, toque o tecla)
+["click", "touchstart", "keydown"].forEach((ev) =>
+  document.addEventListener(
+    ev,
+    () => {
+      audioDesbloqueado = true;
+      ensureAudio();
+    },
+    { once: true, capture: true },
+  ),
+);
 
 function playChime(pedidoId, data) {
   const tipo = getTipoCuponPedido(data);
@@ -7889,6 +7958,7 @@ const NuevoPedido = {
   },
 
   async cargarCatalogo(forceReload = false) {
+      NPAdicionales.iniciar();
     if ((this.cargado && !forceReload) || this.cargando) return;
     this.cargando = true;
     this.catalogoCompleto = false;
@@ -11517,7 +11587,6 @@ function aplicarPlanPedidos(servicios) {
   if (servicios) PLAN_SERV = servicios;
   aplicarVisibilidadPorTipoTienda();
   const pv = PLAN_SERV?.operacion_ventas?.pedidos_vivos;
-  console.log("📦 pedidos_vivos:", pv);
   if (!pv) return;
 
   const carrito = _nodo(pv, "carrito") || {};

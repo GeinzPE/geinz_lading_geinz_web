@@ -1449,7 +1449,7 @@ function setFiltroEstado(nuevoEstado) {
   );
   const m = mapa[nuevoEstado];
   if (m) m[0].classList.add("active-filter", "ring-2", m[1]);
-    _hayCardsNuevas = true; 
+  _hayCardsNuevas = true;
   aplicarFiltroYMetricas();
 }
 
@@ -1632,6 +1632,7 @@ function datosParaPerfil(categoriaId, productoId, d) {
     sugerencias: Array.isArray(d.sugerencias) ? d.sugerencias : [],
     descuento: d.descuento || null,
     stock: typeof d.stock === "number" ? d.stock : null,
+    produccion: typeof d.produccion === "number" ? d.produccion : null,
     disponible: d.disponible !== false,
     actualizadoEn: serverTimestamp(),
   };
@@ -2451,7 +2452,42 @@ document.getElementById("btn-add-condicion").addEventListener("click", () => {
 document
   .getElementById("input-prod-stock")
   .addEventListener("input", validarConsistenciaStock);
+/* ---------------- Producción: stock + en producción ---------------- */
+function pintarResumenProduccion() {
+  const box = document.getElementById("produccion-resumen");
+  if (!box) return;
+  const sRaw = document.getElementById("input-prod-stock").value;
+  const pRaw = document.getElementById("input-prod-produccion").value;
+  if (sRaw === "" && pRaw === "") {
+    box.classList.add("hidden");
+    return;
+  }
+  const s = Math.max(0, parseInt(sRaw, 10) || 0);
+  const p = Math.max(0, parseInt(pRaw, 10) || 0);
+  box.innerHTML = `📦 En stock: <b>${s}</b> + 🏭 En producción: <b>${p}</b> = <b>${s + p}</b> en total`;
+  box.classList.remove("hidden");
+}
+["input-prod-stock", "input-prod-produccion"].forEach((id) =>
+  document
+    .getElementById(id)
+    .addEventListener("input", pintarResumenProduccion),
+);
 
+document.getElementById("btn-prod-mover").addEventListener("click", () => {
+  const prodIn = document.getElementById("input-prod-produccion");
+  const stockIn = document.getElementById("input-prod-stock");
+  const moverIn = document.getElementById("input-prod-mover");
+  const prod = parseInt(prodIn.value, 10) || 0;
+  const cant = parseInt(moverIn.value, 10) || 0;
+  if (cant <= 0) return toast("Escribe cuántas unidades salieron.", "error");
+  if (cant > prod) return toast(`Solo hay ${prod} en producción.`, "error");
+  prodIn.value = prod - cant;
+  stockIn.value = (parseInt(stockIn.value, 10) || 0) + cant;
+  moverIn.value = "";
+  validarConsistenciaStock();
+  pintarResumenProduccion();
+  toast(`${cant} pasaron a stock. Pulsa «Guardar cambios» para confirmar.`);
+});
 document.getElementById("input-prod-imgs").addEventListener("change", (e) => {
   const file = e.target.files[0];
   const slot = parseInt(e.target.dataset.targetSlot || "0", 10);
@@ -2546,6 +2582,8 @@ function abrirModalMasivo(categoriaId, data) {
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
   activarTabProducto("tab-avanzado");
+  cerrarSeccionesAvanzado();
+  document.getElementById("sec-opciones").open = true;
   openOverlay("overlay-producto");
 }
 
@@ -2816,6 +2854,27 @@ document
       label.textContent = original;
     }
   });
+function cerrarSeccionesAvanzado() {
+  document
+    .querySelectorAll("#tab-avanzado details.pm-sec")
+    .forEach((d) => (d.open = false));
+}
+// Abre Avanzado, despliega solo esa sección y enfoca el campo
+function irASeccion(secId, inputId) {
+  activarTabProducto(
+    PLAN_PRODUCTOS.modoAvanzado ? "tab-avanzado" : tabInicialProducto(),
+  );
+  cerrarSeccionesAvanzado();
+  const sec = document.getElementById(secId);
+  if (sec) sec.open = true;
+  setTimeout(() => {
+    const el = inputId && document.getElementById(inputId);
+    if (el) {
+      el.scrollIntoView({ block: "center" });
+      el.focus();
+    } else sec?.scrollIntoView({ block: "center" });
+  }, 80);
+}
 function abrirModalNuevoProducto(
   categoriaId,
   categoriaNombre,
@@ -2851,6 +2910,9 @@ function abrirModalNuevoProducto(
     "Déjalo vacío y se genera un número automático.";
   document.getElementById("input-prod-disponible").checked = true;
   document.getElementById("input-prod-stock").value = "";
+  document.getElementById("input-prod-produccion").value = "";
+  document.getElementById("input-prod-mover").value = "";
+  pintarResumenProduccion();
   document.getElementById("input-prod-auto-desactivar").checked = false;
   document.getElementById("input-prod-agotado-hoy").checked = false;
   document.getElementById("input-prod-unidad").value = "";
@@ -2883,10 +2945,11 @@ function abrirModalNuevoProducto(
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
   activarTabProducto(tabInicialProducto());
+  cerrarSeccionesAvanzado();
   openOverlay("overlay-producto");
 }
 
-function abrirModalEditarProducto(categoriaId, productoId, data) {
+function abrirModalEditarProducto(categoriaId, productoId, data, destino = null) {
   categoriaActivaParaProducto = categoriaId;
   productoEditandoId = productoId;
   productoEditandoCategoriaId = categoriaId;
@@ -2953,6 +3016,10 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   document.getElementById("input-prod-disponible").checked = !!data.disponible;
   document.getElementById("input-prod-stock").value =
     typeof data.stock === "number" ? data.stock : "";
+  document.getElementById("input-prod-produccion").value =
+    typeof data.produccion === "number" ? data.produccion : "";
+  document.getElementById("input-prod-mover").value = "";
+  pintarResumenProduccion();
   document.getElementById("input-prod-auto-desactivar").checked =
     !!data.autoDesactivar;
   document.getElementById("input-prod-agotado-hoy").checked = !!data.agotadoHoy;
@@ -3000,7 +3067,9 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
   activarTabProducto(tabInicialProducto());
+  cerrarSeccionesAvanzado();
   openOverlay("overlay-producto");
+  if (destino) irASeccion(destino.sec, destino.input);
 }
 document
   .getElementById("form-producto")
@@ -3019,6 +3088,13 @@ document
     const stockRaw = document.getElementById("input-prod-stock").value;
     const stock =
       stockRaw === "" ? null : Math.max(0, parseInt(stockRaw, 10) || 0);
+    const produccionRaw = document.getElementById(
+      "input-prod-produccion",
+    ).value;
+    const produccion =
+      produccionRaw === ""
+        ? null
+        : Math.max(0, parseInt(produccionRaw, 10) || 0);
     const autoDesactivar = document.getElementById(
       "input-prod-auto-desactivar",
     ).checked;
@@ -3033,7 +3109,8 @@ document
     const disponibleHasta =
       document.getElementById("input-prod-horario-hasta").value || null;
 
-    if (autoDesactivar && stock === 0) disponible = false;
+    // Solo se apaga si no queda nada ni en stock ni en producción
+    if (autoDesactivar && stock === 0 && !produccion) disponible = false;
     if (!nombre || isNaN(precio))
       return toast("Completa el nombre y el precio.", "error");
     if (!(await subirImagenesOpciones())) return;
@@ -3248,6 +3325,7 @@ document
           condiciones,
           caso: casoProducto,
           stock,
+          produccion,
           autoDesactivar,
           agotadoHoy,
           unidadMedida,
@@ -3274,6 +3352,7 @@ document
             condiciones,
             caso: casoProducto,
             stock,
+            produccion,
             descuento,
             sugerencias,
             imagenes: [...conservadas, ...subidas],
@@ -3562,7 +3641,7 @@ function renderProductoCard(categoriaId, productoId, data) {
   }
 
   const priceRow = document.createElement("div");
-  priceRow.className = "flex items-end justify-between gap-2";
+  priceRow.className = "flex flex-wrap items-end justify-between gap-2";
 
   const precioEl = document.createElement("div");
   precioEl.className =
@@ -3578,17 +3657,48 @@ function renderProductoCard(categoriaId, productoId, data) {
   }
   priceRow.appendChild(precioEl);
 
-  if (typeof data.stock === "number") {
-    const stockColor =
-      data.stock <= 0
-        ? "bg-rose-950/40 text-rose-400 border-rose-500/20"
-        : data.stock < STOCK_BAJO_UMBRAL
-          ? "bg-amber-950/40 text-amber-400 border-amber-500/20"
-          : "bg-emerald-950/40 text-emerald-400 border-emerald-500/20";
-    const stockEl = document.createElement("span");
-    stockEl.className = `font-mono text-[11px] px-2 py-1 rounded-lg border whitespace-nowrap ${stockColor}`;
-    stockEl.textContent = `Stock ${data.stock}`;
-    priceRow.appendChild(stockEl);
+  const hayStock = typeof data.stock === "number";
+  const hayProd = typeof data.produccion === "number" && data.produccion > 0;
+  if (hayStock || hayProd) {
+    const badges = document.createElement("div");
+    badges.className = "pc-badges";
+    if (hayStock) {
+      const stockColor =
+        data.stock <= 0
+          ? "bg-rose-950/40 text-rose-400 border-rose-500/20"
+          : data.stock < STOCK_BAJO_UMBRAL
+            ? "bg-amber-950/40 text-amber-400 border-amber-500/20"
+            : "bg-emerald-950/40 text-emerald-400 border-emerald-500/20";
+      const stockEl = document.createElement("span");
+      stockEl.className = `font-mono text-[11px] px-2 py-1 rounded-lg border whitespace-nowrap ${stockColor}`;
+      stockEl.textContent = `Stock ${data.stock}`;
+      stockEl.classList.add("cursor-pointer");
+      stockEl.title = "Editar inventario";
+      stockEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        abrirModalEditarProducto(categoriaId, productoId, data, {
+          sec: "sec-inventario",
+          input: "input-prod-stock",
+        });
+      });
+      badges.appendChild(stockEl);
+    }
+    if (hayProd) {
+      const prodEl = document.createElement("span");
+      prodEl.className = "pc-badge-prod";
+      prodEl.textContent = `🏭 Prod. ${data.produccion}`;
+      prodEl.title = `Total: ${(Number(data.stock) || 0) + data.produccion}`;
+      prodEl.classList.add("cursor-pointer");
+      prodEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        abrirModalEditarProducto(categoriaId, productoId, data, {
+          sec: "sec-produccion",
+          input: "input-prod-produccion",
+        });
+      });
+      badges.appendChild(prodEl);
+    }
+    priceRow.appendChild(badges);
   }
 
   let margenEl = null;
@@ -3646,21 +3756,13 @@ function renderProductoCard(categoriaId, productoId, data) {
       : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
   }`;
   agotadoHoyBtn.innerHTML = `<span>🔸</span><span class="pc-agotadohoy-txt">${data.agotadoHoy ? "Agotado hoy" : "Agotar hoy"}</span>`;
-  agotadoHoyBtn.addEventListener("click", async (e) => {
+  agotadoHoyBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    agotadoHoyBtn.disabled = true;
-    try {
-      await updateDoc(doc(productosRef(categoriaId), productoId), {
-        agotadoHoy: !data.agotadoHoy,
-      });
-    } catch (err) {
-      console.error(err);
-      toast("Error al actualizar 'Agotado hoy'.", "error");
-    } finally {
-      agotadoHoyBtn.disabled = false;
-    }
+    abrirModalEditarProducto(categoriaId, productoId, data, {
+      sec: "sec-disponibilidad",
+      input: "input-prod-agotado-hoy",
+    });
   });
-
   const iconBtnBase =
     "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/50";
 
@@ -4163,7 +4265,6 @@ function resaltarBusqueda(q) {
   }
 }
 
-
 /* ---------------- Filtro + métricas ---------------- */
 function aplicarFiltroYMetricas() {
   const q = inputBusqueda.value.trim().toLowerCase();
@@ -4594,17 +4695,14 @@ async function eliminarColeccionCarta(collId) {
 }
 
 document.getElementById("carta-toggle")?.addEventListener("click", () => {
-  const body = document.getElementById("carta-body");
-  body.classList.toggle("open");
-  document.getElementById("carta-chevron").classList.toggle("open");
-  if (body.classList.contains("open") && !cartaAbierta) {
+  openOverlay("overlay-sheet-carta");
+  if (!cartaAbierta) {
     cartaAbierta = true;
     document.getElementById("carta-colecciones-list").innerHTML =
       '<p class="text-purple-300/40 text-xs italic py-2">Cargando…</p>';
     cargarCartaColecciones();
   }
 });
-
 document
   .getElementById("btn-nueva-coleccion")
   ?.addEventListener("click", () => {
@@ -5149,8 +5247,7 @@ document.getElementById("adic-toggle")?.addEventListener("click", () => {
     adicAbierto = true;
     renderAdicionales();
   }
-  document.getElementById("adic-body").classList.toggle("open");
-  document.getElementById("adic-chevron").classList.toggle("open");
+  openOverlay("overlay-sheet-adic");
 });
 document.getElementById("input-adic-foto")?.addEventListener("change", (e) => {
   const f = e.target.files[0];

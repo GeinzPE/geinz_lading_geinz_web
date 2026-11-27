@@ -52,7 +52,6 @@ export function setUbicacion({ pais, departamento, provincia } = {}) {
 
 function buildPath(localidad, ...resto) {
   const { dep, prov } = ubicacionActual();
-  console.log("[rutas] buildPath ->", { dep, prov, localidad, resto });
   return [
     "Tiendas",
     PAIS,

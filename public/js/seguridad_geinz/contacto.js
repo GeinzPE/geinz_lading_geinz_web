@@ -253,12 +253,12 @@ window.addEventListener("load", async () => {
         setDoc(creditosRef, {
           creditos: saldo_restante,
           updatedAt: serverTimestamp(),
-        }, { merge: true }).then(() => console.log("✅ creditos dbPlanes →", saldo_restante)),
+        }, { merge: true }).then(() => void 0),
 
         /* 3️⃣ MAESTRA → Geinz puntos_tienda = saldo_restante */
         setDoc(tiendaGeinzRef, {
           puntos_tienda: saldo_restante,
-        }, { merge: true }).then(() => console.log("✅ puntos_tienda Geinz →", saldo_restante)),
+        }, { merge: true }).then(() => void 0),
 
         /* 4️⃣ Historial */
         setDoc(historialFinancieroRef, {

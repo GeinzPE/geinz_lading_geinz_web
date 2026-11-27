@@ -1360,6 +1360,12 @@
                             placeholder="juan_ventas" autocomplete="off"></div>
                     <div class="field"><label>Contraseña</label><input type="password" id="fPassword" required
                             minlength="4" autocomplete="new-password"></div>
+                    <div class="field">
+                        <label class="perm-chip" for="fEsAdmin">
+                            <input type="checkbox" id="fEsAdmin">
+                            <span>Administrador (acceso total)</span>
+                        </label>
+                    </div>
                     <label>Secciones permitidas</label>
                     <div class="perm-grid" id="permGrid"></div>
                     <button type="submit" class="submit-btn" id="formSubmit">Crear rol</button>

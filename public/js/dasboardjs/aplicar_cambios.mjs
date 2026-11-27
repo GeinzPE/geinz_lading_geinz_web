@@ -266,7 +266,6 @@ const tmp = path.join(path.dirname(file), ".check_carrito.mjs");
 fs.writeFileSync(tmp, src);
 try {
   execFileSync(process.execPath, ["--check", tmp], { stdio: "pipe" });
-  console.log("✅ carrito.js actualizado y sin errores de sintaxis. Backup: carrito.backup.js");
 } catch (e) {
   console.error("⚠️ Error de sintaxis:\n" + e.stderr?.toString());
   process.exitCode = 1;

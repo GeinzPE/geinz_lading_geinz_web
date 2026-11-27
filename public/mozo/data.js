@@ -1516,7 +1516,6 @@ function aplicarPlan(id, o) {
   raices.forEach((r) => dirty.add(r));
   render();
   pintarAsignar();
-  console.log("Plan aplicado:", log);
   $estado.className = "ok";
   $estado.textContent = `Plan "${plan.nombre}" aplicado en pantalla (${cambio}, ${log.length} cambios, secciones: ${[...raices].join(", ")}). Revisa y guarda.`;
   if (

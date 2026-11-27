@@ -2873,7 +2873,7 @@ window.abrirModalRenovacion = () => _renovacion.abrirModal();
 
 window.cerrarModal = () => {
   ModalBack.cerrado("renovacion");
-window.cerrarModal();
+
   _renovacion._planSeleccionado = null;
   const resumenPago = document.getElementById("resumen-pago");
   const btnContinuar = document.getElementById("btn-continuar");

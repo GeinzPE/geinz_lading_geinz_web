@@ -36,30 +36,17 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-
 window.cerrarSesionPanel = async () => {
   const uid = auth.currentUser?.uid;
-  const propietarios = window.PanelPerfil?.currentData?.propietario_id || [];
-  const estaVinculado = uid && propietarios.includes(uid);
 
-  const mensaje = estaVinculado
-    ? "⚠️ ¿Cerrar sesión?\n\nTu cuenta será desvinculada de este negocio.\nLa próxima vez tendrás que ingresar el ID del negocio manualmente."
-    : "⚠️ ¿Cerrar sesión?\n\nLa próxima vez tendrás que ingresar el ID del negocio manualmente para acceder.";
+  const ok = confirm(
+    "⚠️ ¿Salir de este negocio?\n\nTu cuenta será desvinculada de este negocio.\nPodrás volver a ingresar con el ID del negocio desde el login.",
+  );
+  if (!ok) return;
 
-  const confirmar = confirm(mensaje);
-  if (!confirmar) return;
-
-  if (estaVinculado && uid) {
+  if (uid) {
+    // 1) Quitar el negocio del usuario (esto es lo que lee el login)
     try {
-      const tiendaRef = tiendaDoc(
-        window.PanelPerfil.LOCALIDAD_TIENDA,
-        "tiendas",
-        window.PanelPerfil.TIENDA_ID,
-      );
-      await updateDoc(tiendaRef, {
-        propietario_id: arrayRemove(uid),
-      });
-
       const userRef = doc(
         db,
         "Trabajadores_Usuarios_Drivers",
@@ -68,24 +55,40 @@ window.cerrarSesionPanel = async () => {
         uid,
       );
       await updateDoc(userRef, {
-        id_tienda_propietario: deleteField(),
+        tienda_propietario: deleteField(),
+        id_tienda_propietario: deleteField(), // campo viejo, por si quedó
       });
     } catch (e) {
-      console.error("Error desvinculando:", e);
+      console.error("Error quitando tienda_propietario:", e);
+    }
+
+    // 2) Quitar al usuario de los propietarios de la tienda
+    try {
+      const tiendaRef = window.PanelPerfil?.TIENDA_REF;
+      if (tiendaRef) {
+        await updateDoc(tiendaRef, { propietario_id: arrayRemove(uid) });
+      }
+    } catch (e) {
+      console.error("Error quitando propietario_id:", e);
     }
   }
 
-  try {
-    await signOut(auth);
-  } catch (e) {}
-
-  // Limpieza total
-  localStorage.clear();
-  sessionStorage.clear();
-  StorageCleaner.limpiarTodo();
-  window.location.replace("../index");
+  // 3) Limpiar datos del negocio (sin cerrar Firebase)
+  [
+    "tiendaId",
+    "localidad",
+    "departamento",
+    "provincia",
+    "rolActivo",
+    "serviciosActivos",
+    "esPWA",
+  ].forEach((k) => sessionStorage.removeItem(k));
+  ["pwa_tiendaId", "pwa_localidad", "rolActivo_pwa"].forEach((k) =>
+    localStorage.removeItem(k),
+  );
+sessionStorage.setItem("negocioCerrado", "1");
+  window.location.replace("/logindata/login");
 };
-
 // ===== IFRAME RECARGAS: volver / reenviar datos =====
 window._datosParaIframe = null;
 
@@ -337,9 +340,9 @@ function enviarServicios(iframe) {
 }
 
 // Cada iframe que termine de cargar recibe el último plan guardado
-document.querySelectorAll("iframe").forEach((f) =>
-  f.addEventListener("load", () => enviarServicios(f)),
-);
+document
+  .querySelectorAll("iframe")
+  .forEach((f) => f.addEventListener("load", () => enviarServicios(f)));
 
 window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
@@ -393,19 +396,21 @@ window.addEventListener("message", (e) => {
 (function () {
   const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const standalone =
-    matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-let promptInstalar = window.__pwaPrompt || null;
+    matchMedia("(display-mode: standalone)").matches ||
+    navigator.standalone === true;
+  let promptInstalar = window.__pwaPrompt || null;
 
- const estado = () => ({
-  tipo: "PWA_ESTADO",
-  instalable: !!promptInstalar,
-  ios: esIOS && !standalone && !promptInstalar,
-  instalada: standalone,
-});
+  const estado = () => ({
+    tipo: "PWA_ESTADO",
+    instalable: !!promptInstalar,
+    ios: esIOS && !standalone && !promptInstalar,
+    instalada: standalone,
+  });
   const avisar = () => {
     try {
-      document.getElementById("iframeInicio")?.contentWindow
-        ?.postMessage(estado(), window.location.origin);
+      document
+        .getElementById("iframeInicio")
+        ?.contentWindow?.postMessage(estado(), window.location.origin);
     } catch (e) {}
   };
 
@@ -424,10 +429,17 @@ let promptInstalar = window.__pwaPrompt || null;
     const t = sessionStorage.getItem("tiendaId");
     const l = sessionStorage.getItem("localidad");
     if (!t || !l) return;
-    const qs = `id=${encodeURIComponent(t)}&l=${encodeURIComponent(l)}&panel=1&s=${encodeURIComponent(location.pathname)}`;
-    document.getElementById("pwaManifest").href = `/api/manifest?${qs}`;
-    document.getElementById("pwaApple").href =
-      `/api/icon?id=${encodeURIComponent(t)}&l=${encodeURIComponent(l)}&p=1&s=180&v=3`;
+
+    const params = new URLSearchParams(location.search);
+    const dep = params.get("departamento") || "";
+    const prov = params.get("provincia") || "";
+
+    document.getElementById("pwaManifest").href =
+      `/api/manifest?id=${encodeURIComponent(t)}` +
+      `&l=${encodeURIComponent(l)}` +
+      (dep ? `&d=${encodeURIComponent(dep)}` : "") +
+      (prov ? `&pv=${encodeURIComponent(prov)}` : "") +
+      `&panel=1&s=${encodeURIComponent(location.pathname)}`;
   }
   configurarPWA();
 

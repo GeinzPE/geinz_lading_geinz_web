@@ -25,7 +25,7 @@ import { auth, db } from "../db/db.js";
 import { registradoDoc, setUbicacion } from "../rutas/rutas.js";
 
 const TAG = "[auth-popup]";
-const log = (...a) => console.log(TAG, ...a);
+const log = (...a) => void 0;
 const logErr = (...a) => console.error(TAG, ...a);
 const $ = (id) => document.getElementById(id);
 

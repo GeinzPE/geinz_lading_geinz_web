@@ -99,25 +99,20 @@ async function resolverNegocio() {
   const params = new URLSearchParams(window.location.search);
   if (!alias) alias = params.get("alias"); // fallback a links viejos con ?alias=
 
-  console.log("🔍 DEBUG seguimiento.js — URL completa:", window.location.href);
-  console.log("🔍 DEBUG alias recibido:", alias);
 
   if (!alias) {
     const id = params.get("id");
     const localidad = (params.get("localidad") || params.get("l") || "barranca")
       .trim()
       .toLowerCase();
-    console.log("🔍 DEBUG fallback id:", id, "localidad:", localidad);
     if (!id) throw new Error("No se especificó el negocio.");
     return { id, localidad };
   }
 
   const aliasSnap = await getDoc(aliasTiendaDoc(alias));
-  console.log("🔍 DEBUG alias existe en Firestore:", aliasSnap.exists());
   if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
 
   const data = aliasSnap.data();
-  console.log("🔍 DEBUG data del alias:", data);
 
   const { id, localidad } = data;
   if (!id || !localidad) throw new Error("Alias mal configurado.");
@@ -320,8 +315,6 @@ function renderEstado(estadoRaw) {
           notFoundCard.style.display = "block";
         } else {
           const data = snap.docs[0].data();
-          console.log("🔍 DEBUG documento del reclamo:", data);
-          console.log("🔍 DEBUG respuesta_tienda:", data.respuesta_tienda);
           document.getElementById("resultCodigo").textContent =
             data.codigo_seguimiento || codigo;
           renderEstado(data.estado);

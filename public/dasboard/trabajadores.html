@@ -13,110 +13,281 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
     rel="stylesheet">
+  <script src="../js/helper/modal_back.js"></script>
   <script>
     ModalBack.irInicioAlRetroceder("inicio.html");
   </script>
-  <script src="../js/helper/modal_back.js"></script>
   <style>
+    /* ============ TOKENS ============ */
+    :root {
+      --w-bg: #050507;
+      --w-surface: #0e0e12;
+      --w-surface-2: #15151b;
+      --w-field: #121217;
+      --w-line: rgba(255, 255, 255, .07);
+      --w-line-strong: rgba(255, 255, 255, .12);
+      --w-dim: #a1a1aa;
+      --w-acc: #8855ff;
+      --w-acc-soft: rgba(136, 85, 255, .14);
+      --w-ease: cubic-bezier(.32, .72, 0, 1);
+    }
+
     html {
       -webkit-text-size-adjust: 100%;
+      background: var(--w-bg);
     }
 
     body {
-      font-family: 'Inter', sans-serif;
-      background: #000;
+      font-family: 'Inter', system-ui, sans-serif;
       color: #fff;
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: "cv11", "ss01";
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
+      background:
+        radial-gradient(900px 420px at 8% -8%, rgba(136, 85, 255, .12), transparent 60%),
+        radial-gradient(700px 380px at 100% 0%, rgba(136, 85, 255, .06), transparent 55%),
+        var(--w-bg);
+      background-attachment: fixed;
     }
 
     body.lock {
       overflow: hidden;
     }
 
+    ::selection {
+      background: rgba(136, 85, 255, .4);
+      color: #fff;
+    }
+
+    /* Tipografía: todo Inter, números tabulares */
     .font-display {
-      font-family: 'Bricolage Grotesque', sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
+      letter-spacing: -.03em;
+      font-variant-numeric: tabular-nums;
     }
 
     .font-mono {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
     }
 
+    h1.font-display {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    h2.font-display {
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    .uppercase {
+      letter-spacing: .06em !important;
+    }
+
+    /* ============ SCROLLBAR ============ */
     * {
       scrollbar-width: thin;
-      scrollbar-color: #2a2a2a #000;
+      scrollbar-color: #2a2a31 transparent;
     }
 
     ::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
     }
 
     ::-webkit-scrollbar-track {
-      background: #000;
+      background: transparent;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #2a2a2a;
-      border-radius: 5px;
-      border: 2px solid #000;
+      background: #2a2a31;
+      border-radius: 99px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
     }
 
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3d3d46;
+      background-clip: padding-box;
+    }
+
+    /* ============ CABECERA ============ */
+    header.sticky {
+      background: rgba(5, 5, 7, .72) !important;
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid var(--w-line) !important;
+    }
+
+    #btnRefresh {
+      background: var(--w-surface-2) !important;
+      border: 1px solid var(--w-line) !important;
+      border-radius: 14px !important;
+      transition: background .15s, border-color .15s, transform .1s;
+    }
+
+    #btnRefresh:hover {
+      background: #1b1b22 !important;
+      border-color: var(--w-line-strong) !important;
+    }
+
+    #btnAddWorker {
+      background: linear-gradient(135deg, #9a6bff, #7a45f0) !important;
+      border-radius: 14px !important;
+      padding: 10px 18px !important;
+      box-shadow: 0 8px 22px -8px rgba(136, 85, 255, .7) !important;
+    }
+
+    #connDot {
+      box-shadow: 0 0 0 3px rgba(136, 85, 255, .18);
+    }
+
+    /* ============ TARJETAS ============ */
+    main .bg-panel {
+      background: linear-gradient(180deg, #121217 0%, #0d0d11 100%) !important;
+      border: 1px solid var(--w-line) !important;
+      border-radius: 24px !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 12px 30px -18px rgba(0, 0, 0, .8);
+    }
+
+    main .bg-panel .bg-panel {
+      background: var(--w-surface-2) !important;
+      border-radius: 20px !important;
+      box-shadow: none;
+    }
+
+    main .bg-panel2 {
+      background: var(--w-field) !important;
+    }
+
+    main .grid>.bg-panel {
+      padding: 18px !important;
+    }
+
+    main section.bg-panel {
+      padding: 20px !important;
+    }
+
+    main .border-primary\/40 {
+      border-color: rgba(136, 85, 255, .28) !important;
+      background:
+        radial-gradient(120% 140% at 0% 0%, rgba(136, 85, 255, .16), transparent 55%),
+        linear-gradient(180deg, #131219, #0d0d11) !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 16px 40px -22px rgba(136, 85, 255, .55) !important;
+    }
+
+    main p.text-\[11px\] {
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    main p.font-display.text-2xl,
+    main p.font-display.text-3xl {
+      font-weight: 800;
+      letter-spacing: -.04em;
+      line-height: 1.1;
+    }
+
+    main .rounded-xl {
+      border-radius: 16px !important;
+    }
+
+    main .rounded-lg {
+      border-radius: 12px !important;
+    }
+
+    main .rounded-full {
+      border-radius: 999px !important;
+    }
+
+    /* ============ CHIPS ============ */
+    .chip {
+      background: var(--w-field);
+      border: 1px solid var(--w-line);
+      color: #d4d4d8;
+      padding: 8px 16px !important;
+      border-radius: 999px !important;
+      font-weight: 600;
+      transition: background .2s var(--w-ease), color .15s, border-color .15s, box-shadow .2s, transform .1s;
+    }
+
+    .chip:active {
+      transform: scale(.96);
+    }
+
+    .chip.active {
+      background: linear-gradient(135deg, #9a6bff, #7a45f0);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 8px 20px -8px rgba(136, 85, 255, .8);
+    }
+
+    @media (hover: hover) {
+      .chip:hover {
+        border-color: rgba(136, 85, 255, .5);
+        color: #fff;
+      }
+    }
+
+    /* ============ CAMPOS ============ */
     select,
     input {
       color-scheme: dark;
     }
 
-    .chip {
-      transition: border-color .15s ease, color .15s ease, background .15s ease;
-      background: #0D0D0D;
-      border: 1px solid #221B35;
-      color: #CCC;
-    }
-
-    .chip.active {
-      background: #8855FF;
-      color: #fff;
-      border-color: #8855FF;
-      box-shadow: 0 0 12px rgba(136, 85, 255, .4);
-    }
-
-    @media (hover: hover) {
-      .chip:hover {
-        border-color: #8855FF;
-        color: #fff;
-      }
-    }
-
     .field {
       width: 100%;
-      font-size: .875rem;
-      background: #0D0D0D;
+      min-height: 48px;
+      font-size: .9rem;
+      background: var(--w-field);
       color: #fff;
-      border: 1px solid #221B35;
-      border-radius: .6rem;
-      padding: .55rem .7rem;
+      border: 1.5px solid transparent;
+      border-radius: 16px;
+      padding: .7rem 1rem;
       outline: none;
-      transition: border-color .15s ease, box-shadow .15s ease;
+      transition: border-color .15s, box-shadow .15s, background .15s;
     }
 
     .field:focus {
-      border-color: #8855FF;
-      box-shadow: 0 0 0 3px rgba(136, 85, 255, .18);
+      background: #16161c;
+      border-color: var(--w-acc);
+      box-shadow: 0 0 0 4px var(--w-acc-soft);
     }
 
     .field::placeholder {
-      color: #666;
+      color: rgba(255, 255, 255, .3);
+    }
+
+    select.field {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 40px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      cursor: pointer;
     }
 
     input[type="date"].field {
       min-width: 0;
-      min-height: 2.6rem;
       -webkit-appearance: none;
       appearance: none;
     }
 
-    /* en celular, 16px evita el zoom automático de iOS al enfocar */
+    #customRangeBox .field {
+      min-height: 40px;
+      padding: .5rem .85rem !important;
+      border-radius: 14px;
+    }
+
+    #searchWorker {
+      padding-left: 38px !important;
+      min-height: 42px;
+    }
+
     @media (max-width: 640px) {
 
       .field,
@@ -128,27 +299,28 @@
 
     .lbl {
       display: block;
-      font-size: 11px;
-      letter-spacing: .05em;
-      color: #888;
+      font-size: 12px;
+      letter-spacing: .01em;
+      color: var(--w-dim);
       font-weight: 600;
-      margin-bottom: .35rem;
+      margin-bottom: .4rem;
     }
 
+    /* ============ OPCIONES (radio / checkbox) ============ */
     .opt {
       display: flex;
       align-items: center;
-      gap: .5rem;
+      gap: .55rem;
       cursor: pointer;
       user-select: none;
-      background: #0D0D0D;
-      border: 1px solid #221B35;
-      color: #CCC;
-      border-radius: .6rem;
-      padding: .5rem .7rem;
+      background: var(--w-field);
+      border: 1.5px solid transparent;
+      color: #d4d4d8;
+      border-radius: 16px;
+      padding: .65rem .85rem;
       font-size: .8125rem;
-      font-weight: 500;
-      transition: border-color .15s ease, background .15s ease, color .15s ease, transform .1s ease;
+      font-weight: 600;
+      transition: border-color .15s, background .15s, color .15s, transform .1s;
     }
 
     .opt:active {
@@ -156,13 +328,13 @@
     }
 
     .opt:has(input:checked) {
-      border-color: #8855FF;
-      background: rgba(136, 85, 255, .16);
+      border-color: var(--w-acc);
+      background: var(--w-acc-soft);
       color: #fff;
     }
 
     .opt input {
-      accent-color: #8855FF;
+      accent-color: var(--w-acc);
       width: 1rem;
       height: 1rem;
       flex-shrink: 0;
@@ -174,62 +346,125 @@
 
     @media (hover: hover) {
       .opt:hover {
-        border-color: #8855FF;
+        border-color: rgba(136, 85, 255, .5);
         color: #fff;
       }
     }
 
-    /* insignias de estado de pago */
+    /* ============ INSIGNIAS DE ESTADO ============ */
     .badge {
-      padding: .25rem .625rem;
-      border-radius: 9999px;
-      font-size: 11px;
+      padding: .3rem .7rem;
+      border-radius: 999px;
+      font-size: 11.5px;
       font-weight: 700;
       border: 1px solid;
       white-space: nowrap;
     }
 
     .badge-ok {
-      background: rgba(136, 85, 255, .2);
-      border-color: rgba(136, 85, 255, .5);
-      color: #fff;
+      background: rgba(48, 199, 106, .12);
+      border-color: rgba(48, 199, 106, .3);
+      color: #6ee7a0;
     }
 
     .badge-due {
-      background: #fff;
-      border-color: #fff;
-      color: #000;
+      background: rgba(245, 158, 11, .14);
+      border-color: rgba(245, 158, 11, .35);
+      color: #fbbf24;
     }
 
     .badge-late {
-      background: rgba(239, 68, 68, .15);
-      border-color: rgba(239, 68, 68, .5);
-      color: #fca5a5;
+      background: rgba(244, 63, 94, .13);
+      border-color: rgba(244, 63, 94, .35);
+      color: #fda4af;
     }
 
     .badge-wait {
       background: rgba(255, 255, 255, .05);
-      border-color: rgba(255, 255, 255, .15);
-      color: #ccc;
+      border-color: var(--w-line-strong);
+      color: #c4c4cc;
     }
 
+    /* ============ TARJETA DE TRABAJADOR ============ */
     .wcard {
       content-visibility: auto;
       contain-intrinsic-size: auto 430px;
+      transition: border-color .2s, transform .2s var(--w-ease), box-shadow .2s;
     }
 
-    /* ===== textos de ayuda y componentes simples ===== */
+    @media (hover: hover) {
+      .wcard:hover {
+        border-color: rgba(136, 85, 255, .35) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 18px 40px -22px rgba(136, 85, 255, .5), 0 1px 0 rgba(255, 255, 255, .04) inset !important;
+      }
+    }
+
+    .wcard .w-11.h-11 {
+      width: 46px;
+      height: 46px;
+      background: linear-gradient(135deg, rgba(154, 107, 255, .35), rgba(122, 69, 240, .15));
+      border: 1px solid rgba(136, 85, 255, .35);
+      box-shadow: 0 0 0 3px rgba(136, 85, 255, .08);
+    }
+
+    .wcard button[data-act] {
+      min-height: 44px;
+      border-radius: 14px !important;
+      transition: background .15s, border-color .15s, color .15s, transform .1s, filter .15s;
+    }
+
+    .wcard button[data-act="pagos"] {
+      background: linear-gradient(135deg, #9a6bff, #7a45f0) !important;
+      border: 0 !important;
+      box-shadow: 0 10px 24px -10px rgba(136, 85, 255, .8);
+    }
+
+    .wcard button[data-act="pagos"]:hover {
+      filter: brightness(1.1);
+    }
+
+    .wcard button[data-act="asistencia"] {
+      background: var(--w-surface-2) !important;
+    }
+
+    .wcard button[data-act="editar"],
+    .wcard button[data-act="borrar"] {
+      min-height: 38px;
+      background: transparent !important;
+      border-color: var(--w-line) !important;
+    }
+
+    /* bloque "Le debes" */
+    .debt {
+      background: var(--w-field);
+      border: 1px solid var(--w-line);
+      border-radius: 18px;
+      padding: .9rem 1rem;
+      margin-bottom: .75rem;
+    }
+
+    .debt-n {
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+      font-size: 1.7rem;
+      line-height: 1.15;
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ============ AYUDA Y GUÍA ============ */
     .help {
-      font-size: 12px;
+      font-size: 12.5px;
       line-height: 1.55;
-      color: #aaa;
+      color: var(--w-dim);
     }
 
     .guide {
-      background: #050505;
-      border: 1px solid #221B35;
-      border-radius: 1rem;
-      padding: .9rem 1rem;
+      background: linear-gradient(180deg, #111116, #0c0c10);
+      border: 1px solid var(--w-line);
+      border-radius: 22px;
+      padding: 1rem 1.15rem;
     }
 
     .guide summary {
@@ -249,8 +484,8 @@
     .guide summary::after {
       content: "▾";
       margin-left: auto;
-      color: #888;
-      transition: transform .2s;
+      color: var(--w-dim);
+      transition: transform .25s var(--w-ease);
     }
 
     .guide[open] summary::after {
@@ -258,29 +493,28 @@
     }
 
     .guide ol {
-      margin: .8rem 0 0;
+      margin: .9rem 0 0;
       padding: 0;
       list-style: none;
       display: grid;
-      gap: .65rem;
+      gap: .75rem;
     }
 
     .guide li {
       display: flex;
-      gap: .7rem;
+      gap: .75rem;
       font-size: .8125rem;
-      color: #ccc;
-      line-height: 1.5;
+      color: #d4d4d8;
+      line-height: 1.55;
     }
 
     .guide li i {
       font-style: normal;
-      width: 1.5rem;
-      height: 1.5rem;
+      width: 1.6rem;
+      height: 1.6rem;
       border-radius: 50%;
-      background: rgba(136, 85, 255, .2);
-      border: 1px solid rgba(136, 85, 255, .5);
-      color: #fff;
+      background: var(--w-acc-soft);
+      color: #c4b5fd;
       font-weight: 700;
       font-size: .75rem;
       display: flex;
@@ -293,56 +527,61 @@
       color: #fff;
     }
 
+    /* ============ PAGOS (dentro del panel) ============ */
     .pay-hero {
-      background: #0D0D0D;
-      border: 1px solid #221B35;
-      border-radius: 1rem;
-      padding: 1rem;
+      background:
+        radial-gradient(120% 140% at 0% 0%, rgba(136, 85, 255, .14), transparent 60%),
+        var(--w-field);
+      border: 1px solid var(--w-line);
+      border-radius: 22px;
+      padding: 1.15rem;
       text-align: center;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.4rem;
     }
 
     .big-num {
-      font-family: 'Bricolage Grotesque', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-weight: 800;
-      font-size: 2.25rem;
+      font-size: 2.4rem;
       line-height: 1.1;
+      letter-spacing: -.05em;
+      font-variant-numeric: tabular-nums;
     }
 
     .step {
-      font-size: 11px;
-      letter-spacing: .06em;
-      color: #8855FF;
+      font-size: 11.5px;
+      letter-spacing: .07em;
+      color: #a78bfa;
       font-weight: 700;
-      margin: 1.35rem 0 .55rem;
+      margin: 1.5rem 0 .6rem;
     }
 
     .pay-opts {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: .5rem;
-      margin-bottom: .6rem;
+      gap: .55rem;
+      margin-bottom: .7rem;
     }
 
     .pay-opt {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: .25rem;
+      gap: .3rem;
       text-align: left;
-      background: #0D0D0D;
-      border: 1px solid #221B35;
-      border-radius: .8rem;
-      padding: .7rem .75rem;
-      color: #ccc;
+      background: var(--w-field);
+      border: 1.5px solid transparent;
+      border-radius: 18px;
+      padding: .8rem .9rem;
+      color: #d4d4d8;
       font-size: .8125rem;
       font-weight: 600;
-      transition: border-color .15s ease, background .15s ease;
+      transition: border-color .15s, background .15s, transform .1s;
     }
 
     .pay-opt.active {
-      border-color: #8855FF;
-      background: rgba(136, 85, 255, .16);
+      border-color: var(--w-acc);
+      background: var(--w-acc-soft);
       color: #fff;
     }
 
@@ -351,7 +590,14 @@
     }
 
     .pay-ico {
-      font-size: 1.25rem;
+      font-size: 1.3rem;
+    }
+
+    @media (hover: hover) {
+      .pay-opt:hover {
+        border-color: rgba(136, 85, 255, .5);
+        color: #fff;
+      }
     }
 
     .calc-row {
@@ -360,20 +606,21 @@
       gap: .75rem;
       font-size: .8125rem;
       color: #bbb;
-      padding: .3rem 0;
+      padding: .35rem 0;
     }
 
     .calc-row b {
       color: #fff;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Inter', sans-serif;
+      font-variant-numeric: tabular-nums;
       font-weight: 600;
       white-space: nowrap;
     }
 
     .calc-row.total {
-      border-top: 1px solid #221B35;
-      margin-top: .3rem;
-      padding-top: .6rem;
+      border-top: 1px solid var(--w-line);
+      margin-top: .35rem;
+      padding-top: .65rem;
       color: #fff;
       font-weight: 700;
     }
@@ -383,43 +630,22 @@
       justify-content: space-between;
       align-items: center;
       gap: .75rem;
-      background: #0D0D0D;
-      border: 1px solid #221B35;
-      border-radius: .8rem;
-      padding: .65rem .8rem;
+      background: var(--w-field);
+      border: 1px solid var(--w-line);
+      border-radius: 16px;
+      padding: .75rem .9rem;
     }
 
-    .debt {
-      background: #0D0D0D;
-      border: 1px solid #221B35;
-      border-radius: .9rem;
-      padding: .8rem .9rem;
-      margin-bottom: .75rem;
-    }
-
-    .debt-n {
-      font-family: 'Bricolage Grotesque', sans-serif;
-      font-weight: 800;
-      font-size: 1.6rem;
-      line-height: 1.15;
-    }
-
-    @media (hover: hover) {
-      .pay-opt:hover {
-        border-color: #8855FF;
-        color: #fff;
-      }
-    }
-
+    /* ============ ANIMACIONES ============ */
     .card-in {
-      animation: cardIn .4s cubic-bezier(.16, 1, .3, 1) both;
+      animation: cardIn .45s var(--w-ease) both;
       animation-delay: calc(var(--i, 0) * 45ms);
     }
 
     @keyframes cardIn {
       from {
         opacity: 0;
-        transform: translateY(10px) scale(.985);
+        transform: translateY(12px) scale(.985);
       }
 
       to {
@@ -429,50 +655,19 @@
     }
 
     .fade-in {
-      animation: fadeIn .25s ease both;
+      animation: fadeIn .28s var(--w-ease) both;
     }
 
     @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(4px);
+        transform: translateY(6px);
       }
 
       to {
         opacity: 1;
         transform: none;
       }
-    }
-
-    .overlay {
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .25s ease;
-    }
-
-    .overlay.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .sheet {
-      height: 100%;
-      height: 100dvh;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: env(safe-area-inset-bottom);
-      transform: translateX(28px);
-      opacity: 0;
-      transition: transform .32s cubic-bezier(.16, 1, .3, 1), opacity .25s ease;
-    }
-
-    .overlay.open .sheet {
-      transform: none;
-      opacity: 1;
-    }
-
-    #toast {
-      bottom: calc(1.25rem + env(safe-area-inset-bottom));
     }
 
     @keyframes loadingBarSlide {
@@ -493,9 +688,8 @@
       animation: loadingBarSlide 1.1s ease-in-out infinite;
     }
 
-    /* gráficos */
     .seg {
-      animation: segDraw .9s cubic-bezier(.16, 1, .3, 1) both;
+      animation: segDraw .9s var(--w-ease) both;
     }
 
     @keyframes segDraw {
@@ -506,7 +700,7 @@
 
     .grow-x {
       transform-origin: left;
-      animation: growX .7s cubic-bezier(.16, 1, .3, 1) both;
+      animation: growX .7s var(--w-ease) both;
     }
 
     @keyframes growX {
@@ -517,7 +711,7 @@
 
     .grow-y {
       transform-origin: bottom;
-      animation: growY .7s cubic-bezier(.16, 1, .3, 1) both;
+      animation: growY .7s var(--w-ease) both;
       animation-delay: calc(var(--i, 0) * 12ms);
     }
 
@@ -528,7 +722,8 @@
     }
 
     .cal-cell {
-      transition: transform .12s ease, background .15s ease, border-color .15s ease;
+      border-radius: 14px !important;
+      transition: transform .12s, background .15s, border-color .15s;
     }
 
     .cal-cell:active {
@@ -544,12 +739,292 @@
       transition: opacity .25s ease;
     }
 
-    /* =================== SKELETON (oscuro, neutro) =================== */
+    /* ============ PANEL LATERAL ============ */
+    .overlay {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+    }
+
+    .overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #overlay {
+      background: rgba(0, 0, 0, .6) !important;
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+    }
+
+    .sheet {
+      height: 100%;
+      height: 100dvh;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: env(safe-area-inset-bottom);
+      transform: translateX(28px);
+      opacity: 0;
+      transition: transform .34s var(--w-ease), opacity .25s ease;
+      background: linear-gradient(180deg, #121217, #0b0b0f) !important;
+      border: 1px solid var(--w-line-strong) !important;
+      box-shadow: -30px 0 80px rgba(0, 0, 0, .6) !important;
+    }
+
+    .overlay.open .sheet {
+      transform: none;
+      opacity: 1;
+    }
+
+    @media (min-width: 640px) {
+      #overlay {
+        padding: 12px;
+      }
+
+      .sheet {
+        height: 100%;
+        border-radius: 28px;
+      }
+    }
+
+    #overlay {
+      height: 100vh;
+      height: 100dvh;
+    }
+
+    .sheet {
+      display: flex !important;
+      flex-direction: column;
+      overflow: hidden !important;
+      max-height: 100dvh;
+      padding-bottom: 0 !important;
+    }
+
+    .sheet>#panelContent {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 !important;
+    }
+
+    .pc-in {
+      padding: 24px;
+    }
+
+    .sticky-foot {
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+      margin: 20px -24px -24px;
+      padding: 18px 24px calc(14px + env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(11, 11, 15, 0), #0b0b0f 30%);
+    }
+
+    .field {
+      scroll-margin-bottom: 120px;
+    }
+
+    .g2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .5rem;
+    }
+
+    .g4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .4rem;
+    }
+
+    .pick {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: .3rem;
+      min-height: 64px;
+      padding: .6rem .4rem;
+      background: var(--w-field);
+      border: 1.5px solid transparent;
+      border-radius: 16px;
+      color: #d4d4d8;
+      font-size: .8125rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+
+    .pick.sm {
+      min-height: 46px;
+      font-size: .75rem;
+      padding: .5rem .2rem;
+    }
+
+    .pick input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .pick .pi {
+      font-size: 1.3rem;
+      line-height: 1;
+    }
+
+    .pick:active {
+      transform: scale(.97);
+    }
+
+    .pick:has(input:checked) {
+      border-color: var(--w-acc);
+      background: var(--w-acc-soft);
+      color: #fff;
+    }
+
+    .money {
+      position: relative;
+    }
+
+    .money>span {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--w-dim);
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .money .field {
+      padding-left: 46px;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .rol-list {
+      display: grid;
+      gap: .45rem;
+    }
+
+    .rol-row {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: .7rem;
+      min-height: 56px;
+      padding: .6rem .8rem;
+      background: var(--w-field);
+      border: 1.5px solid transparent;
+      border-radius: 16px;
+      cursor: pointer;
+    }
+
+    .rol-row input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .rol-row:has(input:checked) {
+      border-color: var(--w-acc);
+      background: var(--w-acc-soft);
+    }
+
+    .rol-row.off {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .rol-av {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--w-acc-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .rol-tx {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .rol-tx b {
+      font-size: .875rem;
+      color: #fff;
+    }
+
+    .rol-tx small {
+      font-size: 11.5px;
+      color: var(--w-dim);
+    }
+
+    .sheet [data-close] {
+      background: rgba(255, 255, 255, .07) !important;
+      transition: background .15s, transform .1s;
+    }
+
+    .sheet [data-close]:hover {
+      background: rgba(255, 255, 255, .13) !important;
+    }
+
+    .sheet .bg-panel2 {
+      background: var(--w-field) !important;
+    }
+
+    .sheet button.bg-panel2 {
+      border-radius: 14px !important;
+    }
+
+    .sheet .rounded-xl {
+      border-radius: 16px !important;
+    }
+
+    .sheet button.bg-primary,
+    .sheet #btnSaveWorker,
+    .sheet #btnSavePago {
+      border-radius: 16px !important;
+      min-height: 50px;
+      background: linear-gradient(135deg, #9a6bff, #7a45f0) !important;
+      box-shadow: 0 10px 24px -10px rgba(136, 85, 255, .8);
+    }
+
+    .sheet #btnSavePago:disabled,
+    .sheet #btnSaveWorker:disabled {
+      opacity: .6;
+    }
+
+    .sheet .bg-primary\/10 {
+      border-radius: 18px !important;
+    }
+
+    /* ============ TOAST ============ */
+    #toast {
+      bottom: calc(1.25rem + env(safe-area-inset-bottom));
+      background: rgba(24, 24, 30, .92) !important;
+      border: 1px solid var(--w-line-strong);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      border-radius: 16px !important;
+      padding: 12px 20px !important;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, .6) !important;
+    }
+
+    /* ============ SKELETON ============ */
     #loadingScreen {
       position: fixed;
       inset: 0;
       z-index: 60;
-      background: #000;
+      background: var(--w-bg);
       overflow: hidden;
       transition: opacity .3s ease;
     }
@@ -574,8 +1049,8 @@
       display: block;
       position: relative;
       overflow: hidden;
-      background: #111113;
-      border-radius: 6px;
+      background: #111116;
+      border-radius: 10px;
     }
 
     .sk::after {
@@ -594,10 +1069,10 @@
     }
 
     .sk-card {
-      background: #060607;
-      border: 1px solid #161618;
-      border-radius: 14px;
-      padding: 14px;
+      background: #09090c;
+      border: 1px solid var(--w-line);
+      border-radius: 24px;
+      padding: 16px;
     }
 
     .sk-head {
@@ -606,7 +1081,7 @@
       justify-content: space-between;
       gap: 12px;
       padding-bottom: 14px;
-      border-bottom: 1px solid #131315;
+      border-bottom: 1px solid var(--w-line);
     }
 
     .sk-col {
@@ -655,7 +1130,7 @@
 
     .sk-bars .sk {
       flex: 1;
-      border-radius: 3px 3px 0 0;
+      border-radius: 4px 4px 0 0;
     }
 
     .sk-circle {
@@ -689,6 +1164,17 @@
     @media (min-width: 1280px) {
       .sk-cards {
         grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      main {
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+      }
+
+      main .bg-panel {
+        border-radius: 22px !important;
       }
     }
 
@@ -1030,6 +1516,7 @@
 
     /* ------------------------------ Utilidades ------------------------------ */
     const $ = (id) => document.getElementById(id);
+    const radioVal = (n) => document.querySelector(`input[name="${n}"]:checked`)?.value;
     const pad = (n) => String(n).padStart(2, "0");
     const ymd = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
     const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -1084,7 +1571,7 @@
     let localidad = sessionStorage.getItem("localidad");
 
     const state = {
-      workers: [], mozos: [], pedidos: [], pedidosVer: 0, range: "mes",
+      workers: [], mozos: [], roles: [], pedidos: [], pedidosVer: 0, range: "mes",
       workersReady: false, pedidosReady: false, search: "", anim: true,
     };
     let started = false;
@@ -1340,6 +1827,14 @@
         state.mozos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         actualizar();
       }, (err) => console.warn("mozos:", err));
+    }
+    function escucharRoles() {
+      onSnapshot(tiendaSubCol(localidad, "tiendas", tiendaId, "roles"), (snap) => {
+        state.roles = snap.docs.map((d) => {
+          const x = d.data();
+          return { id: d.id, nombre: x.nombre, usuario: x.usuario, esAdmin: !!x.esAdmin, activo: x.activo, creadoEn: x.creadoEn };
+        }).sort((a, b) => (b.esAdmin - a.esAdmin) || (a.nombre || "").localeCompare(b.nombre || "", "es"));
+      }, (err) => console.warn("roles:", err));
     }
     function setConn(text, ok) {
       $("connText").textContent = text;
@@ -1690,7 +2185,8 @@
     /* ------------------------------ Panel lateral ------------------------------ */
     function abrirPanel(html, meta) {
       panel = meta;
-      $("panelContent").innerHTML = html;
+  $("panelContent").innerHTML = `<div class="pc-in">${html}</div>`;
+      $("panelContent").scrollTop = 0;
       document.body.classList.add("lock");
       requestAnimationFrame(() => $("overlay").classList.add("open"));
       window.ModalBack?.abrir("panel", cerrarPanel);        // ← NUEVO
@@ -1708,14 +2204,25 @@
     }
     const closeBtn = `<button data-close class="w-8 h-8 rounded-full bg-panel2 hover:bg-line flex items-center justify-center text-lg text-white shrink-0 active:scale-90 transition">✕</button>`;
 
-    /* ---------- Formulario trabajador ---------- */
     function abrirForm(id) {
       const w = id ? state.workers.find((x) => x.id === id) : null;
       const v = w || { tipoDoc: "DNI", frecuencia: "semanal", diasPeriodo: 6, metodoPago: "Efectivo", diasTrabajo: [1, 2, 3, 4, 5, 6], modoDias: "auto", fechaIngreso: iso(new Date()) };
       const diasSel = diasTrabajoDe(v);
       const modo = w ? (w.modoDias || "manual") : "auto";
       const tipoDoc = v.tipoDoc === "CE" ? "CE" : "DNI";
-      const opt = (obj, sel) => Object.keys(obj).map((k) => `<option value="${k}" ${String(sel) === k ? "selected" : ""}>${k}</option>`).join("");
+      const usados = new Set(state.workers.map((x) => x.rolId).filter(Boolean));
+      const rolesOk = state.roles.filter((r) => r.activo !== false);
+      const rolPicker = w
+        ? (w.rolId ? `<p class="help">🔗 Vinculado a una cuenta del panel.</p>` : "")
+        : (rolesOk.length ? `
+          <div>
+            <label class="lbl">¿Quién es?</label>
+            <div class="rol-list">
+              <label class="rol-row"><input type="radio" name="fRol" value="" checked><span class="rol-av">✍️</span><span class="rol-tx"><b>Otra persona</b><small>Escribo el nombre yo mismo</small></span></label>
+              ${rolesOk.map((r) => { const u = usados.has(r.id); return `<label class="rol-row ${u ? "off" : ""}"><input type="radio" name="fRol" value="${esc(r.id)}" ${u ? "disabled" : ""}><span class="rol-av">${esc((r.nombre || "?").charAt(0).toUpperCase())}</span><span class="rol-tx"><b>${esc(r.nombre)}</b><small>@${esc(r.usuario)} · ${r.esAdmin ? "Administrador" : "Rol del panel"}${u ? " · ya es trabajador" : ""}</small></span></label>`; }).join("")}
+            </div>
+            <p class="help" style="margin-top:.4rem">Elige una cuenta para autocompletar sus datos. Si ya está registrada, escribe un nombre normal.</p>
+          </div>` : "");
       const html = `
         <div class="flex justify-between items-start mb-5 gap-3">
           <div>
@@ -1726,6 +2233,7 @@
         </div>
 
         <div class="space-y-4">
+          ${rolPicker}
           <div><label class="lbl">Nombre completo</label><input id="fNombre" class="field" value="${esc(v.nombre)}" placeholder="Ej. Juan Pérez"></div>
           <div class="grid grid-cols-2 gap-3">
             <div class="col-span-2">
@@ -1743,15 +2251,18 @@
             <div><label class="lbl">Fecha de ingreso</label><input id="fIngreso" type="date" class="field font-mono" value="${esc(v.fechaIngreso)}"></div>
           </div>
 
-          <div class="border-t border-line pt-4 grid grid-cols-2 gap-3">
-            <div><label class="lbl">¿Cómo le pagas?</label><select id="fMetodo" class="field">${opt(METODOS, v.metodoPago)}</select></div>
-            <div><label class="lbl">¿Cada cuánto le pagas?</label>
-              <select id="fFrec" class="field">
-                ${["diario", "semanal", "quincenal", "mensual"].map((f) => `<option value="${f}" ${v.frecuencia === f ? "selected" : ""}>${f[0].toUpperCase() + f.slice(1)}</option>`).join("")}
-              </select>
-            </div>
+          <div class="border-t border-line pt-4">
+            <label class="lbl">¿Cómo le pagas?</label>
+            <div class="g2">${Object.entries(METODOS).map(([k, ico]) => `<label class="pick"><input type="radio" name="fMetodo" value="${k}" ${(v.metodoPago || "Efectivo") === k ? "checked" : ""}><span class="pi">${ico}</span><span>${k}</span></label>`).join("")}</div>
           </div>
-          <div><label class="lbl">¿Cuánto le vas a pagar cada vez? (S/)</label><input id="fMonto" type="number" inputmode="decimal" min="0" step="0.5" class="field font-mono" value="${v.monto ?? ""}" placeholder="0.00"></div>
+          <div>
+            <label class="lbl">¿Cada cuánto le pagas?</label>
+            <div class="g4">${["diario", "semanal", "quincenal", "mensual"].map((f) => `<label class="pick sm"><input type="radio" name="fFrec" value="${f}" ${v.frecuencia === f ? "checked" : ""}><span>${f[0].toUpperCase() + f.slice(1)}</span></label>`).join("")}</div>
+          </div>
+          <div>
+            <label class="lbl">¿Cuánto le vas a pagar cada vez?</label>
+            <div class="money"><span>S/</span><input id="fMonto" type="number" inputmode="decimal" min="0" step="0.5" class="field font-mono" value="${v.monto ?? ""}" placeholder="0.00"></div>
+          </div>
 
           <div>
             <label class="lbl">¿Qué días trabaja? (los que no marques son su descanso)</label>
@@ -1771,16 +2282,15 @@
           </div>
 
           <div class="bg-primary/10 border border-primary/30 rounded-xl px-3.5 py-3 text-sm text-white" id="fTarifaInfo"></div>
-
-          <button id="btnSaveWorker" data-id="${w ? w.id : ""}" class="w-full bg-primary text-white font-semibold text-sm py-3 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">💾 Guardar trabajador</button>
-        </div>`;
+        </div>
+        <div class="sticky-foot"><button id="btnSaveWorker" data-id="${w ? w.id : ""}" class="w-full bg-primary text-white font-semibold text-sm py-3 rounded-xl hover:brightness-110 active:scale-95 transition">💾 Guardar trabajador</button></div>`;
       abrirPanel(html, { tipo: "form", id: id || null });
 
       const getDias = () => [...document.querySelectorAll(".fDia:checked")].map((x) => Number(x.value));
       const getModo = () => document.querySelector('input[name="fModo"]:checked').value;
       const info = () => {
         const sel = getDias();
-        const frec = $("fFrec").value;
+        const frec = radioVal("fFrec") || "semanal";
         const auto = diasPeriodoAuto(frec, sel.length);
         const tipo = document.querySelector('input[name="fTipoDoc"]:checked').value;
         $("fDniLbl").textContent = tipo === "DNI" ? "N.º de DNI (8 dígitos)" : "N.º de carné (9 a 12 caracteres)";
@@ -1806,23 +2316,41 @@
              ⏳ Su primer pago será el <b>${primer}</b>`
           : "Escribe cuánto le vas a pagar y aquí te explico cómo se calcula.";
       };
-      document.querySelectorAll(".fDia, input[name='fModo'], input[name='fTipoDoc']").forEach((el) => el.addEventListener("change", info));
-      $("fFrec").addEventListener("change", info);
+      document.querySelectorAll(".fDia, input[name='fModo'], input[name='fTipoDoc'], input[name='fFrec']").forEach((el) => el.addEventListener("change", info));
+      let auto = null;
+      document.querySelectorAll("input[name='fRol']").forEach((el) => el.addEventListener("change", () => {
+        if (auto) {
+          if ($("fNombre").value === auto.nombre) $("fNombre").value = "";
+          if (auto.cargo && $("fCargo").value === auto.cargo) $("fCargo").value = "";
+          if ($("fIngreso").value === auto.ingreso) $("fIngreso").value = iso(new Date());
+          auto = null;
+        }
+        const r = state.roles.find((x) => x.id === el.value);
+        if (r) {
+          const d = toDate(r.creadoEn);
+          const cargo = !$("fCargo").value && r.esAdmin ? "Administrador" : null;
+          auto = { nombre: r.nombre || "", cargo, ingreso: d ? iso(d) : iso(new Date()) };
+          $("fNombre").value = auto.nombre;
+          if (cargo) $("fCargo").value = cargo;
+          $("fIngreso").value = auto.ingreso;
+        }
+        info();
+      }));
       $("fMonto").addEventListener("input", info);
       $("fDias").addEventListener("input", info);
       $("fIngreso").addEventListener("change", info);
       info();
     }
-
     async function guardarTrabajador(id) {
       const nombre = $("fNombre").value.trim();
       const tipoDoc = document.querySelector('input[name="fTipoDoc"]:checked').value;
       const dni = $("fDni").value.trim().toUpperCase();
       const monto = Number($("fMonto").value);
+      const frecuencia = radioVal("fFrec") || "semanal";
       const diasTrabajo = [...document.querySelectorAll(".fDia:checked")].map((x) => Number(x.value));
       const modoDias = document.querySelector('input[name="fModo"]:checked').value;
       const dias = modoDias === "auto"
-        ? diasPeriodoAuto($("fFrec").value, diasTrabajo.length)
+        ? diasPeriodoAuto(frecuencia, diasTrabajo.length)
         : Math.max(1, Number($("fDias").value) || 1);
       if (!nombre) return showToast("Escribe el nombre del trabajador");
       if (tipoDoc === "DNI" && !/^\d{8}$/.test(dni)) return showToast("El DNI debe tener 8 dígitos");
@@ -1837,11 +2365,17 @@
         cargo: $("fCargo").value.trim(),
         telefono: $("fTel").value.trim(),
         fechaIngreso: $("fIngreso").value || iso(new Date()),
-        metodoPago: $("fMetodo").value,
-        frecuencia: $("fFrec").value,
+        metodoPago: radioVal("fMetodo") || "Efectivo",
+        frecuencia,
         monto, diasPeriodo: dias,
       };
-      // fecha del próximo pago guardada en el documento
+      if (!id) {
+        const rid = radioVal("fRol");
+        if (rid) {
+          if (state.workers.some((x) => x.rolId === rid)) return showToast("Esa cuenta ya está registrada como trabajador");
+          data.rolId = rid;
+        }
+      }
       data.proximoPago = iso(cicloInfo({ ...(base || {}), ...data }, base ? base.pagos : {}).vence);
 
       const btn = $("btnSaveWorker");
@@ -1862,7 +2396,6 @@
         showToast("No se pudo guardar. Revisa los permisos de Firestore.");
       }
     }
-
     async function eliminarTrabajador(id) {
       const w = state.workers.find((x) => x.id === id);
       if (!w) return;
@@ -2278,6 +2811,7 @@
       started = true;
       escucharTrabajadores();
       escucharMozos();
+      escucharRoles();
       cargarPedidos();
     }
 

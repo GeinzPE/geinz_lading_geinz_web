@@ -40,7 +40,6 @@ export async function registrarTokenWeb(uid) {
     vapidKey: VAPID_KEY,
     serviceWorkerRegistration: registration,
   });
-  console.log("TOKEN GENERADO:", token);
 
   if (!token) return null;
 

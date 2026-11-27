@@ -57,28 +57,20 @@ async function resolverNegocio(pathPrefix, seccion) {
   const params = new URLSearchParams(window.location.search);
   if (!alias) alias = params.get("alias"); // fallback a links viejos con ?alias=
 
-  console.log(
-    "🔍 DEBUG legal-text-core.js — URL completa:",
-    window.location.href,
-  );
-  console.log("🔍 DEBUG alias recibido:", alias);
 
   if (!alias) {
     const id = params.get("id");
     const localidad = (params.get("localidad") || params.get("l") || "barranca")
       .trim()
       .toLowerCase();
-    console.log("🔍 DEBUG fallback id:", id, "localidad:", localidad);
     if (!id) throw new Error("No se especificó el negocio.");
     return { id, localidad };
   }
 
   const aliasSnap = await getDoc(aliasTiendaDoc(alias));
-  console.log("🔍 DEBUG alias existe en Firestore:", aliasSnap.exists());
   if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
 
   const data = aliasSnap.data();
-  console.log("🔍 DEBUG data del alias:", data);
 
   const { id, localidad } = data;
   if (!id || !localidad) throw new Error("Alias mal configurado.");

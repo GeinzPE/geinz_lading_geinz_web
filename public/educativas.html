@@ -2550,9 +2550,6 @@ ${buildJsonRulesBlock(tech, items.length)}
 
                 const cleaned = out.trim();
                 if (cleaned !== original) {
-                    console.log('%c[SANITIZE] limpió algo:', 'color:#F5B942;font-weight:bold',
-                        { antes: original, despues: cleaned }
-                    );
                 }
                 return cleaned;
             }
@@ -2578,7 +2575,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const result = { ok: issues.length === 0, issues };
 
                 if (!result.ok) {
-                    console.log('%c[VALIDATE] código sospechoso:', 'color:#ef4444;font-weight:bold', { code, issues: result.issues });
                 }
 
                 return result;
@@ -2859,14 +2855,9 @@ ${buildJsonRulesBlock(tech, items.length)}
                     const userPrompt = buildUserPrompt();
                     const result = api === 'gemini' ? await callGemini(key, systemPrompt, userPrompt) : await callOpenAI(key, systemPrompt, userPrompt);
 
-                    console.log('%c[RAW IA RESPONSE]', 'color:#22D3EE;font-weight:bold', result.text);
 
                     const json = safeParseJson(result.text);
 
-                    console.log('%c[PARSED JSON codigo fields]', 'color:#A78BFA;font-weight:bold',
-                        json.content_slides?.map(s => s.codigo),
-                        json.reto?.codigo
-                    );
                     if (state.temarioMode === 'libre') {
                         const aiItems = Array.isArray(json.content_slides) ? json.content_slides.map((s) => s.titulo || 'Punto') : [];
                         state.temarioItems = aiItems.length ? aiItems : ['Contenido'];
@@ -3045,7 +3036,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const codeWrap = document.getElementById('typingCodeEl');
                 if (!codeWrap || !code) return;
                 code = sanitizeCodeSnippet(code); // red de seguridad final
-                console.log('%c[INSTANT] código recibido:', 'color:#34D399;font-weight:bold', code);
                 _typingToken++;
                 const lines = code.split('\n');
                 codeWrap.innerHTML = lines.map((line) =>
@@ -3095,7 +3085,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const codeWrap = document.getElementById('typingCodeEl');
                 if (!codeWrap) return;
                 fullCode = sanitizeCodeSnippet(fullCode); // red de seguridad final
-                console.log('%c[TYPING] código recibido para tipear:', 'color:#34D399;font-weight:bold', fullCode);
                 const myToken = ++_typingToken;
                 const lines = fullCode.split('\n');
                 codeWrap.innerHTML = lines.map((_, li) =>

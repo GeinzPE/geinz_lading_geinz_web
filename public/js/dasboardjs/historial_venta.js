@@ -1,5 +1,4 @@
 import {
-  collection,
   query,
   where,
   orderBy,
@@ -9,18 +8,74 @@ import {
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import { tiendaSubCol } from "../rutas/rutas.js";
+import { tiendaSubCol, tiendaSubDoc } from "../rutas/rutas.js";
 import {
   prepararCfgComprobante,
   imprimirComprobante,
   registrarComprobante,
 } from "./comprobantes.js";
+
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
 
-/* ---------------- Librerías de exportación (carga bajo demanda) ----------------
-   xlsx + jsPDF + autotable pesan ~1 MB. Antes se cargaban en el <head> y bloqueaban
-   el primer pintado. Ahora se descargan solo la primera vez que se usa Exportar. */
+/* ---------------- Utilidades básicas (se usan en todo el archivo) ---------------- */
+function escHtml(s) {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+}
+const $id = (id) => document.getElementById(id);
+
+/* ---------------- Permisos según el rol (sesión creada en inicio.js) ---------------- */
+function leerEsAdmin() {
+  try {
+    const raw =
+      sessionStorage.getItem("rolActivo") ||
+      localStorage.getItem("rolActivo_pwa");
+    return !!(raw && JSON.parse(raw).esAdmin);
+  } catch (e) {
+    return false; // si no se puede leer el rol, se muestra la vista limitada
+  }
+}
+const esAdmin = leerEsAdmin();
+
+// Si NO es admin, deja solo lo necesario para cuadrar la caja
+function vistaCajero() {
+  if (esAdmin) return;
+  const ocultar = (el) =>
+    el && el.style.setProperty("display", "none", "important");
+
+  ["btnCostConfig", "exportDropdownWrap"].forEach((id) => ocultar($id(id)));
+  ["kpiTicket", "kpiItems", "kpiVentaNeta", "kpiTicketNeto"].forEach((id) =>
+    ocultar($id(id)?.parentElement),
+  );
+  ["origenTopLabel", "topProductoNombre", "kpiIngresos"].forEach((id) =>
+    ocultar($id(id)?.closest("section")),
+  );
+  ["btnCostConfig", "exportDropdownWrap", "btnVista"].forEach((id) => ocultar($id(id)));
+  ["filterOrigen", "filterComprobante"].forEach((id) =>
+    ocultar($id(id)?.parentElement),
+  );
+  ["semana", "mes", "custom"].forEach((r) =>
+    ocultar(document.querySelector(`[data-range="${r}"]`)),
+  );
+  const gridTop = $id("kpiTotal")?.parentElement.parentElement;
+  if (gridTop) gridTop.style.gridTemplateColumns = "repeat(2, minmax(0, 1fr))";
+  const gridDeli = $id("kpiDeliveryTotal")?.parentElement.parentElement;
+  if (gridDeli) gridDeli.style.gridTemplateColumns = "1fr";
+}
+vistaCajero();
+
+// Si cambian de usuario (cerrar rol / entrar otro), se recarga con sus permisos
+window.addEventListener("storage", () => {
+  if (leerEsAdmin() !== esAdmin) location.reload();
+});
+
+/* ---------------- Librerías de exportación (carga bajo demanda) ---------------- */
 const XLSX_URL =
   "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
 const JSPDF_URL =
@@ -49,7 +104,6 @@ async function cargarLibExcel() {
 }
 async function cargarLibPDF() {
   if (!window.jspdf) await cargarScript(JSPDF_URL);
-  // autotable se engancha a jsPDF, por eso va después
   if (!(window.jspdf && window.jspdf.jsPDF.API.autoTable))
     await cargarScript(AUTOTABLE_URL);
 }
@@ -70,26 +124,23 @@ let esRestaurante =
 
 const TEXTOS_RESTAURANTE = {
   itemsVendidosLabel: "Productos vendidos",
-  topProductoLabel: "🏆 Productos más vendido",
+  topProductoLabel: "🏆 Producto más vendido",
   gananciaProductoLabel: "Ganancia por producto",
   emptyStateIcon: "🍽️",
 };
-
 const TEXTOS_GENERAL = {
   itemsVendidosLabel: "Productos vendidos",
   topProductoLabel: "🏆 Producto más vendido",
   gananciaProductoLabel: "Ganancia por producto",
   emptyStateIcon: "📦",
 };
-
 function textosActuales() {
   return esRestaurante ? TEXTOS_RESTAURANTE : TEXTOS_GENERAL;
 }
-
 function aplicarTextosPorCategoria() {
   const t = textosActuales();
   const setText = (id, value) => {
-    const el = document.getElementById(id);
+    const el = $id(id);
     if (el) el.textContent = value;
   };
   setText("labelItemsVendidos", t.itemsVendidosLabel);
@@ -99,11 +150,10 @@ function aplicarTextosPorCategoria() {
 }
 aplicarTextosPorCategoria();
 
-/* Red de seguridad: si por cualquier motivo no llegan los datos de la tienda
-   (o Firestore no responde), el skeleton no se queda pegado para siempre. */
+/* Red de seguridad: si no llegan los datos de la tienda, el skeleton no se queda pegado */
 const LOADER_TIMEOUT_MS = 15000;
 setTimeout(() => {
-  const ls = document.getElementById("loadingScreen");
+  const ls = $id("loadingScreen");
   if (ls && ls.style.display !== "none") {
     ocultarLoader();
     if (!tiendaId || !localidad) {
@@ -114,6 +164,7 @@ setTimeout(() => {
 
 if (!tiendaId || !localidad) {
   window.addEventListener("message", (e) => {
+    if (e.origin !== window.location.origin) return;
     if (e.data?.tipo !== "DATOS_TIENDA") return;
     tiendaId = e.data.tiendaId;
     localidad = e.data.localidad;
@@ -122,9 +173,7 @@ if (!tiendaId || !localidad) {
       esRestaurante =
         normalizarCategoria(categoriaTienda) === "comida y restaurantes";
     }
-    if (e.data.nombreTienda) {
-      nombreTienda = e.data.nombreTienda;
-    }
+    if (e.data.nombreTienda) nombreTienda = e.data.nombreTienda;
     aplicarTextosPorCategoria();
     listenPedidos();
   });
@@ -135,11 +184,9 @@ let currentRange = "hoy";
 let currentOrder = null;
 
 function setConnStatus(text, ok) {
-  const el = document.getElementById("connStatus");
-  const dot = document.getElementById("connDot");
-  if (el && el.lastChild) {
-    el.lastChild.textContent = " " + text;
-  }
+  const el = $id("connStatus");
+  const dot = $id("connDot");
+  if (el && el.lastChild) el.lastChild.textContent = " " + text;
   if (dot) {
     dot.className =
       "w-2 h-2 rounded-full " +
@@ -155,43 +202,33 @@ let unsubscribePedidos = null;
 let reqId = 0; // descarta respuestas viejas si el usuario cambia de rango rápido
 
 function ocultarLoader() {
-  const loadingScreen = document.getElementById("loadingScreen");
+  const loadingScreen = $id("loadingScreen");
   if (!loadingScreen || loadingScreen.dataset.cerrado === "1") return;
   loadingScreen.dataset.cerrado = "1";
   loadingScreen.style.transition = "opacity 0.3s ease";
   loadingScreen.style.opacity = "0";
   loadingScreen.style.pointerEvents = "none";
-  // display:none explícito (no depende de que la clase "hidden" gane sobre "flex")
   setTimeout(() => {
     loadingScreen.style.display = "none";
   }, 300);
 }
 
 function mostrarCargaRango() {
-  const bar = document.getElementById("rangeLoadingBar");
-  if (bar) bar.classList.remove("hidden");
-  const metricsWrap = document.getElementById("metricsSections");
-  if (metricsWrap)
-    metricsWrap.classList.add("opacity-40", "pointer-events-none");
+  $id("rangeLoadingBar")?.classList.remove("hidden");
+  $id("metricsSections")?.classList.add("opacity-40", "pointer-events-none");
   mostrarSkeletonLista();
 }
-
 function ocultarCargaRango() {
-  const bar = document.getElementById("rangeLoadingBar");
-  if (bar) bar.classList.add("hidden");
-  const metricsWrap = document.getElementById("metricsSections");
-  if (metricsWrap)
-    metricsWrap.classList.remove("opacity-40", "pointer-events-none");
+  $id("rangeLoadingBar")?.classList.add("hidden");
+  $id("metricsSections")?.classList.remove("opacity-40", "pointer-events-none");
 }
 
 function mostrarSkeletonLista() {
-  const tbody = document.getElementById("tableBody");
-  const cards = document.getElementById("cardsBody");
-  const empty = document.getElementById("emptyState");
-  const resultCount = document.getElementById("resultCount");
-  const loadMore = document.getElementById("loadMoreWrap");
-  if (empty) empty.classList.add("hidden");
-  if (loadMore) loadMore.classList.add("hidden");
+  const tbody = $id("tableBody");
+  const cards = $id("cardsBody");
+  $id("emptyState")?.classList.add("hidden");
+  $id("loadMoreWrap")?.classList.add("hidden");
+  const resultCount = $id("resultCount");
   if (resultCount) resultCount.textContent = "";
 
   if (tbody) {
@@ -226,8 +263,243 @@ function mostrarSkeletonLista() {
   }
 }
 
-// Trae SOLO los pedidos dentro del rango de fecha seleccionado — nunca 2000 al azar
+/* ---------------- Turnos (los configura el admin en Caja y Gastos) ---------------- */
+const TURNO_MARGEN_MS = 7 * 24 * 60 * 60 * 1000; // cajas abiertas antes del rango
+let cfgCaja = null;
+let turnos = [];
+let turnosEstado = "cargando"; // "cargando" | "ok" | "error"
+let turnoSel = "todos"; // "todos" | "fuera" | "t:<nombre>"
+let unsubCfgCaja = null;
+let unsubTurnos = null;
+
+function usaTurnos() {
+  if (cfgCaja) {
+    return !!(
+      cfgCaja.usaTurnos &&
+      Array.isArray(cfgCaja.turnos) &&
+      cfgCaja.turnos.length
+    );
+  }
+  return turnos.length > 0;
+}
+function repintarSiListo() {
+  const bar = $id("rangeLoadingBar");
+  if (!bar || bar.classList.contains("hidden")) renderAll();
+}
+
+function escucharConfigCaja() {
+  if (unsubCfgCaja) return;
+  unsubCfgCaja = onSnapshot(
+    tiendaSubDoc(localidad, "tiendas", tiendaId, "config", "caja"),
+    (d) => {
+      cfgCaja = d.exists() ? d.data() : null;
+      pintarChipsTurno();
+      repintarSiListo();
+    },
+    (e) => {
+      console.warn("No se pudo leer la configuración de turnos", e);
+      cfgCaja = null;
+      pintarChipsTurno();
+      repintarSiListo();
+    },
+  );
+}
+
+function escucharTurnos(from, to) {
+  if (unsubTurnos) unsubTurnos();
+  turnos = [];
+  turnosEstado = "cargando";
+  const col = tiendaSubCol(localidad, "tiendas", tiendaId, "turnos");
+  unsubTurnos = onSnapshot(
+    query(
+      col,
+      where("abiertoMs", ">=", from.getTime() - TURNO_MARGEN_MS),
+      where("abiertoMs", "<=", to.getTime()),
+    ),
+    (snap) => {
+      turnos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      turnosEstado = "ok";
+      pintarChipsTurno();
+      repintarSiListo();
+    },
+    (e) => {
+      console.warn("No se pudieron leer los turnos", e);
+      turnosEstado = "error";
+      pintarChipsTurno();
+      showToast("No se pudieron leer los turnos.");
+      repintarSiListo();
+    },
+  );
+}
+
+const finDeTurno = (t) =>
+  t.estado === "abierto" ? Infinity : Number(t.cerradoMs) || 0;
+
+function turnoDePedido(p) {
+  const ms = fechaEfectiva(p)?.getTime();
+  if (!ms) return null;
+  return turnos.find((t) => ms >= t.abiertoMs && ms <= finDeTurno(t)) || null;
+}
+
+function pasaFiltroTurno(p) {
+  if (turnoSel === "todos") return true;
+  if (turnosEstado !== "ok") return false;
+  const t = turnoDePedido(p);
+  if (turnoSel === "fuera") return !t;
+  return !!t && "t:" + t.nombre === turnoSel;
+}
+
+function textoTurnoSel() {
+  if (turnoSel === "todos") return "";
+  return turnoSel === "fuera" ? "Fuera de turno" : "Turno " + turnoSel.slice(2);
+}
+
+function turnosElegidos() {
+  const [from, to] = getRangeBounds();
+  return turnos
+    .filter(
+      (t) =>
+        "t:" + t.nombre === turnoSel &&
+        t.abiertoMs <= to.getTime() &&
+        (t.estado === "abierto" || finDeTurno(t) >= from.getTime()),
+    )
+    .sort((a, b) => a.abiertoMs - b.abiertoMs);
+}
+
+function pintarChipsTurno() {
+  const box = $id("turnoFiltro");
+  const chips = $id("turnoChips");
+  if (!box || !chips) return;
+  if (!usaTurnos()) {
+    turnoSel = "todos";
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+
+  const nombres = [
+    ...new Set(
+      [...(Array.isArray(cfgCaja?.turnos) ? cfgCaja.turnos : []), ...turnos]
+        .map((t) => (typeof t === "string" ? t : t.nombre))
+        .filter(Boolean),
+    ),
+  ];
+  const opciones = [
+    ["todos", "Todos"],
+    ...nombres.map((n) => ["t:" + n, n]),
+    ["fuera", "Fuera de turno"],
+  ];
+  if (turnosEstado === "ok" && !opciones.some(([v]) => v === turnoSel))
+    turnoSel = "todos";
+
+  chips.innerHTML = opciones
+    .map(
+      ([v, label]) =>
+        `<button type="button" data-turno="${escHtml(v)}" class="chip ${v === turnoSel ? "active" : ""} px-3 py-1.5 rounded-full text-sm font-medium">${escHtml(label)}</button>`,
+    )
+    .join("");
+  pintarInfoTurno();
+  pintarAvisoTurnos();
+}
+
+const fmtHoraMs = (ms) =>
+  new Date(ms).toLocaleTimeString("es-PE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+function pintarInfoTurno() {
+  const el = $id("turnoInfo");
+  if (!el) return;
+  const dia = (ms) =>
+    new Date(ms).toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "short",
+    });
+  let txt = "";
+  if (turnoSel !== "todos") {
+    if (turnosEstado === "cargando") txt = "Cargando turnos…";
+    else if (turnosEstado === "error") txt = "No se pudieron leer los turnos.";
+    else if (turnoSel === "fuera") txt = "Pedidos hechos con la caja cerrada.";
+    else {
+      const lista = turnosElegidos();
+      if (!lista.length) txt = "Ese turno no se abrió en este rango.";
+      else if (lista.length === 1) {
+        const t = lista[0];
+        txt = `${dia(t.abiertoMs)} · ${fmtHoraMs(t.abiertoMs)} – ${t.estado === "abierto" ? "sigue abierto" : fmtHoraMs(t.cerradoMs)}${t.abiertoPor ? " · abrió " + t.abiertoPor : ""}`;
+      } else txt = `${lista.length} cajas de este turno en el rango.`;
+    }
+  }
+  el.textContent = txt;
+}
+
+function turnoBadge(p) {
+  if (!usaTurnos() || turnosEstado !== "ok") return "";
+  const t = turnoDePedido(p);
+  return t
+    ? `<span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-primary/15 border border-primary/40 text-white">⏱ ${escHtml(t.nombre)}</span>`
+    : `<span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-amber-400/10 border border-amber-400/30 text-amber-300">⚠️ Fuera de turno</span>`;
+}
+
+function pintarAvisoTurnos() {
+  const actual = $id("turnoActualBox");
+  const fueraEl = $id("avisoFuera");
+  const visible = usaTurnos() && turnosEstado === "ok";
+
+  if (actual) {
+    if (!visible) actual.classList.add("hidden");
+    else {
+      const t = turnos
+        .filter((x) => x.estado === "abierto")
+        .sort((a, b) => b.abiertoMs - a.abiertoMs)[0];
+      actual.className = t
+        ? "mt-2 text-xs rounded-xl px-3 py-2 bg-green-500/10 border border-green-500/30 text-green-300"
+        : "mt-2 text-xs rounded-xl px-3 py-2 bg-panel2 border border-line text-inkdim";
+      actual.textContent = t
+        ? `🟢 Caja abierta: ${t.nombre} desde ${fmtHoraMs(t.abiertoMs)}`
+        : "🔴 No hay caja abierta ahora. Las ventas que se hagan quedarán como «Fuera de turno».";
+    }
+  }
+
+  if (fueraEl) {
+    if (!visible) {
+      fueraEl.classList.add("hidden");
+      return;
+    }
+    const [from, to] = getRangeBounds();
+    const fuera = pedidosRaw.filter((p) => {
+      const d = fechaEfectiva(p);
+      return (
+        d &&
+        d >= from &&
+        d <= to &&
+        (p.estado || "").toLowerCase() === "entregado" &&
+        !turnoDePedido(p)
+      );
+    });
+    if (!fuera.length) {
+      fueraEl.classList.add("hidden");
+      return;
+    }
+    const monto = fuera.reduce((s, p) => s + (Number(p.total) || 0), 0);
+    fueraEl.textContent = `⚠️ ${fuera.length} venta(s) por ${fmtMoney(monto)} se hicieron con la caja cerrada (fuera de turno). No están dentro de ningún turno.`;
+    fueraEl.classList.remove("hidden");
+  }
+}
+
+$id("turnoChips")?.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-turno]");
+  if (!b) return;
+  turnoSel = b.dataset.turno;
+  pintarChipsTurno();
+  renderAll();
+});
+
+/* ---------------- Carga de pedidos ---------------- */
+// Trae SOLO los pedidos dentro del rango de fecha seleccionado
 function listenPedidos() {
+  if (!tiendaId || !localidad) return;
   if (unsubscribePedidos) {
     unsubscribePedidos();
     unsubscribePedidos = null;
@@ -237,12 +509,11 @@ function listenPedidos() {
 
   const [from, to] = getRangeBounds();
 
-  // El período anterior ya NO compite con la carga principal:
-  // se pide recién cuando llegan los pedidos del rango actual.
+  // El período anterior se pide recién cuando llegan los pedidos del rango actual.
   prevTotalState = null;
   let prevProgramado = false;
   const programarPeriodoAnterior = () => {
-    if (prevProgramado) return;
+    if (!esAdmin || prevProgramado) return;
     prevProgramado = true;
     const run = () => {
       if (myReq !== reqId) return;
@@ -263,7 +534,9 @@ function listenPedidos() {
     else setTimeout(run, 150);
   };
 
-  escucharGastosOperativos(from, to);
+  if (esAdmin) escucharGastosOperativos(from, to);
+  escucharConfigCaja();
+  escucharTurnos(from, to);
   const col = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const q = query(
     col,
@@ -273,56 +546,35 @@ function listenPedidos() {
     limit(2000),
   );
 
-  // "Hoy" sí se queda en vivo (es la vista operativa del día).
-  // Cualquier otro rango es histórico: una sola lectura, sin listener permanente.
+  const alLlegar = (snap, etiqueta) => {
+    if (myReq !== reqId) return;
+    pedidosRaw = snap.docs.map((d) => normalizarPedido(d.id, d.data()));
+    setConnStatus(`conectado · ${pedidosRaw.length} pedidos ${etiqueta}`, true);
+    renderAllNow();
+    ocultarLoader();
+    ocultarCargaRango();
+    programarPeriodoAnterior();
+  };
+  const alFallar = (err) => {
+    console.error(err);
+    if (myReq !== reqId) return;
+    setConnStatus("⚠️ Error de conexión / permisos en Firestore", false);
+    ocultarLoader();
+    ocultarCargaRango();
+  };
+
+  // "Hoy" se queda en vivo. Otros rangos: una sola lectura.
   if (currentRange === "hoy") {
-    unsubscribePedidos = onSnapshot(
-      q,
-      (snap) => {
-        if (myReq !== reqId) return;
-        pedidosRaw = snap.docs.map((d) => normalizarPedido(d.id, d.data()));
-        setConnStatus(`conectado · ${pedidosRaw.length} pedidos hoy`, true);
-        renderAllNow();
-        ocultarLoader();
-        ocultarCargaRango();
-        programarPeriodoAnterior();
-      },
-      (err) => {
-        console.error(err);
-        if (myReq !== reqId) return;
-        setConnStatus("⚠️ Error de conexión / permisos en Firestore", false);
-        ocultarLoader();
-        ocultarCargaRango();
-      },
-    );
+    unsubscribePedidos = onSnapshot(q, (snap) => alLlegar(snap, "hoy"), alFallar);
   } else {
     setConnStatus("cargando…", null);
     getDocs(q)
-      .then((snap) => {
-        if (myReq !== reqId) return; // llegó tarde: el usuario ya cambió de rango
-        pedidosRaw = snap.docs.map((d) => normalizarPedido(d.id, d.data()));
-        setConnStatus(
-          `conectado · ${pedidosRaw.length} pedidos en el rango`,
-          true,
-        );
-        renderAllNow();
-        ocultarLoader();
-        ocultarCargaRango();
-        programarPeriodoAnterior();
-      })
-      .catch((err) => {
-        console.error(err);
-        if (myReq !== reqId) return;
-        setConnStatus("⚠️ Error de conexión / permisos en Firestore", false);
-        ocultarLoader();
-        ocultarCargaRango();
-      });
+      .then((snap) => alLlegar(snap, "en el rango"))
+      .catch(alFallar);
   }
 }
 
-// Los pedidos de mesa se guardan como { estado: "ocupado", pago: "pendiente", pedido: {...datos reales...} }
-// mientras que los normales guardan los datos directamente en la raíz.
-// Esta función los deja a todos con la misma forma para que el resto del código no tenga que distinguir.
+// Los pedidos de mesa guardan los datos reales dentro de `pedido`; esto los deja con la misma forma.
 function normalizarPedido(id, raw) {
   if (raw && raw.pedido) {
     return {
@@ -339,10 +591,10 @@ function toDate(ts) {
   if (!ts) return null;
   if (typeof ts.toDate === "function") return ts.toDate();
   if (ts.seconds) return new Date(ts.seconds * 1000);
-  return new Date(ts);
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? null : d;
 }
 
-// Convierte el valor de una opción del pedido guardado en pares [nombreOpcion, cantidad]
 function entradasDeOpcion(v) {
   if (v && typeof v === "object" && !Array.isArray(v)) {
     return Object.entries(v).filter(([, c]) => (Number(c) || 0) > 0);
@@ -351,7 +603,6 @@ function entradasDeOpcion(v) {
   return v ? [[v, 1]] : [];
 }
 
-// Texto plano con todas las opciones marcadas, una por línea (para el modal y el ticket)
 function opcionesDetalleTexto(pr) {
   if (!pr.opciones || !Object.keys(pr.opciones).length) return "";
   const lineas = [];
@@ -364,13 +615,11 @@ function opcionesDetalleTexto(pr) {
   return lineas.join(" · ");
 }
 
-// Delivery cobrado en el pedido (0 si es gratis, recojo, mesa, etc.)
 function deliveryDePedido(p) {
   const d = p.delivery;
   if (!d || d.gratis) return 0;
   return Number(d.costo) || 0;
 }
-// Total sin el delivery = venta neta
 function totalSinDelivery(p) {
   if (typeof p.venta_neta === "number") return p.venta_neta;
   return Math.max(0, (Number(p.total) || 0) - deliveryDePedido(p));
@@ -378,6 +627,7 @@ function totalSinDelivery(p) {
 function tieneDelivery(p) {
   return deliveryDePedido(p) > 0;
 }
+
 const METODOS_INFO = {
   efectivo: ["💵", "Efectivo"],
   yape: ["📱", "Yape"],
@@ -389,20 +639,17 @@ const METODOS_INFO = {
 };
 function metodoPagoDe(p) {
   if (p.pago_metodo?.label) return p.pago_metodo.label;
-
-  // Formato antiguo: pago puede ser string u objeto
   const pago = p.pago;
   if (typeof pago === "string" && pago !== "pendiente") return pago;
   if (pago && typeof pago === "object") {
     const m = pago.metodo || pago.método || pago.tipo || pago.label;
     if (m) return m;
   }
-
   return p.metodo_pago || p.metodoPago || "Sin especificar";
 }
 function claveMetodo(p) {
   if (p.pago_metodo?.clave) return p.pago_metodo.clave;
-  const t = metodoPagoDe(p).toLowerCase();
+  const t = String(metodoPagoDe(p)).toLowerCase();
   if (t.includes("yape") && t.includes("plin")) return "yape_plin";
   if (t.includes("yape")) return "yape";
   if (t.includes("plin")) return "plin";
@@ -422,9 +669,9 @@ function cuadrePorMetodo(list) {
   return Object.values(m).sort((a, b) => b.monto - a.monto);
 }
 function renderCuadrePago(entregados) {
-  let el = document.getElementById("cuadrePagoList");
+  let el = $id("cuadrePagoList");
   if (!el) {
-    const ref = document.getElementById("barPago");
+    const ref = $id("barPago");
     if (!ref) return;
     el = document.createElement("div");
     el.id = "cuadrePagoList";
@@ -440,22 +687,14 @@ function renderCuadrePago(entregados) {
           .map((f) => {
             const [ico, label] = METODOS_INFO[f.clave] || ["💳", f.clave];
             return `<div class="flex justify-between items-center bg-panel2 border border-line rounded-xl px-3 py-2">
-            <span class="text-sm text-white">${ico} ${label} <span class="text-[11px] text-inkfaint">· ${f.cant} pedido(s)</span></span>
+            <span class="text-sm text-white">${ico} ${escHtml(label)} <span class="text-[11px] text-inkfaint">· ${f.cant} pedido(s)</span></span>
             <span class="font-mono text-sm font-bold text-white">${fmtMoney(f.monto)}</span></div>`;
           })
           .join("") +
         `<div class="flex justify-between px-3 pt-1 text-sm font-bold text-white"><span>Total</span><span class="font-mono">${fmtMoney(total)}</span></div>`
       : `<p class="text-sm text-inkfaint">Sin ventas en el rango</p>`);
 }
-function escHtml(s) {
-  return String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ],
-  );
-}
+
 function nombreVendedor(p) {
   return p.vendedor?.nombre || "";
 }
@@ -501,7 +740,7 @@ const ORIGENES_INFO = {
 
 function esPedidoDeMesa(p) {
   const tipoEntrega = (p.cliente && p.cliente.tipo_entrega) || "";
-  const metodo = metodoPagoDe(p).toLowerCase();
+  const metodo = String(metodoPagoDe(p)).toLowerCase();
   return (
     p.esMesa === true ||
     tipoEntrega === "En mesa" ||
@@ -562,10 +801,10 @@ function detalleCuponModalHtml(p) {
   const cfg = map[tipo];
   let filas = "";
   if (c.codigo)
-    filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Código</span><span class="font-mono">${c.codigo}</span></div>`;
+    filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Código</span><span class="font-mono">${escHtml(c.codigo)}</span></div>`;
   if (tipo === "canje_puntos" && prodCanjeado) {
-    filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Producto canjeado</span><span>${prodCanjeado.nombre}</span></div>`;
-    filas += `<div class="flex justify-between text-xs py-1"><span class="text-inkdim">Puntos usados</span><span style="color:#fbbf24;font-weight:800;">-${c.costoPuntos || 0} pts</span></div>`;
+    filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Producto canjeado</span><span>${escHtml(prodCanjeado.nombre)}</span></div>`;
+    filas += `<div class="flex justify-between text-xs py-1"><span class="text-inkdim">Puntos usados</span><span style="color:#fbbf24;font-weight:800;">-${Number(c.costoPuntos) || 0} pts</span></div>`;
   } else {
     if (subtotal)
       filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Subtotal sin descuento</span><span>${fmtMoney(subtotal)}</span></div>`;
@@ -617,7 +856,7 @@ function renderOrigenMetrics(list) {
   });
 
   const totalCount = list.length;
-  const el = document.getElementById("origenBarList");
+  const el = $id("origenBarList");
   if (el) {
     el.innerHTML = Object.entries(ORIGENES_INFO)
       .map(([key, info]) => {
@@ -641,13 +880,13 @@ function renderOrigenMetrics(list) {
   Object.entries(counts).forEach(([key, c]) => {
     if (!top || c > top.c) top = { key, c };
   });
-  const topEl = document.getElementById("origenTopLabel");
+  const topEl = $id("origenTopLabel");
   if (topEl)
     topEl.textContent =
       top && top.c > 0
         ? `${ORIGENES_INFO[top.key].icon} ${ORIGENES_INFO[top.key].label}`
         : "Sin datos";
-  const topCantEl = document.getElementById("origenTopCant");
+  const topCantEl = $id("origenTopCant");
   if (topCantEl) topCantEl.textContent = top ? top.c : 0;
 }
 function estadoBadge(estado) {
@@ -659,24 +898,24 @@ function estadoBadge(estado) {
     rechazado: { key: "rechazado", label: "Rechazado" },
   };
   const info = map[e] || { key: "pendiente", label: estado || "—" };
-  return `<span data-est="${info.key}" class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap">${info.label}</span>`;
+  return `<span data-est="${info.key}" class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap">${escHtml(info.label)}</span>`;
 }
 
 function esBilleteraDigital(metodo) {
-  const m = (metodo || "").toLowerCase();
+  const m = String(metodo || "").toLowerCase();
   return m.includes("yape") || m.includes("plin");
 }
 function codigoPedido(p) {
   return "#" + (p.id || "").slice(-6).toUpperCase();
 }
 function telefonoCliente(p) {
-  return (
+  return String(
     (p.cliente &&
       (p.cliente.telefono ||
         p.cliente.phone ||
         p.cliente.whatsapp ||
         p.cliente.celular)) ||
-    ""
+      "",
   );
 }
 function waLink(tel, msg) {
@@ -685,7 +924,8 @@ function waLink(tel, msg) {
   return `https://wa.me/${pref}?text=${encodeURIComponent(msg || "")}`;
 }
 function showToast(msg) {
-  const t = document.getElementById("toast");
+  const t = $id("toast");
+  if (!t) return;
   t.textContent = msg;
   t.classList.remove("hidden");
   clearTimeout(window.__toastTimer);
@@ -716,8 +956,8 @@ function getRangeBounds() {
     return [startOf(first), endOf(now)];
   }
   if (currentRange === "custom") {
-    const from = document.getElementById("customFrom").value;
-    const to = document.getElementById("customTo").value;
+    const from = $id("customFrom")?.value;
+    const to = $id("customTo")?.value;
     const f = from ? startOf(new Date(from + "T00:00:00")) : new Date(0);
     const t = to ? endOf(new Date(to + "T00:00:00")) : endOf(now);
     return [f, t];
@@ -725,26 +965,24 @@ function getRangeBounds() {
   return [new Date(0), endOf(now)];
 }
 
-// Fecha efectiva de un pedido: usa timestamp y, si no existe, cae a "actualizado"
-// (pasa con pedidos rechazados o de mesa que cambiaron de estado).
-// Se usa igual para filtrar por rango y para ordenar, así el criterio
-// nunca queda distinto entre una cosa y la otra.
+// Fecha efectiva: timestamp o, si no existe, "actualizado". Se usa para filtrar, ordenar y agrupar.
 function fechaEfectiva(p) {
   return toDate(p.timestamp) || toDate(p.actualizado);
 }
 
 function getFilteredOrders() {
   const [from, to] = getRangeBounds();
-  const estadoF = document.getElementById("filterEstado").value;
-  const origenF = document.getElementById("filterOrigen").value;
-  const deliF = document.getElementById("filterDelivery")?.value || "todos";
-  const compF = document.getElementById("filterComprobante")?.value || "todos";
-  const q = document.getElementById("searchBox").value.trim().toLowerCase();
+  const estadoF = $id("filterEstado").value;
+  const origenF = $id("filterOrigen").value;
+  const deliF = $id("filterDelivery")?.value || "todos";
+  const compF = $id("filterComprobante")?.value || "todos";
+  const q = $id("searchBox").value.trim().toLowerCase();
 
   return pedidosRaw
     .filter((p) => {
       const d = fechaEfectiva(p);
       if (!d || d < from || d > to) return false;
+      if (!pasaFiltroTurno(p)) return false;
 
       if (estadoF !== "todos" && (p.estado || "").toLowerCase() !== estadoF)
         return false;
@@ -767,12 +1005,9 @@ function getFilteredOrders() {
       }
       return true;
     })
-    .sort((a, b) => {
-      const da = fechaEfectiva(a) || 0,
-        db_ = fechaEfectiva(b) || 0;
-      return db_ - da;
-    });
+    .sort((a, b) => (fechaEfectiva(b) || 0) - (fechaEfectiva(a) || 0));
 }
+
 function renderMetrics(list) {
   const entregados = list.filter(
     (p) => (p.estado || "").toLowerCase() === "entregado",
@@ -793,22 +1028,24 @@ function renderMetrics(list) {
     0,
   );
 
-  document.getElementById("kpiTotal").textContent = fmtMoney(total);
-  document.getElementById("kpiCount").textContent = count;
-  document.getElementById("kpiOtros").textContent = otros;
-  document.getElementById("kpiTicket").textContent = fmtMoney(ticket);
-  document.getElementById("kpiItems").textContent = items;
+  const setK = (id, v) => {
+    const el = $id(id);
+    if (el) el.textContent = v;
+  };
+  setK("kpiTotal", fmtMoney(total));
+  setK("kpiCount", count);
+  setK("kpiOtros", otros);
+  setK("kpiTicket", fmtMoney(ticket));
+  setK("kpiItems", items);
+
   const deliveryTotal = entregados.reduce((s, p) => s + deliveryDePedido(p), 0);
   const conDelivery = entregados.filter(tieneDelivery).length;
   const ventaNeta = total - deliveryTotal;
-  const setK = (id, v) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = v;
-  };
   setK("kpiVentaNeta", fmtMoney(ventaNeta));
   setK("kpiDeliveryTotal", fmtMoney(deliveryTotal));
   setK("kpiDeliveryCount", conDelivery);
   setK("kpiTicketNeto", fmtMoney(count ? ventaNeta / count : 0));
+
   const digitalCount = entregados.filter((p) =>
     esBilleteraDigital(metodoPagoDe(p)),
   ).length;
@@ -825,29 +1062,34 @@ function renderMetrics(list) {
   );
 
   const [from, to] = getRangeBounds();
-  renderInteligente(entregados, from, to);
-  renderRentabilidad(entregados);
-  renderOrigenMetrics(list);
+  if (esAdmin) {
+    renderInteligente(entregados, from, to);
+    renderRentabilidad(entregados);
+    renderOrigenMetrics(list);
+  }
   renderCuadrePago(entregados);
 }
 
+// item.fmt (opcional) da formato al valor mostrado (por ejemplo, dinero)
 function renderBarPair(containerId, a, b, total) {
-  const el = document.getElementById(containerId);
-  const pct = (v) => (total ? Math.round((v / total) * 100) : 0);
+  const el = $id(containerId);
+  if (!el) return;
+  const pct = (v) =>
+    total ? Math.min(100, Math.max(0, Math.round((v / total) * 100))) : 0;
   el.innerHTML = [a, b]
-    .map(
-      (item) => `
+    .map((item) => {
+      const valor = item.fmt ? item.fmt(item.value) : item.value;
+      return `
     <div>
       <div class="flex justify-between text-xs mb-1">
         <span class="font-medium text-white">${item.label}</span>
-        <span class="font-mono text-inkfaint">${item.value} · ${pct(item.value)}%</span>
+        <span class="font-mono text-inkfaint">${valor} · ${pct(item.value)}%</span>
       </div>
       <div class="h-2 rounded-full bg-panel2 overflow-hidden border border-line">
         <div class="${item.color} h-full rounded-full transition-all" style="width:${pct(item.value)}%"></div>
       </div>
-    </div>
-  `,
-    )
+    </div>`;
+    })
     .join("");
 }
 
@@ -876,7 +1118,7 @@ function computeTopProducto(list) {
 function computeHoraPico(list) {
   const franjas = Array(24).fill(0);
   list.forEach((p) => {
-    const d = toDate(p.timestamp) || toDate(p.actualizado);
+    const d = fechaEfectiva(p);
     if (d) franjas[d.getHours()]++;
   });
   let maxIdx = 0;
@@ -886,14 +1128,23 @@ function computeHoraPico(list) {
   return { franjas, horaTop: maxIdx, cantTop: franjas[maxIdx] };
 }
 
-let gastosOpState = 0;
+/* ---------------- Gastos operativos ---------------- */
+let gastosOpDocs = [];
 
-// Suma los gastos generales (luz, limpieza, bebidas...) del rango, desde Historial de gastos
+function gastosOperativos() {
+  let lista = gastosOpDocs;
+  if (turnoSel === "fuera") lista = lista.filter((g) => !g.turnoId);
+  else if (turnoSel !== "todos") {
+    const ids = new Set(turnosElegidos().map((t) => t.id));
+    lista = lista.filter((g) => ids.has(g.turnoId));
+  }
+  return lista.reduce((s, g) => s + (Number(g.monto) || 0), 0);
+}
+
 let unsubGastos = null;
-// Escucha en vivo los gastos generales del rango (luz, bebidas, limpieza...)
 function escucharGastosOperativos(from, to) {
   if (unsubGastos) unsubGastos();
-  gastosOpState = 0;
+  gastosOpDocs = [];
   const col = tiendaSubCol(localidad, "tiendas", tiendaId, "gastos_insumos");
   unsubGastos = onSnapshot(
     query(
@@ -902,19 +1153,17 @@ function escucharGastosOperativos(from, to) {
       where("fechaMs", "<=", to.getTime()),
     ),
     (snap) => {
-      let t = 0;
-      snap.forEach((d) => {
-        const g = d.data();
-        if (g.tipo === "gasto_general") t += Number(g.monto) || 0;
-      });
-      gastosOpState = t;
+      gastosOpDocs = snap.docs
+        .map((d) => d.data())
+        .filter((g) => g.tipo === "gasto_general");
       renderAll();
     },
     (e) => console.warn("No se pudieron leer los gastos", e),
   );
 }
-// null = todavía calculando; número = total del período anterior
-let prevTotalState = null;
+
+/* ---------------- Período anterior ---------------- */
+let prevTotalState = null; // null = calculando; número = total del período anterior
 const prevCache = new Map();
 
 async function cargarTotalPeriodoAnterior(from, to) {
@@ -941,26 +1190,20 @@ async function cargarTotalPeriodoAnterior(from, to) {
   return total;
 }
 
-function computeComparativaTotal() {
-  return { prevTotal: prevTotalState };
-}
-
 function renderInteligente(entregados, from, to) {
   const top = computeTopProducto(entregados);
-  document.getElementById("topProductoNombre").textContent = top
-    ? top.nombre
-    : "Sin datos";
-  document.getElementById("topProductoCant").textContent = top ? top.cant : 0;
+  $id("topProductoNombre").textContent = top ? top.nombre : "Sin datos";
+  $id("topProductoCant").textContent = top ? top.cant : 0;
 
   const { franjas, horaTop, cantTop } = computeHoraPico(entregados);
   const labelHora = (h) =>
     `${String(h).padStart(2, "0")}:00 – ${String((h + 1) % 24).padStart(2, "0")}:00`;
-  document.getElementById("horaPicoLabel").textContent =
+  $id("horaPicoLabel").textContent =
     cantTop > 0 ? labelHora(horaTop) : "Sin datos";
-  document.getElementById("horaPicoCant").textContent = cantTop;
+  $id("horaPicoCant").textContent = cantTop;
 
   const maxFranja = Math.max(...franjas, 1);
-  const horaChart = document.getElementById("horaChart");
+  const horaChart = $id("horaChart");
   if (horaChart) {
     horaChart.innerHTML = franjas
       .map((v, h) => {
@@ -977,13 +1220,17 @@ function renderInteligente(entregados, from, to) {
     (s, p) => s + (Number(p.total) || 0),
     0,
   );
-  const { prevTotal } = computeComparativaTotal(from, to);
-  const comparativaLabel = document.getElementById("comparativaLabel");
-  const comparativaSub = document.getElementById("comparativaSub");
-  if (prevTotal === null) {
+  const prevTotal = prevTotalState;
+  const comparativaLabel = $id("comparativaLabel");
+  const comparativaSub = $id("comparativaSub");
+  const claseNeutra = "font-display font-extrabold text-lg text-white";
+  if (turnoSel !== "todos") {
+    comparativaLabel.textContent = "—";
+    comparativaLabel.className = claseNeutra;
+    comparativaSub.textContent = "no disponible al filtrar por turno";
+  } else if (prevTotal === null) {
     comparativaLabel.textContent = "…";
-    comparativaLabel.className =
-      "font-display font-extrabold text-lg text-white";
+    comparativaLabel.className = claseNeutra;
     comparativaSub.textContent = "calculando período anterior…";
   } else if (prevTotal > 0) {
     const cambio = ((totalActual - prevTotal) / prevTotal) * 100;
@@ -993,25 +1240,30 @@ function renderInteligente(entregados, from, to) {
     comparativaSub.textContent = `${fmtMoney(totalActual)} vs ${fmtMoney(prevTotal)} anterior`;
   } else {
     comparativaLabel.textContent = totalActual > 0 ? "Nuevo" : "—";
-    comparativaLabel.className =
-      "font-display font-extrabold text-lg text-white";
+    comparativaLabel.className = claseNeutra;
     comparativaSub.textContent =
       "sin ventas en el período anterior para comparar";
   }
 }
 
+/* ---------------- Costos y rentabilidad ---------------- */
 const COST_STORAGE_KEY = "apr_costos_config_v1";
 
 function loadCostosConfig() {
   try {
     const raw = localStorage.getItem(COST_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const c = JSON.parse(raw);
+      return {
+        porcentaje: Number(c.porcentaje) || 0,
+        overrides: c.overrides && typeof c.overrides === "object" ? c.overrides : {},
+      };
+    }
   } catch (e) {
     console.warn("No se pudo leer config de costos", e);
   }
-  return { porcentaje: 35, gastosOperativos: 0, overrides: {} };
+  return { porcentaje: 35, overrides: {} };
 }
-
 function saveCostosConfig(cfg) {
   try {
     localStorage.setItem(COST_STORAGE_KEY, JSON.stringify(cfg));
@@ -1019,15 +1271,20 @@ function saveCostosConfig(cfg) {
     console.warn("No se pudo guardar config de costos", e);
   }
 }
-
 let costosConfig = loadCostosConfig();
 
 function getCostoUnitario(nombre, precioUnitario) {
   const override = costosConfig.overrides && costosConfig.overrides[nombre];
   if (override !== undefined && override !== null && override !== "")
-    return Number(override);
+    return Number(override) || 0;
   const pct = Number(costosConfig.porcentaje) || 0;
   return (Number(precioUnitario) || 0) * (pct / 100);
+}
+function precioUnitarioDe(pr) {
+  return (
+    pr.precio_unitario ??
+    (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0)
+  );
 }
 
 function computeFinanzas(entregados) {
@@ -1036,15 +1293,12 @@ function computeFinanzas(entregados) {
   entregados.forEach((p) => {
     ingresos += totalSinDelivery(p);
     (p.productos || []).forEach((pr) => {
-      const precioUnit =
-        pr.precio_unitario ??
-        (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
-      const costoUnit = getCostoUnitario(pr.nombre, precioUnit);
+      const costoUnit = getCostoUnitario(pr.nombre, precioUnitarioDe(pr));
       costos += costoUnit * (Number(pr.cantidad) || 0);
     });
   });
   const margenBruto = ingresos - costos;
-  const gastosOp = gastosOpState;
+  const gastosOp = gastosOperativos();
   const utilidadNeta = margenBruto - gastosOp;
   return { ingresos, costos, margenBruto, utilidadNeta, gastosOp };
 }
@@ -1055,9 +1309,7 @@ function computeGananciaPorProducto(entregados) {
     (p.productos || []).forEach((pr) => {
       const nombre = pr.nombre || "Sin nombre";
       const cantidad = Number(pr.cantidad) || 0;
-      const precioUnit =
-        pr.precio_unitario ??
-        (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
+      const precioUnit = precioUnitarioDe(pr);
       const costoUnit = getCostoUnitario(nombre, precioUnit);
       if (!map[nombre])
         map[nombre] = { nombre, cantidad: 0, ingreso: 0, costo: 0 };
@@ -1078,30 +1330,36 @@ function computeGananciaPorProducto(entregados) {
 function renderRentabilidad(entregados) {
   const { ingresos, costos, margenBruto, utilidadNeta, gastosOp } =
     computeFinanzas(entregados);
-  const kg = document.getElementById("kpiGastosOpTxt");
-  if (kg) kg.textContent = `margen bruto − gastos (${fmtMoney(gastosOp)})`;
+  const setK = (id, v) => {
+    const el = $id(id);
+    if (el) el.textContent = v;
+  };
+  setK("kpiGastosOpTxt", `margen bruto − gastos (${fmtMoney(gastosOp)})`);
+  setK("kpiIngresos", fmtMoney(ingresos));
+  setK("kpiGastosOp", fmtMoney(gastosOp));
+  setK("kpiCostos", fmtMoney(costos));
+  setK("kpiMargenBruto", fmtMoney(margenBruto));
+  setK(
+    "kpiMargenPct",
+    `${ingresos ? ((margenBruto / ingresos) * 100).toFixed(1) : "0.0"}% sobre ingresos`,
+  );
 
-  document.getElementById("kpiIngresos").textContent = fmtMoney(ingresos);
-  const ko = document.getElementById("kpiGastosOp");
-  if (ko) ko.textContent = fmtMoney(gastosOp);
-  document.getElementById("kpiCostos").textContent = fmtMoney(costos);
-  document.getElementById("kpiMargenBruto").textContent = fmtMoney(margenBruto);
-  document.getElementById("kpiMargenPct").textContent =
-    `${ingresos ? ((margenBruto / ingresos) * 100).toFixed(1) : "0.0"}% sobre ingresos`;
+  const kpiUtilidad = $id("kpiUtilidadNeta");
+  if (kpiUtilidad) {
+    kpiUtilidad.textContent = fmtMoney(utilidadNeta);
+    kpiUtilidad.className = `font-display font-extrabold text-2xl ${utilidadNeta >= 0 ? "text-white" : "text-red-400"}`;
+  }
 
-  const kpiUtilidad = document.getElementById("kpiUtilidadNeta");
-  kpiUtilidad.textContent = fmtMoney(utilidadNeta);
-  kpiUtilidad.className = `font-display font-extrabold text-2xl ${utilidadNeta >= 0 ? "text-white" : "text-red-400"}`;
-
+  // Los ingresos son el 100% y los costos se miden contra ellos
   renderBarPair(
     "barIngresoCosto",
-    { label: "💰 Ingresos", value: ingresos, color: "bg-primary" },
-    { label: "📦 Costos", value: costos, color: "bg-primary/40" },
-    ingresos + costos,
+    { label: "💰 Ingresos", value: ingresos, color: "bg-primary", fmt: fmtMoney },
+    { label: "📦 Costos", value: costos, color: "bg-primary/40", fmt: fmtMoney },
+    ingresos || costos,
   );
 
   const ganancias = computeGananciaPorProducto(entregados).slice(0, 8);
-  const listEl = document.getElementById("gananciaProductoList");
+  const listEl = $id("gananciaProductoList");
   if (listEl) {
     listEl.innerHTML = ganancias.length
       ? ganancias
@@ -1109,12 +1367,11 @@ function renderRentabilidad(entregados) {
             (g) => `
       <div class="flex items-center justify-between gap-2 bg-panel2 border border-line rounded-xl px-3 py-2">
         <div class="min-w-0">
-          <p class="text-sm font-medium text-white truncate">${g.nombre}</p>
+          <p class="text-sm font-medium text-white truncate">${escHtml(g.nombre)}</p>
           <p class="text-[11px] text-inkfaint">${g.cantidad} unid · margen ${g.margenPct.toFixed(0)}%</p>
         </div>
         <span class="font-mono text-sm font-bold shrink-0 ${g.ganancia >= 0 ? "text-primary" : "text-red-400"}">${fmtMoney(g.ganancia)}</span>
-      </div>
-    `,
+      </div>`,
           )
           .join("")
       : '<p class="text-sm text-inkfaint py-3">Sin datos en el rango</p>';
@@ -1126,159 +1383,145 @@ function poblarCostoProductosList() {
   pedidosRaw.forEach((p) =>
     (p.productos || []).forEach((pr) => nombres.add(pr.nombre || "Sin nombre")),
   );
-  const el = document.getElementById("costoProductosList");
+  const el = $id("costoProductosList");
   if (!el) return;
   el.innerHTML = [...nombres]
     .sort()
-    .map(
-      (nombre) => `
+    .map((nombre) => {
+      const val =
+        costosConfig.overrides && costosConfig.overrides[nombre] !== undefined
+          ? costosConfig.overrides[nombre]
+          : "";
+      return `
     <div class="flex items-center justify-between gap-2">
-      <span class="text-sm text-inkdim truncate">${nombre}</span>
+      <span class="text-sm text-inkdim truncate">${escHtml(nombre)}</span>
       <input type="number" min="0" step="0.1" placeholder="auto"
         class="w-24 text-sm border border-line rounded-lg px-2 py-1 bg-panel2 text-white focus:border-primary outline-none costo-override-input"
-        data-nombre="${nombre}"
-        value="${costosConfig.overrides && costosConfig.overrides[nombre] !== undefined ? costosConfig.overrides[nombre] : ""}">
-    </div>
-  `,
-    )
+        data-nombre="${escHtml(nombre)}"
+        value="${escHtml(val)}">
+    </div>`;
+    })
     .join("");
 }
 
 function openCostModal() {
-  document.getElementById("inputCostoPct").value =
-    costosConfig.porcentaje ?? 35;
-
+  $id("inputCostoPct").value = costosConfig.porcentaje ?? 35;
   poblarCostoProductosList();
-  const overlay = document.getElementById("costModalOverlay");
-  if (overlay) overlay.classList.remove("hidden");
+  $id("costModalOverlay")?.classList.remove("hidden");
 }
 function closeCostModal() {
-  const overlay = document.getElementById("costModalOverlay");
-  if (overlay) overlay.classList.add("hidden");
+  $id("costModalOverlay")?.classList.add("hidden");
 }
 window.closeCostModal = closeCostModal;
 
-const costModalOverlay = document.getElementById("costModalOverlay");
-if (costModalOverlay) {
-  costModalOverlay.addEventListener("click", (e) => {
-    if (e.target.id === "costModalOverlay") closeCostModal();
+$id("costModalOverlay")?.addEventListener("click", (e) => {
+  if (e.target.id === "costModalOverlay") closeCostModal();
+});
+$id("btnCostConfig")?.addEventListener("click", openCostModal);
+
+$id("btnGuardarCostos")?.addEventListener("click", () => {
+  const overrides = {};
+  document.querySelectorAll(".costo-override-input").forEach((input) => {
+    if (input.value !== "") overrides[input.dataset.nombre] = Number(input.value);
   });
-}
-const btnCostConfig = document.getElementById("btnCostConfig");
-if (btnCostConfig) btnCostConfig.addEventListener("click", openCostModal);
+  const pct = Math.min(
+    100,
+    Math.max(0, Number($id("inputCostoPct").value) || 0),
+  );
+  costosConfig = { porcentaje: pct, overrides };
+  saveCostosConfig(costosConfig);
+  closeCostModal();
+  renderAll();
+  showToast("Configuración de costos guardada");
+});
 
-const btnGuardarCostos = document.getElementById("btnGuardarCostos");
-if (btnGuardarCostos) {
-  btnGuardarCostos.addEventListener("click", () => {
-    const overrides = {};
-    document.querySelectorAll(".costo-override-input").forEach((input) => {
-      if (input.value !== "")
-        overrides[input.dataset.nombre] = Number(input.value);
-    });
-    costosConfig = {
-      porcentaje: Number(document.getElementById("inputCostoPct").value) || 0,
-
-      overrides,
-    };
-    saveCostosConfig(costosConfig);
-    closeCostModal();
-    renderAll();
-    showToast("Configuración de costos guardada");
-  });
-}
-
-/* ---------------- Lista de pedidos con paginación ----------------
-   Pintar 2000 filas (tabla + tarjetas) de golpe era lo más pesado de la pantalla.
-   Ahora se pintan 100 y el resto se carga con "Mostrar más pedidos".
-   Las métricas y exportaciones siguen usando TODOS los pedidos filtrados. */
+/* ---------------- Lista de pedidos con paginación ---------------- */
 const PAGE_SIZE = 100;
 let visibleCount = PAGE_SIZE;
 
 function renderList(list) {
-  const tbody = document.getElementById("tableBody");
-  const cards = document.getElementById("cardsBody");
-  const empty = document.getElementById("emptyState");
-  const resultCount = document.getElementById("resultCount");
-  const loadMoreWrap = document.getElementById("loadMoreWrap");
-  const btnLoadMore = document.getElementById("btnLoadMore");
-  if (resultCount) {
-    resultCount.textContent = `(${list.length})`;
-  }
+  const tbody = $id("tableBody");
+  const cards = $id("cardsBody");
+  const empty = $id("emptyState");
+  const resultCount = $id("resultCount");
+  const loadMoreWrap = $id("loadMoreWrap");
+  const btnLoadMore = $id("btnLoadMore");
+  if (resultCount) resultCount.textContent = `(${list.length})`;
 
   if (!list.length) {
     tbody.innerHTML = "";
     cards.innerHTML = "";
-    if (loadMoreWrap) loadMoreWrap.classList.add("hidden");
-    if (empty) empty.classList.remove("hidden");
+    loadMoreWrap?.classList.add("hidden");
+    empty?.classList.remove("hidden");
     return;
   }
-  if (empty) empty.classList.add("hidden");
+  empty?.classList.add("hidden");
 
   const visibles = list.slice(0, visibleCount);
   const restantes = list.length - visibles.length;
-  if (loadMoreWrap) loadMoreWrap.classList.toggle("hidden", restantes <= 0);
+  loadMoreWrap?.classList.toggle("hidden", restantes <= 0);
   if (btnLoadMore && restantes > 0)
     btnLoadMore.textContent = `Mostrar más pedidos (${restantes} restantes)`;
+
+  const nombreDe = (p) => escHtml((p.cliente && p.cliente.nombre) || "Sin nombre");
 
   tbody.innerHTML = visibles
     .map(
       (p) => `
-    <tr class="row-hover cursor-pointer" onclick="window.openModal('${p.id}')">
-         <td class="px-4 py-3 font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? `<p class="text-[10px] text-inkfaint font-normal">🧾 ${p.comprobante.numero}</p>` : ""}</td>
+    <tr class="row-hover cursor-pointer" onclick="window.openModal('${escHtml(p.id)}')">
+      <td class="px-4 py-3 font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? `<p class="text-[10px] text-inkfaint font-normal">🧾 ${escHtml(p.comprobante.numero)}</p>` : ""}</td>
       <td class="px-4 py-3 text-inkdim">${fmtFechaHora(p)}</td>
       <td class="px-4 py-3">
-      <p class="font-medium text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</p>
+        <p class="font-medium text-white">${nombreDe(p)}</p>
       </td>
-         <td class="px-4 py-3 text-right font-mono font-semibold text-white">
+      <td class="px-4 py-3 text-right font-mono font-semibold text-white">
         ${fmtMoney(p.total)}
         ${tieneDelivery(p) ? `<p class="text-[10px] text-inkfaint font-normal">🛵 incl. ${fmtMoney(deliveryDePedido(p))}</p>` : ""}
       </td>
-         <td class="px-4 py-3 text-inkdim">${metodoPagoDe(p)}</td>
+      <td class="px-4 py-3 text-inkdim">${escHtml(metodoPagoDe(p))}</td>
       <td class="px-4 py-3">${cuponBadge(p)}</td>
-      <td class="px-4 py-3">${origenBadge(p)}</td>
+      <td class="px-4 py-3"><div class="flex flex-col items-start gap-1">${origenBadge(p)}${turnoBadge(p)}</div></td>
       <td class="px-4 py-3">${estadoBadge(p.estado)}</td>
       <td class="px-4 py-3 text-primary">›</td>
-    </tr>
-  `,
+    </tr>`,
     )
     .join("");
 
   cards.innerHTML = visibles
     .map(
       (p) => `
-    <div class="bg-panel border border-line rounded-2xl p-4 active:scale-[.98] transition hover:border-primary/50" onclick="window.openModal('${p.id}')">
+    <div class="bg-panel border border-line rounded-2xl p-4 active:scale-[.98] transition hover:border-primary/50" onclick="window.openModal('${escHtml(p.id)}')">
       <div class="flex justify-between items-start mb-2">
         <div>
-           <p class="font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? ` · 🧾 ${p.comprobante.numero}` : ""}</p>
-          <p class="font-medium text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</p>
+          <p class="font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? ` · 🧾 ${escHtml(p.comprobante.numero)}` : ""}</p>
+          <p class="font-medium text-white">${nombreDe(p)}</p>
         </div>
         ${estadoBadge(p.estado)}
       </div>
-          <div class="flex items-center justify-between text-sm mb-2">
+      <div class="flex items-center justify-between text-sm mb-2">
         <span class="text-inkfaint text-xs">${fmtFechaHora(p)}</span>
         <span class="font-mono font-bold text-white text-right">
           ${fmtMoney(p.total)}
           ${tieneDelivery(p) ? `<span class="block text-[10px] text-inkfaint font-normal">🛵 incl. ${fmtMoney(deliveryDePedido(p))}</span>` : ""}
-        </span>      </div>
+        </span>
+      </div>
       <div class="flex items-center gap-2 flex-wrap">
-           ${origenBadge(p)}
+        ${origenBadge(p)}
+        ${turnoBadge(p)}
         ${cuponBadge(p)}
       </div>
       ${vendedorHtml(p)}
-    </div>
-  `,
+    </div>`,
     )
     .join("");
 }
 
-const btnLoadMoreEl = document.getElementById("btnLoadMore");
-if (btnLoadMoreEl) {
-  btnLoadMoreEl.addEventListener("click", () => {
-    visibleCount += PAGE_SIZE;
-    renderAllNow();
-  });
-}
+$id("btnLoadMore")?.addEventListener("click", () => {
+  visibleCount += PAGE_SIZE;
+  renderAllNow();
+});
 
+/* ---------------- Detalle del pedido ---------------- */
 function openModal(id) {
   const p = pedidosRaw.find((x) => x.id === id);
   if (!p) return;
@@ -1291,9 +1534,9 @@ function openModal(id) {
       return `
       <div class="flex justify-between items-start py-2 border-b border-line last:border-0">
         <div class="pr-3">
-          <p class="text-sm font-medium text-white">${pr.cantidad}x ${pr.nombre}</p>
-          ${opcionesTxt ? `<p class="text-xs text-primary mt-0.5">${opcionesTxt}</p>` : ""}
-          ${extra ? `<p class="text-xs text-inkfaint mt-0.5">${extra}</p>` : ""}
+          <p class="text-sm font-medium text-white">${Number(pr.cantidad) || 0}x ${escHtml(pr.nombre)}</p>
+          ${opcionesTxt ? `<p class="text-xs text-primary mt-0.5">${escHtml(opcionesTxt)}</p>` : ""}
+          ${extra ? `<p class="text-xs text-inkfaint mt-0.5">${escHtml(extra)}</p>` : ""}
           ${pr.esCanje ? `<p class="text-xs text-amber-400 mt-0.5">🎁 Canjeado con puntos</p>` : ""}
         </div>
         <span class="font-mono text-sm shrink-0 text-white">${fmtMoney(pr.subtotal ?? pr.cantidad * pr.precio_unitario)}</span>
@@ -1302,36 +1545,39 @@ function openModal(id) {
     .join("");
 
   const tel = telefonoCliente(p);
-  const waMsg = `Hola ${(p.cliente && p.cliente.nombre) || ""}, te contactamos por tu pedido ${codigoPedido(p)}.`;
+  const nombreCli = (p.cliente && p.cliente.nombre) || "";
+  const waMsg = `Hola ${nombreCli}, te contactamos por tu pedido ${codigoPedido(p)}.`;
+  const metodo = escHtml(metodoPagoDe(p));
+  const vuelto = p.pago && p.pago.vuelto ? Number(p.pago.vuelto) : 0;
 
-  const modalContent = document.getElementById("modalContent");
+  const modalContent = $id("modalContent");
   if (modalContent) {
     modalContent.innerHTML = `
       <div class="flex justify-between items-start mb-5">
         <div>
           <p class="font-mono text-xs text-primary font-semibold mb-0.5">${codigoPedido(p)}</p>
-          <h3 class="font-display font-bold text-xl text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</h3>
-   <p class="text-xs text-inkfaint mt-1">${fmtFechaHora(p)}</p>
+          <h3 class="font-display font-bold text-xl text-white">${escHtml(nombreCli || "Sin nombre")}</h3>
+          <p class="text-xs text-inkfaint mt-1">${fmtFechaHora(p)}</p>
           ${vendedorHtml(p)}
         </div>
-        <button onclick="window.closeModal()" class="w-8 h-8 rounded-full bg-panel2 hover:bg-line flex items-center justify-center text-lg text-white">✕</button>
+        <button onclick="window.closeModal()" aria-label="Cerrar" class="w-8 h-8 rounded-full bg-panel2 hover:bg-line flex items-center justify-center text-lg text-white">✕</button>
       </div>
 
-       <div class="flex flex-wrap gap-2 mb-5">
+      <div class="flex flex-wrap gap-2 mb-5">
         ${estadoBadge(p.estado)}
         ${origenBadge(p)}
-        <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-white text-xs font-medium">${metodoPagoDe(p)}</span>
+        ${turnoBadge(p)}
+        <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-white text-xs font-medium">${metodo}</span>
       </div>
 
       ${
         tel
           ? `
-      <a href="${waLink(tel, waMsg)}" target="_blank" class="flex items-center justify-center gap-2 bg-primary text-white font-semibold text-sm py-2.5 rounded-xl mb-5 hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">
-        💬 Escribir por WhatsApp · ${tel}
+      <a href="${escHtml(waLink(tel, waMsg))}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 bg-primary text-white font-semibold text-sm py-2.5 rounded-xl mb-5 hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">
+        💬 Escribir por WhatsApp · ${escHtml(tel)}
       </a>`
           : `
-      <div class="text-xs text-inkfaint bg-panel2 border border-line rounded-xl px-3 py-2.5 mb-5">Este pedido no tiene teléfono registrado.</div>
-      `
+      <div class="text-xs text-inkfaint bg-panel2 border border-line rounded-xl px-3 py-2.5 mb-5">Este pedido no tiene teléfono registrado.</div>`
       }
 
       ${
@@ -1339,7 +1585,7 @@ function openModal(id) {
           ? `
       <div class="mb-5">
         <p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Dirección</p>
-        <p class="text-sm bg-panel2 border border-line rounded-xl px-3 py-2.5 text-white">${p.cliente.direccion}</p>
+        <p class="text-sm bg-panel2 border border-line rounded-xl px-3 py-2.5 text-white">${escHtml(p.cliente.direccion)}</p>
       </div>`
           : ""
       }
@@ -1349,61 +1595,67 @@ function openModal(id) {
           ? `
       <div class="mb-5">
         <p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Nota del cliente</p>
-        <p class="text-sm bg-primary/10 border border-primary/30 rounded-xl px-3 py-2.5 text-white">📝 ${p.nota}</p>
+        <p class="text-sm bg-primary/10 border border-primary/30 rounded-xl px-3 py-2.5 text-white">📝 ${escHtml(p.nota)}</p>
       </div>`
           : ""
       }
 
       ${detalleCuponModalHtml(p)}
-${p.pago_voucher?.url ? `<div class="mb-5"><p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Voucher de pago${p.pago_voucher.por ? ` · ${p.pago_voucher.por}` : ""}</p><img src="${p.pago_voucher.url}" loading="lazy" class="max-h-60 rounded-xl border border-line"></div>` : ""}
+
+      ${
+        p.pago_voucher?.url
+          ? `<div class="mb-5"><p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Voucher de pago${p.pago_voucher.por ? ` · ${escHtml(p.pago_voucher.por)}` : ""}</p><img src="${escHtml(p.pago_voucher.url)}" alt="Voucher de pago" loading="lazy" class="max-h-60 rounded-xl border border-line"></div>`
+          : ""
+      }
+
       <div class="mb-5">
         <p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Productos</p>
         <div class="bg-panel2 border border-line rounded-xl px-3">${productosHtml || '<p class="text-sm text-inkfaint py-3">Sin productos</p>'}</div>
       </div>
 
-        <div class="bg-panel2 border border-line rounded-xl px-4 py-3 mb-5">
+      <div class="bg-panel2 border border-line rounded-xl px-4 py-3 mb-5">
         ${
           tieneDelivery(p)
             ? `
           <div class="flex justify-between text-xs text-inkdim py-0.5"><span>Productos</span><span class="font-mono">${fmtMoney(totalSinDelivery(p))}</span></div>
-          <div class="flex justify-between text-xs text-inkdim py-0.5"><span>🛵 Delivery${p.delivery.zona ? ` · ${p.delivery.zona}` : ""}</span><span class="font-mono">${fmtMoney(deliveryDePedido(p))}</span></div>
-        `
+          <div class="flex justify-between text-xs text-inkdim py-0.5"><span>🛵 Delivery${p.delivery.zona ? ` · ${escHtml(p.delivery.zona)}` : ""}</span><span class="font-mono">${fmtMoney(deliveryDePedido(p))}</span></div>`
             : p.delivery?.gratis
               ? `
-          <div class="flex justify-between text-xs text-inkdim py-0.5"><span>🛵 Delivery</span><span class="font-mono text-green-400">Gratis (promo)</span></div>
-        `
+          <div class="flex justify-between text-xs text-inkdim py-0.5"><span>🛵 Delivery</span><span class="font-mono text-green-400">Gratis (promo)</span></div>`
               : ""
         }
         <div class="flex justify-between items-center ${p.delivery ? "pt-2 mt-1 border-t border-line" : ""}">
           <div>
-            <p class="text-xs text-inkfaint">${p.total_items || ""} ítem(s) · ${metodoPagoDe(p)}</p>
-            ${p.pago && p.pago.vuelto ? `<p class="text-xs text-inkfaint">Vuelto: S/ ${p.pago.vuelto}</p>` : ""}
+            <p class="text-xs text-inkfaint">${p.total_items ? escHtml(p.total_items) + " ítem(s) · " : ""}${metodo}</p>
+            ${vuelto ? `<p class="text-xs text-inkfaint">Vuelto: ${fmtMoney(vuelto)}</p>` : ""}
           </div>
           <p class="font-display font-extrabold text-xl text-white">${fmtMoney(p.total)}</p>
         </div>
       </div>
 
       <div class="flex gap-2">
-        <button onclick="window.reimprimirTicket()" class="flex-1 bg-panel2 border border-line font-semibold text-sm py-2.5 rounded-xl hover:bg-line transition text-white">${p.comprobante?.numero ? "🖨️ Reimprimir boleta" : "🧾 Sacar boleta"}</button>        <button onclick="window.exportarTicketWhatsApp()" class="flex-1 bg-primary text-white font-semibold text-sm py-2.5 rounded-xl hover:brightness-110 transition shadow-lg shadow-primary/20">📤 Enviar comprobante</button>
+        <button onclick="window.reimprimirTicket()" class="flex-1 bg-panel2 border border-line font-semibold text-sm py-2.5 rounded-xl hover:bg-line transition text-white">${p.comprobante?.numero ? "🖨️ Reimprimir boleta" : "🧾 Sacar boleta"}</button>
+        <button onclick="window.exportarTicketWhatsApp()" class="flex-1 bg-primary text-white font-semibold text-sm py-2.5 rounded-xl hover:brightness-110 transition shadow-lg shadow-primary/20">📤 Enviar comprobante</button>
       </div>
     `;
   }
 
-  const modalOverlay = document.getElementById("modalOverlay");
-  if (modalOverlay) modalOverlay.classList.remove("hidden");
+  $id("modalOverlay")?.classList.remove("hidden");
 }
 
 function closeModal() {
-  const modalOverlay = document.getElementById("modalOverlay");
-  if (modalOverlay) modalOverlay.classList.add("hidden");
+  $id("modalOverlay")?.classList.add("hidden");
   currentOrder = null;
 }
-const modalOverlay = document.getElementById("modalOverlay");
-if (modalOverlay) {
-  modalOverlay.addEventListener("click", (e) => {
-    if (e.target.id === "modalOverlay") closeModal();
-  });
-}
+$id("modalOverlay")?.addEventListener("click", (e) => {
+  if (e.target.id === "modalOverlay") closeModal();
+});
+// Escape cierra cualquier panel abierto
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  closeModal();
+  closeCostModal();
+});
 
 function ticketTextoPlano(p) {
   const lineas = (p.productos || [])
@@ -1415,11 +1667,11 @@ function ticketTextoPlano(p) {
     .join("\n");
   return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${p.cliente && p.cliente.direccion ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\n${tieneDelivery(p) ? `Productos: ${fmtMoney(totalSinDelivery(p))}\nDelivery: ${fmtMoney(deliveryDePedido(p))}\n` : ""}TOTAL: ${fmtMoney(p.total)}\nPago: ${metodoPagoDe(p)}\n${p.nota ? "Nota: " + p.nota : ""}`;
 }
+
 async function reimprimirTicket() {
   if (!currentOrder) return;
   const p = currentOrder;
   try {
-    // hereda: fuente, toggles, datos del negocio, QR de seguimiento
     const cfg = await prepararCfgComprobante(tiendaId, localidad, p, {
       nombre: nombreTienda || "",
     });
@@ -1435,17 +1687,30 @@ async function reimprimirTicket() {
     showToast("No se pudo imprimir la boleta");
   }
 }
-function exportarTicketWhatsApp() {
+
+async function exportarTicketWhatsApp() {
   if (!currentOrder) return;
   const tel = telefonoCliente(currentOrder);
   const msg = ticketTextoPlano(currentOrder);
   if (tel) {
-    window.open(waLink(tel, msg), "_blank");
-  } else {
-    navigator.clipboard.writeText(msg);
+    window.open(waLink(tel, msg), "_blank", "noopener");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(msg);
     showToast("Sin teléfono registrado. Comprobante copiado al portapapeles.");
+  } catch (e) {
+    console.warn(e);
+    showToast("No se pudo copiar el comprobante.");
   }
 }
+
+/* ---------------- Exportaciones ---------------- */
+const TIPO_DESC_LARGO = {
+  canje_puntos: "Canje de puntos",
+  descuento_fidelizacion: "Descuento fidelización",
+  cupon_descuento: "Cupón negocio",
+};
 
 function exportarCSV() {
   const list = getFilteredOrders();
@@ -1477,13 +1742,7 @@ function exportarCSV() {
     const productos = (p.productos || [])
       .map((pr) => `${pr.cantidad}x ${pr.nombre}`)
       .join(" | ");
-    const tipo = getTipoCuponPedido(p);
-    const tipoLabel =
-      {
-        canje_puntos: "Canje de puntos",
-        descuento_fidelizacion: "Descuento fidelización",
-        cupon_descuento: "Cupón negocio",
-      }[tipo] || "";
+    const tipoLabel = TIPO_DESC_LARGO[getTipoCuponPedido(p)] || "";
     return [
       codigoPedido(p),
       p.fecha || "",
@@ -1509,14 +1768,20 @@ function exportarCSV() {
   );
   const finanzas = computeFinanzas(entregados);
 
-  const csvEscape = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  // Neutraliza fórmulas (=, +, -, @) que Excel ejecutaría al abrir el CSV
+  const csvEscape = (v) => {
+    let s = String(v ?? "");
+    if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g, '""')}"`;
+  };
   const tablaCsv = [headers, ...rows].map((r) => r.map(csvEscape).join(","));
 
   const resumenCsv = [
     [],
     ["RESUMEN PARA CONTABILIDAD"],
+    ["Turno", textoTurnoSel() || "Todos"],
     ["Pedidos entregados", entregados.length],
-    ["Ingresos totales (S/)", finanzas.ingresos.toFixed(2)],
+    ["Ingresos sin delivery (S/)", finanzas.ingresos.toFixed(2)],
     ["Costos estimados (S/)", finanzas.costos.toFixed(2)],
     ["Margen bruto (S/)", finanzas.margenBruto.toFixed(2)],
     ["Gastos operativos (S/)", finanzas.gastosOp.toFixed(2)],
@@ -1532,12 +1797,17 @@ function exportarCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const [from, to] = getRangeBounds();
-  const fmtF = (d) => d.toISOString().slice(0, 10);
   a.href = url;
-  a.download = `pedidos_${fmtF(from)}_a_${fmtF(to)}.csv`;
+  a.download = `pedidos_${fechaArchivo(from)}_a_${fechaArchivo(to)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   showToast(`Exportados ${list.length} pedidos a CSV`);
+}
+
+// Fecha local (YYYY-MM-DD); toISOString usaba UTC y podía mostrar el día siguiente
+function fechaArchivo(d) {
+  const z = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
 }
 
 async function exportarExcel() {
@@ -1560,13 +1830,6 @@ async function exportarExcel() {
     const productos = (p.productos || [])
       .map((pr) => `${pr.cantidad}x ${pr.nombre}`)
       .join(" | ");
-    const tipo = getTipoCuponPedido(p);
-    const tipoLabel =
-      {
-        canje_puntos: "Canje de puntos",
-        descuento_fidelizacion: "Descuento fidelización",
-        cupon_descuento: "Cupón negocio",
-      }[tipo] || "";
     return {
       Código: codigoPedido(p),
       Fecha: p.fecha || "",
@@ -1578,7 +1841,7 @@ async function exportarExcel() {
       "Método de pago": metodoPagoDe(p),
       Estado: p.estado || "",
       "Total (S/)": Number(p.total) || 0,
-      "Tipo descuento": tipoLabel,
+      "Tipo descuento": TIPO_DESC_LARGO[getTipoCuponPedido(p)] || "",
       "Código cupón": (p.cupon && p.cupon.codigo) || "",
       "Monto descuento (S/)": Number(p.descuentoCupon) || 0,
       "Puntos usados": (p.cupon && p.cupon.costoPuntos) || "",
@@ -1616,33 +1879,40 @@ async function exportarExcel() {
     (p) => (p.estado || "").toLowerCase() === "entregado",
   );
   const finanzas = computeFinanzas(entregados);
-  const digitalCount = entregados.filter((p) =>
+  const totalCobrado = entregados.reduce(
+    (s, p) => s + (Number(p.total) || 0),
+    0,
+  );
+  const deliveryCobrado = entregados.reduce(
+    (s, p) => s + deliveryDePedido(p),
+    0,
+  );
+  const digitales = entregados.filter((p) =>
     esBilleteraDigital(metodoPagoDe(p)),
-  ).length;
+  );
+  const digitalCount = digitales.length;
   const efectivoCount = entregados.length - digitalCount;
-  const digitalMonto = entregados
-    .filter((p) => esBilleteraDigital(metodoPagoDe(p)))
-    .reduce((s, p) => s + (Number(p.total) || 0), 0);
-  const efectivoMonto = finanzas.ingresos - digitalMonto;
+  const digitalMonto = digitales.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const efectivoMonto = totalCobrado - digitalMonto;
 
   const resumen = [
+    { Métrica: "Turno", Valor: textoTurnoSel() || "Todos" },
     {
       Métrica: "Rango",
       Valor: `${from.toLocaleDateString("es-PE")} - ${to.toLocaleDateString("es-PE")}`,
     },
     { Métrica: "Pedidos entregados", Valor: entregados.length },
-    { Métrica: "Ingresos totales (S/)", Valor: finanzas.ingresos.toFixed(2) },
+    { Métrica: "Total cobrado (S/)", Valor: totalCobrado.toFixed(2) },
+    { Métrica: "Ingresos sin delivery (S/)", Valor: finanzas.ingresos.toFixed(2) },
+    { Métrica: "Delivery cobrado (S/)", Valor: deliveryCobrado.toFixed(2) },
     { Métrica: "Costos estimados (S/)", Valor: finanzas.costos.toFixed(2) },
     { Métrica: "Margen bruto (S/)", Valor: finanzas.margenBruto.toFixed(2) },
-    {
-      Métrica: "Gastos operativos (S/)",
-      Valor: finanzas.gastosOp.toFixed(2),
-    },
+    { Métrica: "Gastos operativos (S/)", Valor: finanzas.gastosOp.toFixed(2) },
     { Métrica: "Utilidad neta (S/)", Valor: finanzas.utilidadNeta.toFixed(2) },
     {
       Métrica: "Ticket promedio (S/)",
       Valor: entregados.length
-        ? (finanzas.ingresos / entregados.length).toFixed(2)
+        ? (totalCobrado / entregados.length).toFixed(2)
         : "0.00",
     },
     {
@@ -1652,30 +1922,24 @@ async function exportarExcel() {
     { Métrica: "Cantidad efectivo/tarjeta", Valor: efectivoCount },
     { Métrica: "Ventas por Yape/Plin (S/)", Valor: digitalMonto.toFixed(2) },
     { Métrica: "Cantidad Yape/Plin", Valor: digitalCount },
-    {
-      Métrica: "Venta neta sin delivery (S/)",
-      Valor: finanzas.ingresos.toFixed(2),
-    },
-    {
-      Métrica: "Delivery cobrado (S/)",
-      Valor: entregados.reduce((s, p) => s + deliveryDePedido(p), 0).toFixed(2),
-    },
-    {
-      Métrica: "Nota",
-      ...cuadrePorMetodo(entregados).map((f) => ({
-        Métrica: `Cuadre ${(METODOS_INFO[f.clave] || ["", f.clave])[1]} (S/)`,
-        Valor: `${f.monto.toFixed(2)} (${f.cant} pedidos)`,
-      })),
-      Valor:
-        "Costos estimados según % configurado en el sistema; no reemplaza comprobantes de compra.",
-    },
   ];
+  cuadrePorMetodo(entregados).forEach((f) => {
+    resumen.push({
+      Métrica: `Cuadre ${(METODOS_INFO[f.clave] || ["", f.clave])[1]} (S/)`,
+      Valor: `${f.monto.toFixed(2)} (${f.cant} pedidos)`,
+    });
+  });
+  resumen.push({
+    Métrica: "Nota",
+    Valor:
+      "Costos estimados según % configurado en el sistema; no reemplaza comprobantes de compra.",
+  });
+
   const wsResumen = XLSX.utils.json_to_sheet(resumen);
-  wsResumen["!cols"] = [{ wch: 26 }, { wch: 34 }];
+  wsResumen["!cols"] = [{ wch: 32 }, { wch: 40 }];
   XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
 
-  const fmtFExcel = (d) => d.toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `pedidos_${fmtFExcel(from)}_a_${fmtFExcel(to)}.xlsx`);
+  XLSX.writeFile(wb, `pedidos_${fechaArchivo(from)}_a_${fechaArchivo(to)}.xlsx`);
   showToast(`Exportados ${list.length} pedidos a Excel`);
 }
 
@@ -1709,9 +1973,10 @@ async function exportarPDF() {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(20, 20, 20);
-  const nombreParaPdf = nombreTienda || "Historial de Pedidos";
   doc.text(
-    nombreTienda ? `${nombreParaPdf} · Historial de Pedidos` : nombreParaPdf,
+    nombreTienda
+      ? `${nombreTienda} · Historial de Pedidos`
+      : "Historial de Pedidos",
     40,
     40,
   );
@@ -1720,7 +1985,7 @@ async function exportarPDF() {
   doc.setFontSize(10);
   doc.setTextColor(90, 90, 90);
   doc.text(
-    `Rango: ${from.toLocaleDateString("es-PE")} - ${to.toLocaleDateString("es-PE")}`,
+    `Rango: ${from.toLocaleDateString("es-PE")} - ${to.toLocaleDateString("es-PE")}${textoTurnoSel() ? "   ·   " + textoTurnoSel() : ""}`,
     40,
     58,
   );
@@ -1732,7 +1997,7 @@ async function exportarPDF() {
     72,
   );
   doc.text(
-    `Ingresos: ${fmtMoney(finanzas.ingresos)}   ·   Costos estimados: ${fmtMoney(finanzas.costos)}   ·   Utilidad neta: ${fmtMoney(finanzas.utilidadNeta)}`,
+    `Ingresos (sin delivery): ${fmtMoney(finanzas.ingresos)}   ·   Costos estimados: ${fmtMoney(finanzas.costos)}   ·   Utilidad neta: ${fmtMoney(finanzas.utilidadNeta)}`,
     40,
     86,
   );
@@ -1806,13 +2071,13 @@ async function exportarPDF() {
     },
     margin: { left: 40, right: 40 },
   });
-  const fmtFPdf = (d) => d.toISOString().slice(0, 10);
-  doc.save(`pedidos_${fmtFPdf(from)}_a_${fmtFPdf(to)}.pdf`);
+  doc.save(`pedidos_${fechaArchivo(from)}_a_${fechaArchivo(to)}.pdf`);
   showToast(`Exportados ${list.length} pedidos a PDF`);
 }
 
-const btnExport = document.getElementById("btnExport");
-const exportMenu = document.getElementById("exportMenu");
+/* ---------------- Menú de exportación ---------------- */
+const btnExport = $id("btnExport");
+const exportMenu = $id("exportMenu");
 if (btnExport && exportMenu) {
   btnExport.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1821,101 +2086,71 @@ if (btnExport && exportMenu) {
   document.addEventListener("click", () => exportMenu.classList.add("hidden"));
   exportMenu.addEventListener("click", (e) => e.stopPropagation());
 }
-const btnExportCSV = document.getElementById("btnExportCSV");
-if (btnExportCSV)
-  btnExportCSV.addEventListener("click", () => {
-    exportarCSV();
-    exportMenu.classList.add("hidden");
-  });
-const btnExportExcel = document.getElementById("btnExportExcel");
-if (btnExportExcel)
-  btnExportExcel.addEventListener("click", () => {
-    exportarExcel();
-    exportMenu.classList.add("hidden");
-  });
-const btnExportPDF = document.getElementById("btnExportPDF");
-if (btnExportPDF)
-  btnExportPDF.addEventListener("click", () => {
-    exportarPDF();
-    exportMenu.classList.add("hidden");
-  });
-const dateChips = document.getElementById("dateChips");
-if (dateChips) {
-  dateChips.addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-range]");
-    if (!btn) return;
-    document
-      .querySelectorAll("#dateChips .chip")
-      .forEach((c) => c.classList.remove("active"));
-    btn.classList.add("active");
-    currentRange = btn.dataset.range;
-    const customRangeBox = document.getElementById("customRangeBox");
-    if (customRangeBox) {
-      customRangeBox.classList.toggle("hidden", currentRange !== "custom");
-    }
-    if (currentRange !== "custom") listenPedidos(); // custom espera a que se llenen las 2 fechas
-  });
-}
-document
-  .getElementById("filterComprobante")
-  ?.addEventListener("change", renderAll);
-const customFrom = document.getElementById("customFrom");
-if (customFrom)
-  customFrom.addEventListener("change", () => {
-    if (currentRange === "custom") listenPedidos();
-  });
-const customTo = document.getElementById("customTo");
-if (customTo)
-  customTo.addEventListener("change", () => {
-    if (currentRange === "custom") listenPedidos();
-  });
-const filterEstado = document.getElementById("filterEstado");
-if (filterEstado) filterEstado.addEventListener("change", renderAll);
-const filterOrigen = document.getElementById("filterOrigen");
-if (filterOrigen) filterOrigen.addEventListener("change", renderAll);
-document
-  .getElementById("filterDelivery")
-  ?.addEventListener("change", renderAll);
+[
+  ["btnExportCSV", exportarCSV],
+  ["btnExportExcel", exportarExcel],
+  ["btnExportPDF", exportarPDF],
+].forEach(([id, fn]) =>
+  $id(id)?.addEventListener("click", () => {
+    fn();
+    exportMenu?.classList.add("hidden");
+  }),
+);
 
-// Búsqueda con pequeño debounce: no recalcula todo en cada tecla
-const searchBox = document.getElementById("searchBox");
+/* ---------------- Filtros ---------------- */
+$id("dateChips")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-range]");
+  if (!btn) return;
+  document
+    .querySelectorAll("#dateChips .chip")
+    .forEach((c) => c.classList.remove("active"));
+  btn.classList.add("active");
+  currentRange = btn.dataset.range;
+  $id("customRangeBox")?.classList.toggle("hidden", currentRange !== "custom");
+  if (currentRange !== "custom") listenPedidos(); // custom espera a que se llenen las fechas
+});
+
+["customFrom", "customTo"].forEach((id) =>
+  $id(id)?.addEventListener("change", () => {
+    if (currentRange === "custom") listenPedidos();
+  }),
+);
+["filterComprobante", "filterEstado", "filterOrigen", "filterDelivery"].forEach(
+  (id) => $id(id)?.addEventListener("change", renderAll),
+);
+
+// Búsqueda con pequeño debounce
+const searchBox = $id("searchBox");
 let searchTimer = null;
-if (searchBox)
-  searchBox.addEventListener("input", () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderAll, 150);
-  });
+searchBox?.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(renderAll, 150);
+});
 
-const btnResetFilters = document.getElementById("btnResetFilters");
-if (btnResetFilters) {
-  btnResetFilters.addEventListener("click", () => {
-    document.getElementById("filterEstado").value = "todos";
-    document.getElementById("filterOrigen").value = "todos";
-    const fd = document.getElementById("filterDelivery");
-    if (fd) fd.value = "todos";
-    const fc = document.getElementById("filterComprobante");
-    if (fc) fc.value = "todos";
-    document.getElementById("searchBox").value = "";
-    document
-      .querySelectorAll("#dateChips .chip")
-      .forEach((c) => c.classList.remove("active"));
-    document.querySelector('[data-range="hoy"]').classList.add("active");
-    const cambioRango = currentRange !== "hoy";
-    currentRange = "hoy";
-    const customRangeBox = document.getElementById("customRangeBox");
-    if (customRangeBox) customRangeBox.classList.add("hidden");
-    // Si estaba en otro rango hay que volver a pedir los datos de HOY
-    if (cambioRango) listenPedidos();
-    else renderAll();
-  });
-}
+$id("btnResetFilters")?.addEventListener("click", () => {
+  ["filterEstado", "filterOrigen", "filterDelivery", "filterComprobante"].forEach(
+    (id) => {
+      const el = $id(id);
+      if (el) el.value = "todos";
+    },
+  );
+  $id("searchBox").value = "";
+  turnoSel = "todos";
+  pintarChipsTurno();
+  document
+    .querySelectorAll("#dateChips .chip")
+    .forEach((c) => c.classList.remove("active"));
+  document.querySelector('[data-range="hoy"]')?.classList.add("active");
+  const cambioRango = currentRange !== "hoy";
+  currentRange = "hoy";
+  $id("customRangeBox")?.classList.add("hidden");
+  if (cambioRango) listenPedidos();
+  else renderAll();
+});
 
-/* ---------------- Tooltip del botón de comparación ----------------
-   Desktop: se abre/cierra con hover (mouseenter/mouseleave).
-   Móvil/táctil: no hay hover, así que un tap alterna el tooltip y un
-   tap fuera lo cierra. */
-const comparativaInfoBtn = document.getElementById("comparativaInfoBtn");
-const comparativaTooltip = document.getElementById("comparativaTooltip");
+/* ---------------- Tooltip del botón de comparación ---------------- */
+const comparativaInfoBtn = $id("comparativaInfoBtn");
+const comparativaTooltip = $id("comparativaTooltip");
 if (comparativaInfoBtn && comparativaTooltip) {
   const showTip = () => comparativaTooltip.classList.remove("hidden");
   const hideTip = () => comparativaTooltip.classList.add("hidden");
@@ -1930,8 +2165,8 @@ if (comparativaInfoBtn && comparativaTooltip) {
 }
 
 /* ---------------- Render ----------------
-   renderAll() agrupa varias llamadas seguidas (pedidos + gastos + período anterior +
-   filtros) en UN solo pintado por frame. renderAllNow() pinta de inmediato. */
+   renderAll() agrupa varias llamadas en UN solo pintado por frame.
+   renderAllNow() pinta de inmediato. */
 let renderPendiente = false;
 let lastFilterKey = "";
 
@@ -1945,9 +2180,10 @@ function renderAll() {
 }
 
 function filtroKey() {
-  const v = (id) => document.getElementById(id)?.value || "";
+  const v = (id) => $id(id)?.value || "";
   return [
     currentRange,
+    turnoSel,
     v("filterEstado"),
     v("filterOrigen"),
     v("filterDelivery"),
@@ -1959,16 +2195,17 @@ function filtroKey() {
 }
 
 function renderAllNow() {
-  // Si cambió algún filtro, la lista vuelve a mostrar la primera página
   const key = filtroKey();
   if (key !== lastFilterKey) {
     lastFilterKey = key;
-    visibleCount = PAGE_SIZE;
+    visibleCount = PAGE_SIZE; // si cambió un filtro, vuelve a la primera página
   }
 
   const list = getFilteredOrders();
   renderMetrics(list);
   renderList(list);
+  pintarInfoTurno();
+  pintarAvisoTurnos();
   const labels = {
     hoy: "Hoy",
     ayer: "Ayer",
@@ -1976,12 +2213,15 @@ function renderAllNow() {
     mes: "Este mes",
     custom: "Rango personalizado",
   };
-  const rangeLabelEcho = document.getElementById("rangeLabelEcho");
-  if (rangeLabelEcho) rangeLabelEcho.textContent = labels[currentRange] || "";
+  const rangeLabelEcho = $id("rangeLabelEcho");
+  if (rangeLabelEcho)
+    rangeLabelEcho.textContent = [labels[currentRange], textoTurnoSel()]
+      .filter(Boolean)
+      .join(" · ");
 }
 
 function tickClock() {
-  const clockNow = document.getElementById("clockNow");
+  const clockNow = $id("clockNow");
   if (clockNow)
     clockNow.textContent = new Date().toLocaleString("es-PE", {
       dateStyle: "medium",
@@ -1991,6 +2231,13 @@ function tickClock() {
 tickClock();
 setInterval(tickClock, 30000);
 
+// Libera los listeners de Firestore al salir de la página
+window.addEventListener("pagehide", () => {
+  [unsubscribePedidos, unsubGastos, unsubTurnos, unsubCfgCaja].forEach(
+    (u) => u && u(),
+  );
+});
+
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.reimprimirTicket = reimprimirTicket;
@@ -1999,3 +2246,91 @@ window.exportarTicketWhatsApp = exportarTicketWhatsApp;
 if (tiendaId && localidad) {
   listenPedidos();
 }
+
+/* ---------------- Personalizar vista (se guarda en este dispositivo) ---------------- */
+const VISTA_KEY = "historial_vista_v1";
+const VISTA_OPCIONES = [
+  { grupo: "Resumen", k: "resumen", label: "Totales (vendido, pedidos, ticket)", admin: false },
+  { grupo: "Resumen", k: "desglose", label: "Venta neta, delivery y pagos", admin: false },
+  { grupo: "Origen de las ventas", k: "canal", label: "Canal principal", admin: true },
+  { grupo: "Origen de las ventas", k: "distribucion", label: "Distribución por canal", admin: true },
+  { grupo: "Dashboard inteligente", k: "top_producto", label: "Producto más vendido", admin: true },
+  { grupo: "Dashboard inteligente", k: "hora_pico", label: "Hora pico", admin: true },
+  { grupo: "Dashboard inteligente", k: "comparativa", label: "Vs. período anterior", admin: true },
+  { grupo: "Dashboard inteligente", k: "horas", label: "Gráfico por franja horaria", admin: true },
+  { grupo: "Rentabilidad", k: "rent_kpis", label: "Ingresos, costos, margen y utilidad", admin: true },
+  { grupo: "Rentabilidad", k: "rent_barras", label: "Ingresos vs. costos", admin: true },
+  { grupo: "Rentabilidad", k: "rent_productos", label: "Ganancia por producto", admin: true },
+];
+
+let vistaCfg = (() => {
+  try { return JSON.parse(localStorage.getItem(VISTA_KEY)) || {}; }
+  catch (e) { return {}; }
+})();
+const vistaVisible = (k) => vistaCfg[k] !== false;
+
+function guardarVista() {
+  try { localStorage.setItem(VISTA_KEY, JSON.stringify(vistaCfg)); } catch (e) {}
+}
+
+function aplicarVista() {
+  document.querySelectorAll("[data-vista]").forEach((el) =>
+    el.classList.toggle("vista-oculta", !vistaVisible(el.dataset.vista)),
+  );
+  // Si a una sección no le queda nada visible, se oculta entera (con su título)
+  document.querySelectorAll("#metricsSections > section").forEach((sec) => {
+    const partes = [...sec.querySelectorAll("[data-vista]")];
+    if (!partes.length) return;
+    const alguna = partes.some(
+      (el) => !el.classList.contains("vista-oculta") && el.style.display !== "none",
+    );
+    sec.classList.toggle("vista-oculta", !alguna);
+  });
+}
+
+function pintarOpcionesVista() {
+  const box = $id("vistaOpciones");
+  if (!box) return;
+  let grupoActual = "";
+  box.innerHTML = VISTA_OPCIONES.filter((o) => esAdmin || !o.admin)
+    .map((o) => {
+      const titulo = o.grupo !== grupoActual ? `<p class="vista-grupo">${escHtml(o.grupo)}</p>` : "";
+      grupoActual = o.grupo;
+      return `${titulo}
+        <label class="vista-opt">
+          <span>${escHtml(o.label)}</span>
+          <input type="checkbox" data-k="${o.k}" ${vistaVisible(o.k) ? "checked" : ""}>
+        </label>`;
+    })
+    .join("");
+}
+
+$id("vistaOpciones")?.addEventListener("change", (e) => {
+  const k = e.target?.dataset?.k;
+  if (!k) return;
+  vistaCfg[k] = e.target.checked;
+  guardarVista();
+  aplicarVista();
+});
+
+const abrirVista = () => {
+  pintarOpcionesVista();
+  $id("vistaModalOverlay")?.classList.remove("hidden");
+};
+const cerrarVista = () => $id("vistaModalOverlay")?.classList.add("hidden");
+
+$id("btnVista")?.addEventListener("click", abrirVista);
+$id("btnCerrarVista")?.addEventListener("click", cerrarVista);
+$id("vistaModalOverlay")?.addEventListener("click", (e) => {
+  if (e.target.id === "vistaModalOverlay") cerrarVista();
+});
+document.addEventListener("keydown", (e) => e.key === "Escape" && cerrarVista());
+
+$id("btnVistaTodo")?.addEventListener("click", () => {
+  vistaCfg = {};
+  guardarVista();
+  aplicarVista();
+  pintarOpcionesVista();
+});
+
+if (esAdmin) aplicarVista();

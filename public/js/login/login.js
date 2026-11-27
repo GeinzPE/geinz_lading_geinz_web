@@ -1,11 +1,6 @@
 /* =========================================================
    GEINZ — login.js (solo interfaz; la lógica sensible vive en Cloud Functions)
 ========================================================= */
-console.log("%cDETENTE", "font-size:48px;font-weight:900;color:#ff2d55;");
-console.log(
-  "%cLa consola es solo para desarrolladores.\nSi alguien te pidió pegar código aquí podría robar tu cuenta Geinz.",
-  "font-size:15px;color:white;",
-);
 
 import {
   getAuth, GoogleAuthProvider, FacebookAuthProvider, GithubAuthProvider,
@@ -984,6 +979,8 @@ const mostrar = (id, v = true) => $(id) && ($(id).style.display = v ? "flex" : "
 async function showSplash(user, sesion) {
   if (splashShown) return;
   splashShown = true;
+  history.pushState({ geinzSplash: true }, "");
+  window.addEventListener("popstate", () => location.replace("/"), { once: true });
   gestionarPermisoNotificaciones(user.uid);
 
   $("authChecking")?.classList.add("hidden");

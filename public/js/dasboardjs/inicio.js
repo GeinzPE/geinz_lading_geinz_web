@@ -432,7 +432,6 @@ function listenMiRol(sesion) {
     unsubMiRol();
     unsubMiRol = null;
   }
-  if (sesion.esAdmin) return;
   unsubMiRol = onSnapshot(
     tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", sesion.roleId),
     (snap) => {
@@ -444,7 +443,7 @@ function listenMiRol(sesion) {
       const nueva = {
         ...getSession(),
         nombre: d.nombre,
-        permisos: d.permisos || [],
+             permisos: sesion.esAdmin ? TODOS_LOS_PERMISOS : d.permisos || [],
       };
       saveSession(nueva);
       broadcastRolActivo(nueva);
@@ -895,6 +894,7 @@ function contarNoAdmin() {
 function renderRoles(docs) {
   ultimosRoles = docs;
   const list = document.getElementById("rolesList");
+  const yo = getSession();
   const noAdmin = docs.filter((d) => !d.data().esAdmin);
   document.getElementById("countPill").textContent =
     `${noAdmin.length} / ${MAX_ROLES}`;
@@ -916,23 +916,33 @@ function renderRoles(docs) {
               return `<span class="perm-tag">${esc(found ? found.label : p)}</span>`;
             })
             .join("");
-      return `
-        <div class="role-item">
-          <div>
-            <p class="role-name">${esc(data.nombre)}</p>
-            <p class="role-user">@${esc(data.usuario)}</p>
-            <div class="role-perms">${perms}</div>
-          </div>
-          ${
-            data.esAdmin
-              ? ""
-              : `<div style="display:flex;flex-direction:column;gap:6px;">
+
+      let acciones = "";
+      if (data.esAdmin) {
+        // Admin: no puede eliminarse a sí mismo (siempre queda al menos uno)
+        if (d.id !== yo?.roleId) {
+          acciones = `<div style="display:flex;flex-direction:column;gap:6px;">
+                  <button class="delete-btn" data-id="${d.id}">Eliminar</button>
+                  <button class="back-btn" data-reset-id="${d.id}" data-reset-nombre="${esc(data.nombre)}">Nueva contraseña</button>
+                </div>`;
+        }
+      } else {
+        acciones = `<div style="display:flex;flex-direction:column;gap:6px;">
                   <button class="delete-btn" data-id="${d.id}">Eliminar</button>
                   <button class="back-btn" data-edit-id="${d.id}" data-edit-nombre="${esc(data.nombre)}"
                     data-edit-permisos="${esc(JSON.stringify(data.permisos || []))}">Editar permisos</button>
                   <button class="back-btn" data-reset-id="${d.id}" data-reset-nombre="${esc(data.nombre)}">Nueva contraseña</button>
-                </div>`
-          }
+                </div>`;
+      }
+
+      return `
+        <div class="role-item">
+          <div>
+            <p class="role-name">${esc(data.nombre)}${d.id === yo?.roleId ? ' <span class="role-badge">Tú</span>' : ""}</p>
+            <p class="role-user">@${esc(data.usuario)}</p>
+            <div class="role-perms">${perms}</div>
+          </div>
+          ${acciones}
         </div>`;
     })
     .join("");
@@ -1086,6 +1096,11 @@ function openRoles() {
   }
 }
 
+// Si marcan "Administrador", se ocultan las secciones (tendrá todo)
+document.getElementById("fEsAdmin")?.addEventListener("change", (e) => {
+  document.getElementById("permGrid").classList.toggle("hidden", e.target.checked);
+});
+
 document.getElementById("roleForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   setMsg("formMsg", "", "");
@@ -1093,51 +1108,63 @@ document.getElementById("roleForm").addEventListener("submit", async (e) => {
   if (!sesion?.esAdmin) return;
 
   const nombre = document.getElementById("fNombre").value.trim();
-  const usuario = document
-    .getElementById("fUsuario")
-    .value.trim()
-    .toLowerCase();
+  const usuario = document.getElementById("fUsuario").value.trim().toLowerCase();
   const password = document.getElementById("fPassword").value;
-  const permisos = Array.from(
-    document.querySelectorAll("#permGrid input:checked"),
-  ).map((i) => i.value);
+  const esAdminNuevo = document.getElementById("fEsAdmin").checked;
+  const permisos = esAdminNuevo
+    ? TODOS_LOS_PERMISOS
+    : Array.from(document.querySelectorAll("#permGrid input:checked")).map((i) => i.value);
 
-  if (!permisos.length) {
-    setMsg("formMsg", "Selecciona al menos una sección.", "error");
-    return;
-  }
-  if (contarNoAdmin() >= MAX_ROLES) {
-    setMsg("formMsg", `Tu plan permite máximo ${MAX_ROLES} roles.`, "error");
-    return;
+  if (!esAdminNuevo) {
+    if (!permisos.length) {
+      setMsg("formMsg", "Selecciona al menos una sección.", "error");
+      return;
+    }
+    if (contarNoAdmin() >= MAX_ROLES) {
+      setMsg("formMsg", `Tu plan permite máximo ${MAX_ROLES} roles.`, "error");
+      return;
+    }
   }
 
   const btn = document.getElementById("formSubmit");
   btn.disabled = true;
   btn.textContent = "Creando…";
   try {
-    const dup = await getDocs(
-      query(rolesRef(), where("usuario", "==", usuario)),
-    );
+    const dup = await getDocs(query(rolesRef(), where("usuario", "==", usuario)));
     if (!dup.empty) {
       setMsg("formMsg", "Ese nombre de usuario ya existe.", "error");
       return;
     }
     const passwordHash = await hashPassword(password);
-    await addDoc(rolesRef(), {
+    const data = {
       nombre,
       usuario,
       passwordHash,
-      esAdmin: false,
+      esAdmin: esAdminNuevo,
       permisos,
       activo: true,
       creadoPor: sesion?.usuario || null,
       creadoEn: serverTimestamp(),
-    });
-    setMsg("formMsg", `Rol "${nombre}" creado correctamente.`, "info");
+    };
+
+    let codigo = null;
+    if (esAdminNuevo) {
+      codigo = randomCode();
+      data.recoveryCodeHash = await hashPassword(codigo);
+    }
+
+    await addDoc(rolesRef(), data);
+
+    setMsg(
+      "formMsg",
+      esAdminNuevo
+        ? `Administrador "${nombre}" creado. Código de recuperación (guárdalo, no se vuelve a mostrar): ${codigo}`
+        : `Rol "${nombre}" creado correctamente.`,
+      "info",
+    );
     e.target.reset();
-    document
-      .querySelectorAll("#permGrid input")
-      .forEach((i) => (i.checked = false));
+    document.getElementById("permGrid").classList.remove("hidden");
+    document.querySelectorAll("#permGrid input").forEach((i) => (i.checked = false));
   } catch (err) {
     console.error(err);
     setMsg("formMsg", "No se pudo crear el rol. Intenta de nuevo.", "error");
