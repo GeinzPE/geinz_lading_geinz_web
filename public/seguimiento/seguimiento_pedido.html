@@ -43,8 +43,13 @@
       --ease: cubic-bezier(.22, 1, .36, 1);
     }
 
-    * { box-sizing: border-box; }
-    html { -webkit-text-size-adjust: 100%; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
 
     body {
       margin: 0;
@@ -62,13 +67,39 @@
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 
-    button, input { font: inherit; color: inherit; }
-    img { max-width: 100%; display: block; }
-    .hidden { display: none !important; }
-    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .mono { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+    body.cargando {
+      background: var(--bg);
+    }
 
-    a:focus-visible, button:focus-visible, input:focus-visible {
+    button,
+    input {
+      font: inherit;
+      color: inherit;
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .truncate {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .mono {
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .01em;
+    }
+
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
@@ -167,7 +198,9 @@
       transition: color .3s var(--ease);
     }
 
-    .field:focus-within svg.ico { color: var(--accent-light); }
+    .field:focus-within svg.ico {
+      color: var(--accent-light);
+    }
 
     #codigo {
       width: 100%;
@@ -181,7 +214,10 @@
       transition: border-color .3s var(--ease), box-shadow .3s var(--ease);
     }
 
-    #codigo::placeholder { color: var(--text-3); font-weight: 400; }
+    #codigo::placeholder {
+      color: var(--text-3);
+      font-weight: 400;
+    }
 
     #codigo:focus {
       outline: none;
@@ -206,7 +242,10 @@
       transition: background .25s var(--ease), color .25s var(--ease);
     }
 
-    .paste-btn:hover { background: rgba(var(--accent-rgb), .18); color: var(--text); }
+    .paste-btn:hover {
+      background: rgba(var(--accent-rgb), .18);
+      color: var(--text);
+    }
 
     .btn {
       display: inline-flex;
@@ -230,9 +269,20 @@
       box-shadow: 0 1px 0 rgba(255, 255, 255, .28) inset, 0 16px 30px -16px rgba(var(--accent-rgb), .8);
     }
 
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255, 255, 255, .3) inset, 0 20px 34px -14px rgba(var(--accent-rgb), .9); }
-    .btn-primary:active { transform: translateY(0); }
-    .btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .3) inset, 0 20px 34px -14px rgba(var(--accent-rgb), .9);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+      transform: none;
+    }
 
     .btn-ghost {
       color: var(--text);
@@ -240,8 +290,14 @@
       border: 1px solid var(--border);
     }
 
-    .btn-ghost:hover { background: #1d1d22; transform: translateY(-1px); }
-    .btn-block { width: 100%; }
+    .btn-ghost:hover {
+      background: #1d1d22;
+      transform: translateY(-1px);
+    }
+
+    .btn-block {
+      width: 100%;
+    }
 
     .help {
       margin: .95rem 0 0;
@@ -250,16 +306,30 @@
       line-height: 1.55;
     }
 
-    .help b { color: var(--text-2); font-weight: 600; }
+    .help b {
+      color: var(--text-2);
+      font-weight: 600;
+    }
 
     /* ---------- Resultado ---------- */
-    #result { margin-top: 1rem; }
+    #result {
+      margin-top: 1rem;
+    }
 
-    .enter { animation: enter .55s var(--ease) both; }
+    .enter {
+      animation: enter .55s var(--ease) both;
+    }
 
     @keyframes enter {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: none; }
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
     }
 
     .pv-top {
@@ -297,7 +367,17 @@
       animation: blink 2s ease-in-out infinite;
     }
 
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .3;
+      }
+    }
 
     .pv-status {
       display: flex;
@@ -324,9 +404,17 @@
     }
 
     @keyframes ring {
-      0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--st, var(--accent)) 50%, transparent); }
-      70% { box-shadow: 0 0 0 12px transparent; }
-      100% { box-shadow: 0 0 0 0 transparent; }
+      0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--st, var(--accent)) 50%, transparent);
+      }
+
+      70% {
+        box-shadow: 0 0 0 12px transparent;
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 transparent;
+      }
     }
 
     .pv-label {
@@ -394,8 +482,14 @@
       line-height: 1.25;
     }
 
-    .step.done .lbl, .step.current .lbl { color: var(--text); }
-    .step.current .lbl { font-weight: 700; }
+    .step.done .lbl,
+    .step.current .lbl {
+      color: var(--text);
+    }
+
+    .step.current .lbl {
+      font-weight: 700;
+    }
 
     .line {
       flex: 1;
@@ -417,7 +511,9 @@
       transition: transform .7s var(--ease);
     }
 
-    .line.done::after { transform: scaleX(1); }
+    .line.done::after {
+      transform: scaleX(1);
+    }
 
     .pv-alert {
       margin-bottom: 1.4rem;
@@ -451,7 +547,10 @@
       font-weight: 600;
     }
 
-    .meta .v.total { color: var(--accent-light); font-size: 1.05rem; }
+    .meta .v.total {
+      color: var(--accent-light);
+      font-size: 1.05rem;
+    }
 
     /* Productos */
     .items {
@@ -464,9 +563,14 @@
       gap: .7rem;
     }
 
-    .item { display: flex; align-items: center; gap: .75rem; }
+    .item {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
 
-    .item img, .item .ph {
+    .item img,
+    .item .ph {
       width: 2.6rem;
       height: 2.6rem;
       border-radius: .7rem;
@@ -504,7 +608,9 @@
       color: var(--text-3);
     }
 
-    .pv-cta { margin-top: 1.4rem; }
+    .pv-cta {
+      margin-top: 1.4rem;
+    }
 
     /* Estados: cargando / error / auth */
     .note {
@@ -531,9 +637,23 @@
       border-color: color-mix(in srgb, var(--s-rechazado) 25%, transparent);
     }
 
-    .note h2 { margin: 0 0 .4rem; font-size: 1.05rem; font-weight: 700; letter-spacing: -.02em; }
-    .note p { margin: 0 0 1.2rem; font-size: .87rem; color: var(--text-2); line-height: 1.55; }
-    .note p:last-child { margin-bottom: 0; }
+    .note h2 {
+      margin: 0 0 .4rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .note p {
+      margin: 0 0 1.2rem;
+      font-size: .87rem;
+      color: var(--text-2);
+      line-height: 1.55;
+    }
+
+    .note p:last-child {
+      margin-bottom: 0;
+    }
 
     .spin {
       width: 1.6rem;
@@ -545,7 +665,11 @@
       animation: spin .75s linear infinite;
     }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
     /* Volver */
     .back {
@@ -561,7 +685,9 @@
       transition: color .25s var(--ease);
     }
 
-    .back:hover { color: var(--text); }
+    .back:hover {
+      color: var(--text);
+    }
 
     /* Skeleton de arranque */
     .skel {
@@ -572,24 +698,48 @@
     }
 
     @keyframes shimmer {
-      0% { background-position: -400px 0; }
-      100% { background-position: 400px 0; }
+      0% {
+        background-position: -400px 0;
+      }
+
+      100% {
+        background-position: 400px 0;
+      }
     }
 
     @media (max-width: 400px) {
-      .search-row { flex-direction: column; }
-      .btn { width: 100%; }
-      .step { width: 4rem; }
+      .search-row {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .step {
+        width: 4rem;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation: none !important; transition: none !important; }
+
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+      }
     }
-        body, .brand-logo, .btn-primary { transition: background-color .5s ease, border-color .5s ease, box-shadow .5s ease; }
+
+    body,
+    .brand-logo,
+    .btn-primary {
+      transition: background-color .5s ease, border-color .5s ease, box-shadow .5s ease;
+    }
   </style>
 </head>
 
-<body>
+<body class="cargando">
   <div id="app">
 
     <!-- Arranque -->
@@ -607,7 +757,11 @@
     <!-- Error global (no se pudo identificar el negocio) -->
     <div id="fatal" class="hidden card note enter">
       <div class="note-ico err">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16.5v.01" /></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v5M12 16.5v.01" />
+        </svg>
       </div>
       <h2>No pudimos abrir esta página</h2>
       <p>El enlace del negocio no es válido o ya no existe. Vuelve al perfil del negocio e inténtalo otra vez.</p>
@@ -622,26 +776,37 @@
         </div>
       </header>
 
-      <section class="card" aria-label="Buscar pedido">
+      <section id="gate" class="hidden" aria-live="polite"></section>
+
+      <section id="searchCard" class="card hidden" aria-label="Buscar pedido">
         <h2 class="search-title">Encuentra tu pedido</h2>
         <p class="search-lead">Pega tu código de seguimiento para ver en qué estado está.</p>
 
         <form id="form" class="search-row" autocomplete="off" novalidate>
           <div class="field">
-            <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-            <input id="codigo" type="text" inputmode="text" enterkeyhint="search" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Código de seguimiento" aria-label="Código de seguimiento">
+            <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input id="codigo" type="text" inputmode="text" enterkeyhint="search" autocapitalize="off" autocorrect="off"
+              spellcheck="false" placeholder="Código de seguimiento" aria-label="Código de seguimiento">
             <button id="pasteBtn" type="button" class="paste-btn">Pegar</button>
           </div>
           <button id="searchBtn" type="submit" class="btn btn-primary">Buscar</button>
         </form>
 
-        <p class="help">Tu código aparece en la pantalla de tu pedido, en el botón <b>Copiar código</b>. También puedes pegar el enlace completo del pedido.</p>
+        <p class="help">Tu código aparece en la pantalla de tu pedido, en el botón <b>Copiar código</b>. También puedes
+          pegar el enlace completo del pedido.</p>
       </section>
 
       <section id="result" aria-live="polite"></section>
 
       <a id="backLink" href="#" class="back hidden">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7-7-7 7 7 7" /></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5m7-7-7 7 7 7" />
+        </svg>
         <span id="backText">Volver al negocio</span>
       </a>
     </main>
@@ -651,7 +816,7 @@
     import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { db, auth } from "/js/db/db.js";
-    import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
+    import { tiendaDoc, tiendaSubDoc, setUbicacion, aliasTiendaDoc } from "/js/rutas/rutas.js";
     import { setFaviconCircular } from "/js/favicon/favicon.js";
 
     const AUTH_ORIGIN = "https://geinztech.com";
@@ -726,9 +891,33 @@
     }
 
     /* ══════════════ Resolver negocio ══════════════ */
+    /* ============================================================
+       Pegar en seguimiento_pedido.html (dentro del <script type="module">)
+       Reemplaza tu resolverNegocio() actual por esta.
+       Misma lógica que ya funciona en historial_pedidos:
+       1) window.__NEGOCIO_ID__ / __NEGOCIO_LOCALIDAD__  (dominio propio inyectado)
+       2) dominio_web_tiendas/{hostname}                  (dominio propio)
+       3) /perfil/{alias}/...  -> alias_tiendas/{alias}
+       4) ?id=...&localidad=...
+       Necesita: doc, getDoc (firestore) y db.
+       ============================================================ */
+
+    function conUbicacion(d, extra) {
+      setUbicacion({ departamento: d.departamento, provincia: d.provincia });
+      return {
+        id: d.id,
+        localidad: d.localidad.trim().toLowerCase(),
+        ...extra,
+      };
+    }
+
     async function resolverNegocio() {
-      // 1) Dominio propio con datos inyectados por el servidor
+      // 1) Dominio propio inyectado
       if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+        setUbicacion({
+          departamento: window.__NEGOCIO_DEPARTAMENTO__,
+          provincia: window.__NEGOCIO_PROVINCIA__,
+        });
         return {
           id: window.__NEGOCIO_ID__,
           localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
@@ -737,42 +926,62 @@
         };
       }
 
-      const host = location.hostname;
-      const hostPropio = host !== "geinztech.com" && host !== "www.geinztech.com";
-
-      // 2) Dominio propio sin inyección: se busca en dominio_web_tiendas
-      if (hostPropio) {
-        try {
-          const s = await getDoc(doc(db, "dominio_web_tiendas", host));
-          if (s.exists()) {
-            const d = s.data();
-            return { id: d.id, localidad: (d.localidad || "").trim().toLowerCase(), alias: d.alias || null, propio: true };
-          }
-        } catch (e) { console.warn("[seguimiento] dominio_web_tiendas:", e.message); }
+      // 2) Dominio propio por dominio_web_tiendas
+      const host = window.location.hostname.replace(/^www\./, "");
+      if (host !== "geinztech.com") {
+        const domSnap = await getDoc(doc(db, "dominio_web_tiendas", host));
+        if (domSnap.exists()) {
+          const d = domSnap.data();
+          if (d.id && d.localidad) return conUbicacion(d, { alias: d.alias || null, propio: true });
+        }
       }
 
-      // 3) /perfil/{alias}/seguimiento_pedido
-      const partes = location.pathname.split("/").filter(Boolean);
+      // 3) /perfil/{alias}/...
+      const partes = window.location.pathname.split("/").filter(Boolean);
       const iPerfil = partes.indexOf("perfil");
       if (iPerfil !== -1 && partes[iPerfil + 1]) {
         const alias = decodeURIComponent(partes[iPerfil + 1]);
-        try {
-          const s = await getDoc(doc(db, "alias_tiendas", alias));
-          if (s.exists()) {
-            const d = s.data();
-            return { id: d.id, localidad: (d.localidad || "").trim().toLowerCase(), alias, propio: false };
-          }
-        } catch (e) { console.warn("[seguimiento] alias_tiendas:", e.message); }
+        const aliasSnap = await getDoc(aliasTiendaDoc(alias));
+        if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
+        const d = aliasSnap.data();
+        if (!d.id || !d.localidad) throw new Error("Alias mal configurado.");
+        return conUbicacion(d, { alias, propio: false });
       }
 
-      // 4) Fallback ?id=&localidad=
-      const q = new URLSearchParams(location.search);
+      // 4) ?id=...&localidad=...
+      const q = new URLSearchParams(window.location.search);
       const id = (q.get("id") || "").trim();
-      const localidad = (q.get("localidad") || q.get("l") || "").trim().toLowerCase();
-      if (id && localidad) return { id, localidad, alias: null, propio: false };
+      const localidad = (q.get("localidad") || q.get("l") || "barranca").trim().toLowerCase();
+      if (!id) throw new Error("No se especificó el negocio.");
+      setUbicacion({ departamento: q.get("departamento"), provincia: q.get("provincia") });
+      return { id, localidad, alias: null, propio: false };
+    }
+    function obtenerPedidoId() {
+      const q = new URLSearchParams(location.search);
+      const porQuery = (q.get("pedido") || q.get("id_pedido") || q.get("codigo") || "").trim();
+      if (porQuery) return porQuery;
+
+      const partes = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+
+      const iPed = partes.indexOf("pedido");
+      if (iPed !== -1 && partes[iPed + 1]) return partes[iPed + 1];
+
+      const iPerfil = partes.indexOf("perfil");
+      if (iPerfil !== -1 && partes[iPerfil + 2]) return partes[iPerfil + 2];
+
+      const iPeds = partes.indexOf("pedidos");
+      if (iPeds !== -1 && partes[iPeds + 2]) return partes[iPeds + 2];
+
       return null;
     }
-
+    function precargarImagen(url) {
+      return new Promise((res) => {
+        const t = setTimeout(res, 2500);
+        const i = new Image();
+        i.onload = i.onerror = () => { clearTimeout(t); res(); };
+        i.src = url;
+      });
+    }
     /* ══════════════ Colores del logo ══════════════ */
     function colorDelLogo(url) {
       return new Promise((resolve) => {
@@ -852,22 +1061,23 @@
       $("brandName").textContent = bizNombre;
       document.title = `Seguimiento de pedido · ${bizNombre}`;
 
-      // Color instantáneo (por nombre); el del logo llega después sin bloquear
-      aplicarColor(colorDesdeNombre(bizNombre));
 
       const logoEl = $("brandLogo");
       if (bizLogo) {
-        logoEl.src = bizLogo;
         logoEl.alt = bizNombre;
         setFaviconCircular(bizLogo);
-        colorDelLogo(bizLogo).then((c) => { if (c) aplicarColor(c); });
+
+        // Se espera el color del logo y la imagen mientras se ve el skeleton
+        const [c] = await Promise.all([colorDelLogo(bizLogo), precargarImagen(bizLogo)]);
+        aplicarColor(c || colorDesdeNombre(bizNombre)); // el color por nombre solo es respaldo
+        logoEl.src = bizLogo;
       } else {
+        aplicarColor(colorDesdeNombre(bizNombre));
         logoEl.replaceWith(Object.assign(document.createElement("div"), {
           className: "brand-logo letter",
           textContent: bizNombre.trim().charAt(0).toUpperCase() || "?",
         }));
       }
-
       const back = $("backLink");
       const href = N.propio ? "/" : N.alias ? `https://geinztech.com/perfil/${encodeURIComponent(N.alias)}` : null;
       if (href) {
@@ -915,7 +1125,36 @@
     const ICON_BOX = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>`;
 
     const setResult = (html) => { $("result").innerHTML = html; };
+    function gateLogin() {
+      $("searchCard").classList.add("hidden");
+      $("result").innerHTML = "";
+      $("gate").classList.remove("hidden");
+      $("gate").innerHTML = `
+    <div class="card note enter">
+      <div class="note-ico">${ICON_LOCK}</div>
+      <h2>Inicia sesión para ver tu pedido</h2>
+      <p>El seguimiento está ligado a tu cuenta. Inicia sesión con la misma cuenta con la que compraste en ${esc(bizNombre || "este negocio")}.</p>
+      <a id="loginBtn" class="btn btn-primary btn-block" href="${LOGIN_URL}">Iniciar sesión</a>
+    </div>`;
+      $("loginBtn").addEventListener("click", (e) => {
+        if (!N.propio) return;
+        e.preventDefault();
+        abrirLoginPopup();
+      });
+    }
 
+    function mostrarBuscador() {
+      $("gate").classList.add("hidden");
+      $("gate").innerHTML = "";
+      $("searchCard").classList.remove("hidden");
+    }
+
+    // true si hay sesión (muestra el buscador), false si no (muestra la puerta)
+    function aplicarSesion() {
+      if (!uid) { detener(); gateLogin(); return false; }
+      mostrarBuscador();
+      return true;
+    }
     function renderCargando() {
       setResult(`<div class="card note enter"><div class="spin"></div></div>`);
     }
@@ -1102,7 +1341,7 @@
     window.addEventListener("beforeunload", detener);
 
     /* ══════════════ Init ══════════════ */
-      /* ══════════════ Init ══════════════ */
+    /* ══════════════ Init ══════════════ */
     (async () => {
       try {
         await loginPorToken();
@@ -1116,21 +1355,25 @@
         await cargarNegocio();
 
         $("boot").classList.add("hidden");
+        document.body.classList.remove("cargando");
         $("main").classList.remove("hidden");
 
         onAuthStateChanged(auth, (nu) => {
           const nuevo = nu?.uid || null;
           if (nuevo === uid) return;
           uid = nuevo;
+          if (!aplicarSesion()) return;
           if (ultimaBusqueda) buscar(ultimaBusqueda);
         });
 
-        const c = new URLSearchParams(location.search).get("c");
-        if (c) { $("codigo").value = c; enviarBusqueda(); }
-        else $("codigo").focus({ preventScroll: true });
+        if (aplicarSesion()) {
+          const c = new URLSearchParams(location.search).get("c");
+          if (c) { $("codigo").value = c; enviarBusqueda(); }
+          else $("codigo").focus({ preventScroll: true });
+        }
       } catch (e) {
-        console.error("[seguimiento]", e);
         $("boot").classList.add("hidden");
+        document.body.classList.remove("cargando");
         $("fatal").classList.remove("hidden");
       }
     })();

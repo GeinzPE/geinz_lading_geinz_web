@@ -39,6 +39,7 @@ import {
   tiendaSubDoc,
   tiendaSubCol,
   data_user_logeado,
+  tiendaServiciosDoc,
   clienteDoc, // NUEVO
   clienteCuponDoc,
 } from "../rutas/rutas.js";
@@ -2257,6 +2258,26 @@ window.imprimirComprobantePedido = imprimirComprobantePedido;
 window.imprimirComprobantePedido = imprimirComprobantePedido;
 window.imprimirComprobantePedido = imprimirComprobantePedido;
 /* ══════════════ Datos del negocio ══════════════ */
+async function resolverDominioServicios() {
+  try {
+    const snap = await getDoc(tiendaServiciosDoc(localidad, tiendaId));
+    if (!snap.exists()) return undefined;
+    const d = snap.data() || {};
+    const ap = d.apartados_dasboard || {};
+    const flag =
+      d.dominio_personalizado ??
+      d.dominio_perzonalizado ??
+      ap.dominio_personalizado ??
+      ap.dominio_perzonalizado;
+    const dominio = String(d.dominio || "")
+      .trim()
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "");
+    return flag === true && dominio ? dominio : null;
+  } catch {
+    return undefined;
+  }
+}
 async function cargarNegocio() {
   try {
     const ref = tiendaDoc(localidad, "tiendas", tiendaId);
@@ -2273,6 +2294,8 @@ async function cargarNegocio() {
         null,
     );
     bizAliasGlobal = await resolverAliasNegocio(data);
+    const domServ = await resolverDominioServicios();
+    if (domServ !== undefined) bizDominioGlobal = domServ;
     const nombre = data ? data.nombre_tienda || data.nombre : null;
     bizNombreGlobal = nombre || "Geinz";
     bizLogoUrl = data?.img_tienda?.logo_tienda || "";
@@ -4266,8 +4289,7 @@ function renderCardActions(container, id, estado, p) {
     <div class="oc-actions" style="margin-top:8px;">
       <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar</button>
       <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
-      <button class="oc-btn primary v-green" data-action="en_proceso" ${tieneVoucher ? "" : "disabled"}>✅ Confirmar pago</button>
-    </div>`;
+<button class="oc-btn primary v-green" data-action="en_proceso">✅ Confirmar pago</button>    </div>`;
   } else if (estado === "en_proceso") {
     // ya NO hay botón de pausar
     container.innerHTML = `
@@ -5676,6 +5698,42 @@ function bloquesHtml(bloques) {
     )
     .join("");
 }
+const WA_MSG_DEF = {
+  pendiente_pago:
+    "Hola {cliente}, te escribimos de {negocio} por tu pedido #{codigo}.\n\n💳 Tu pedido pasó a *pendiente de pago*. Estamos confirmando tu pago. Si aún no subiste tu comprobante, puedes hacerlo aquí:\n{link}",
+  listo:
+    "Hola {cliente}, te escribimos de {negocio} por tu pedido #{codigo}.\n\n🛎️ ¡Tu pedido ya está *listo*! Puedes ver el estado aquí:\n{link}",
+  en_pausa:
+    "Hola {cliente}, te escribimos de {negocio} por tu pedido #{codigo}.\n\n⏸️ Tu pedido fue puesto *en pausa*. Motivo: {motivo}\nEntra aquí para elegir cómo continuar:\n{link}",
+  general:
+    "Hola {cliente}, te escribimos de {negocio} por tu pedido #{codigo}. Puedes ver el estado en tiempo real aquí:\n{link}",
+};
+
+function waPlantilla(estado) {
+  const key = WA_MSG_DEF[estado] ? estado : "general";
+  const t = bizDataGlobal?.mensajes_whatsapp?.[key];
+  return typeof t === "string" && t.trim() ? t : WA_MSG_DEF[key];
+}
+
+function mensajeWaPedido(id, p, estado, link) {
+  const afectados = (p.pausa?.productos_afectados || [])
+    .map((x) => x.nombre)
+    .filter(Boolean)
+    .join(", ");
+  const motivoTxt = String(p.pausa?.motivo || "").trim();
+  const vars = {
+    cliente: p.cliente?.nombre || "",
+    negocio: bizNombreGlobal || "",
+    codigo: id.slice(0, 6).toUpperCase(),
+    link,
+    motivo:
+      motivoTxt || (afectados ? `se terminó ${afectados}` : "producto agotado"),
+    productos: afectados,
+  };
+  return waPlantilla(estado).replace(/\{(\w+)\}/g, (m, k) =>
+    k in vars ? vars[k] : m,
+  );
+}
 function renderDetail(id) {
   const p = pedidosMap.get(id);
   if (!p) return false;
@@ -5695,10 +5753,7 @@ function renderDetail(id) {
   // ── WhatsApp del cliente (ahora `cliente` ya está inicializado) ──
   const waLimpio = String(cliente.whatsapp || "").replace(/[^\d]/g, "");
   const linkPedido = linkSeguimientoPedido(id, p);
-  const mensajeWa =
-    `Hola ${cliente.nombre || ""}, te escribimos de ${bizNombreGlobal} por tu pedido ` +
-    `#${id.slice(0, 6).toUpperCase()}. Puedes ver el estado en tiempo real aquí:\n${linkPedido}`;
-
+  const mensajeWa = mensajeWaPedido(id, p, estado, linkPedido);
   const confirmarEfectivo =
     pago.metodo === "Efectivo" &&
     estado === "pendiente" &&
@@ -5791,6 +5846,10 @@ function renderDetail(id) {
           </div>
         </div>`
       : "";
+  const subirPagoBlock =
+    estado === "pendiente_pago"
+      ? `<div class="dm-meta-item full"><button type="button" class="oc-btn ghost" data-subir-pago style="width:100%;">📤 ${p.pago?.voucher_url ? "Cambiar comprobante de pago" : "Subir comprobante de pago"}</button></div>`
+      : "";
   const dlvBtnBlock =
     origen.tipo !== "mesa" && cliente.tipo_entrega === "Delivery"
       ? `<div class="dm-meta-item full">
@@ -5835,13 +5894,15 @@ function renderDetail(id) {
         }
         <div class="dm-meta-item">
           <div class="dm-meta-label">${pagoIco} Método de pago</div>
-          <div class="dm-meta-value">${escapeHtml(pago.metodo || "Sin especificar")}</div>
+                    <div class="dm-meta-value">${escapeHtml(pago.metodo || "Sin especificar")}${pago.metodo_anterior ? ` <small style="color:var(--ink-faint);">(antes: ${escapeHtml(pago.metodo_anterior)})</small>` : ""}</div>
+          ${origen.tipo !== "mesa" ? `<button type="button" class="oc-btn ghost" data-cambiar-pago style="margin-top:6px;width:100%;">🔄 Cambiar método de pago</button>` : ""}
         </div>
         <div class="dm-meta-item">
           <div class="dm-meta-label">💰 Vuelto</div>
           <div class="dm-meta-value ${pago.metodo === "Efectivo" && pago.vuelto ? "" : "dim"}">${pago.metodo === "Efectivo" && pago.vuelto ? "Paga con S/ " + escapeHtml(pago.vuelto) : "No aplica"}</div>
         </div>
         ${voucherBlock}
+                ${subirPagoBlock}
                ${deliveryFijarHTML(p)}
                ${mapaDeliveryHTML(p) || deliveryBlockSinMapa(p)}
                ${puntoEntregaDetalleHTML(p)}
@@ -5888,6 +5949,12 @@ function renderDetail(id) {
   document
     .querySelector("[data-dlv-enviar]")
     ?.addEventListener("click", () => dlvAbrirSelector(id, p));
+  document
+    .querySelector("[data-cambiar-pago]")
+    ?.addEventListener("click", () => cambiarMetodoPagoPedido(id, p));
+  document
+    .querySelector("[data-subir-pago]")
+    ?.addEventListener("click", () => subirComprobantePagoNegocio(id));
   const actionsWrap = document.createElement("div");
   actionsWrap.className = "oc-actions";
   renderModalActions(actionsWrap, id, estado, p);
@@ -5930,7 +5997,7 @@ function renderModalActions(container, id, estado, p) {
     </div>
     <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
     <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
-    <button class="oc-btn primary v-green" data-action="en_proceso" ${tieneVoucher ? "" : "disabled"}>✅ Confirmar pago</button>`;
+   <button class="oc-btn primary v-green" data-action="en_proceso">✅ Confirmar pago</button>`;
   } else if (estado === "en_proceso") {
     container.innerHTML = `
       <button class="oc-btn ghost" data-action="pendiente">← Volver a pendiente</button>
@@ -6322,7 +6389,7 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     // ═══ 1) Actualiza el estado YA MISMO, sin esperar nada más ═══
     await updateDoc(ref, payload);
     if (!opts.auto) showToast(`Pedido movido a ${labelEstado(nuevoEstado)}`);
-
+    if (!opts.auto && activeModalId === pedidoId) closeDetail();
     const pedidoParaNotificar = pedidosMap.get(pedidoId);
     if (pedidoParaNotificar) {
       notificarCambioEstadoAlCliente(pedidoParaNotificar, nuevoEstado);
@@ -8119,23 +8186,22 @@ const NuevoPedido = {
   },
 
   getFiltrados() {
-    let res = this.productos;
-    if (this.filtroCat !== "Todos")
-      res = res.filter((p) => p.categoria === this.filtroCat);
-    if (this.filtroTexto)
-      res = res.filter(
-        (p) =>
-          this.filtroTexto
-            .split(/\s+/)
-            .every((w) => p.nombreNorm.includes(w)) ||
-          (p.codigoBarras || "").includes(this.filtroTexto) ||
-          (p.id || "").toLowerCase() === this.filtroTexto,
+    const cat = this.filtroCat;
+    const q = this.filtroTexto;
+    const words = q ? q.split(/\s+/).filter(Boolean) : null;
+    return this.productos.filter((p) => {
+      if (cat !== "Todos" && p.categoria !== cat) return false;
+      if (!words) return true;
+      return (
+        words.every((w) => p.nombreNorm.includes(w)) ||
+        (p.codigoBarras || "").includes(q) ||
+        (p.id || "").toLowerCase() === q
       );
-    return res;
+    });
   },
   imgTag(p) {
     return p.imagen
-      ? `<img data-fade src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy" onload="this.classList.add('loaded')" onerror="this.parentElement.classList.add('np-noimg');this.outerHTML='<div class=&quot;np-logo-circle&quot;><img src=&quot;../img/logo geinz.png&quot; alt=&quot;&quot;></div>';">`
+      ? `<img data-fade src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy" decoding="async" decoding="async" decoding="async" decoding="async" decoding="async" decoding="async" onload="this.classList.add('loaded')" onerror="this.parentElement.classList.add('np-noimg');this.outerHTML='<div class=&quot;np-logo-circle&quot;><img src=&quot;../img/logo geinz.png&quot; alt=&quot;&quot;></div>';">`
       : `<div class="np-logo-circle"><img src="../img/logo geinz.png" alt=""></div>`;
   },
   cantEnCarrito(id) {
@@ -8200,25 +8266,86 @@ const NuevoPedido = {
     } else b?.remove();
   },
 
-  renderGrid() {
+  PASO_GRID: 36,
+  _lista: [],
+  _pintados: 0,
+  _io: null,
+  _sentinel: null,
+  _firma: "",
+  _tBusca: null,
+
+  _asegurarSentinel() {
     const grid = document.getElementById("npGrid");
-    const empty = document.getElementById("npEmpty");
-    grid.querySelectorAll(".np-skel").forEach((e) => e.remove());
+    if (!this._sentinel) {
+      this._sentinel = document.createElement("div");
+      this._sentinel.className = "np-sentinel";
+    }
+    if (!this._io && "IntersectionObserver" in window) {
+      this._io = new IntersectionObserver(
+        (es) => {
+          if (es.some((e) => e.isIntersecting)) this.pintarMas();
+        },
+        { root: grid, rootMargin: "700px 0px" },
+      );
+      this._io.observe(this._sentinel);
+    }
+    if (this._sentinel.parentElement !== grid) grid.appendChild(this._sentinel);
+  },
 
-    const visibles = new Set(this.getFiltrados().map((p) => p.id));
-
-    this.productos.forEach((p) => {
+  pintarMas() {
+    const grid = document.getElementById("npGrid");
+    if (!grid || !this._sentinel || this._sentinel.parentElement !== grid)
+      return;
+    if (this._pintados >= this._lista.length) return;
+    const fin = this._io
+      ? Math.min(this._pintados + this.PASO_GRID, this._lista.length)
+      : this._lista.length;
+    const frag = document.createDocumentFragment();
+    for (let i = this._pintados; i < fin; i++) {
+      const p = this._lista[i];
       let el = this.cardEls.get(p.id);
       if (!el) {
         el = this.crearCard(p);
         this.cardEls.set(p.id, el);
       }
-      if (el.parentElement !== grid) grid.appendChild(el); // solo se agrega si es nueva
-      el.style.display = visibles.has(p.id) ? "" : "none"; // filtrar = mostrar/ocultar
       this.sincronizarCard(el, p);
+      frag.appendChild(el);
+    }
+    this._pintados = fin;
+    grid.insertBefore(frag, this._sentinel);
+    // si todavía queda espacio visible, vuelve a avisar para pintar otra tanda
+    if (this._io && this._pintados < this._lista.length) {
+      this._io.unobserve(this._sentinel);
+      this._io.observe(this._sentinel);
+    }
+  },
+
+  renderGrid() {
+    const grid = document.getElementById("npGrid");
+    const empty = document.getElementById("npEmpty");
+    if (!grid) return;
+
+    const firma = this.filtroCat + "|" + this.filtroTexto;
+    const reset = !!grid.querySelector(".np-skel") || firma !== this._firma;
+    this._firma = firma;
+
+    this._lista = this.getFiltrados();
+
+    if (reset) {
+      this._pintados = 0;
+      grid.replaceChildren();
+      grid.scrollTop = 0;
+    }
+    this._asegurarSentinel();
+
+    // refresca badges/borde solo de lo que ya está pintado
+    grid.querySelectorAll(".np-card").forEach((el) => {
+      const p = this.productosPorId.get(el.dataset.id);
+      if (p) this.sincronizarCard(el, p);
     });
 
-    empty.style.display = visibles.size ? "none" : "block";
+    if (reset || this._pintados < this.PASO_GRID) this.pintarMas();
+    if (empty) empty.style.display = this._lista.length ? "none" : "block";
   },
   abrirDetalle(id) {
     const p = this.productosPorId.get(id);
@@ -9240,7 +9367,14 @@ const NuevoPedido = {
       this.renderGrid();
     };
     inp?.addEventListener("input", (e) => {
-      this.filtroTexto = this.normalizeText(e.target.value);
+      if (clr) clr.style.display = e.target.value ? "flex" : "none";
+      const v = e.target.value;
+      clearTimeout(this._tBusca);
+      this._tBusca = setTimeout(() => {
+        if (inp.value !== v) return;
+        this.filtroTexto = this.normalizeText(v);
+        this.renderGrid();
+      }, 180);
       if (clr) clr.style.display = e.target.value ? "flex" : "none";
       this.renderGrid();
     });
@@ -9565,26 +9699,28 @@ async function abrirEmparejar() {
           if (d.codigo) NuevoPedido.procesarCodigo(d.codigo);
         });
       });
-   } catch (e) {
-    console.error(e);
-    body.innerHTML = `<p class="np-pair-steps">No se pudo crear la sesión. Revisa las reglas de Firestore.</p>`;
-    return;
-  } finally {
-    scanCreando = false;
-  }
+    } catch (e) {
+      console.error(e);
+      body.innerHTML = `<p class="np-pair-steps">No se pudo crear la sesión. Revisa las reglas de Firestore.</p>`;
+      return;
+    } finally {
+      scanCreando = false;
+    }
   }
 
-const urlScanner = new URL("./scanner_movil.html", import.meta.url);
-const u = new URLSearchParams({ l: localidad, t: tiendaId, s: scanSesion });
-const dep = new URLSearchParams(location.search).get("departamento")
-  || sessionStorage.getItem("departamento");
-const prov = new URLSearchParams(location.search).get("provincia")
-  || sessionStorage.getItem("provincia");
-if (dep) u.set("departamento", dep);
-if (prov) u.set("provincia", prov);
-urlScanner.search = u.toString();
-urlScanner.hash = "k=" + scanClave;
-const url = urlScanner.href;
+  const urlScanner = new URL("./scanner_movil.html", import.meta.url);
+  const u = new URLSearchParams({ l: localidad, t: tiendaId, s: scanSesion });
+  const dep =
+    new URLSearchParams(location.search).get("departamento") ||
+    sessionStorage.getItem("departamento");
+  const prov =
+    new URLSearchParams(location.search).get("provincia") ||
+    sessionStorage.getItem("provincia");
+  if (dep) u.set("departamento", dep);
+  if (prov) u.set("provincia", prov);
+  urlScanner.search = u.toString();
+  urlScanner.hash = "k=" + scanClave;
+  const url = urlScanner.href;
   const QR = (await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm"))
     .default;
   const img = await QR.toDataURL(url, { width: 240, margin: 1 });
@@ -9880,7 +10016,12 @@ function suscribirPedidos() {
             nuevosPendientes.push({ id, data });
           const voucherAnterior = anterior?.pago?.voucher_url;
           const voucherNuevo = data.pago?.voucher_url;
-          if (voucherNuevo && !voucherAnterior && !voucherNotificados.has(id)) {
+          if (
+            voucherNuevo &&
+            !voucherAnterior &&
+            !voucherNotificados.has(id) &&
+            data.pago?.voucher_por !== "Negocio"
+          ) {
             voucherNotificados.add(id);
             pagosRecibidosNuevos.push({ id, data });
           }
@@ -10837,50 +10978,288 @@ tmpBtn.addEventListener("click", abrirAjusteTiempos);
 (topActionsEl || document.body).appendChild(tmpBtn);
 
 /* ── Modal al aceptar un pedido: pide/ajusta el tiempo ── */
+/* ============================================================
+   pedirTiempo(p) — modal moderno "¿Cuánto se demorará?"
+   - El CSS se inyecta solo (una vez). No necesitas tocar tu .css
+   - Usa clases pt-* para no chocar con dlv-ov / deli-inp / etc.
+   - Devuelve: {min,max} | {} (mantener) | null (cerrar/cancelar)
+   ============================================================ */
+
+function ptInyectarEstilos() {
+  if (document.getElementById("pt-styles")) return;
+  const st = document.createElement("style");
+  st.id = "pt-styles";
+  st.textContent = `
+  .pt-ov{
+    position:fixed;inset:0;z-index:9999;
+    display:flex;align-items:center;justify-content:center;
+    padding:16px;box-sizing:border-box;
+    background:rgba(0,0,0,.6);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    opacity:0;transition:opacity .22s ease;
+  }
+  .pt-ov.show{opacity:1}
+  .pt-ov *,.pt-ov *::before,.pt-ov *::after{box-sizing:border-box}
+
+  .pt-box{
+    width:100%;max-width:400px;
+    background:#13141a;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:22px;
+    padding:22px 20px 20px;
+    color:#f4f5f7;
+    font-family:inherit;
+    box-shadow:0 24px 60px rgba(0,0,0,.55);
+    transform:translateY(14px) scale(.97);
+    transition:transform .25s cubic-bezier(.2,.9,.3,1.2);
+    overflow:hidden;               /* nada se sale del modal */
+  }
+  .pt-ov.show .pt-box{transform:none}
+
+  .pt-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}
+  .pt-ico{
+    flex:none;width:42px;height:42px;border-radius:13px;
+    display:grid;place-items:center;
+    background:rgba(34,197,94,.14);color:#22c55e;
+  }
+  .pt-ico svg{width:22px;height:22px}
+  .pt-ttl{flex:1;min-width:0}
+  .pt-ttl h3{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+  .pt-ttl p{margin:4px 0 0;font-size:13px;line-height:1.4;color:#9a9eab}
+  .pt-x{
+    flex:none;width:32px;height:32px;border-radius:10px;border:0;cursor:pointer;
+    background:rgba(255,255,255,.06);color:#b4b8c4;font-size:15px;line-height:1;
+    transition:background .15s,color .15s;
+  }
+  .pt-x:hover{background:rgba(255,255,255,.12);color:#fff}
+
+  .pt-tag{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;font-weight:600;color:#c9ccd6;
+    background:rgba(255,255,255,.06);
+    padding:4px 10px;border-radius:999px;margin-bottom:14px;
+  }
+
+  .pt-range{
+    display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+    align-items:end;gap:10px;
+  }
+  .pt-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .pt-field label{font-size:12px;font-weight:600;color:#9a9eab}
+  .pt-inwrap{position:relative}
+  .pt-inp{
+    width:100%;min-width:0;height:54px;
+    padding:0 44px 0 14px;
+    background:#0a0b0f;color:#fff;
+    border:1.5px solid rgba(255,255,255,.1);border-radius:14px;
+    font:700 22px/1 inherit;font-family:inherit;
+    outline:none;transition:border-color .15s,box-shadow .15s;
+    -moz-appearance:textfield;appearance:textfield;
+  }
+  .pt-inp::-webkit-outer-spin-button,
+  .pt-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .pt-inp:focus{border-color:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+  .pt-inp.err{border-color:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.18)}
+  .pt-unit{
+    position:absolute;right:14px;top:50%;transform:translateY(-50%);
+    font-size:13px;font-weight:600;color:#6f7482;pointer-events:none;
+  }
+  .pt-sep{padding-bottom:18px;color:#6f7482;font-weight:600}
+
+  .pt-chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+  .pt-chip{
+    border:1px solid rgba(255,255,255,.1);background:transparent;color:#c9ccd6;
+    font:600 13px/1 inherit;font-family:inherit;
+    padding:9px 13px;border-radius:999px;cursor:pointer;
+    transition:all .15s;
+  }
+  .pt-chip:hover{border-color:rgba(34,197,94,.6);color:#fff}
+  .pt-chip.on{background:rgba(34,197,94,.16);border-color:#22c55e;color:#4ade80}
+
+  .pt-err{min-height:18px;margin:10px 0 0;font-size:12.5px;color:#f87171}
+
+  .pt-actions{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .pt-btn{
+    width:100%;height:50px;border-radius:14px;border:0;cursor:pointer;
+    font:700 15px/1 inherit;font-family:inherit;
+    transition:transform .1s,filter .15s,background .15s;
+  }
+  .pt-btn:active{transform:scale(.98)}
+  .pt-btn.primary{background:#22c55e;color:#04210f}
+  .pt-btn.primary:hover{filter:brightness(1.08)}
+  .pt-btn.ghost{background:transparent;color:#9a9eab;font-weight:600;height:44px}
+  .pt-btn.ghost:hover{background:rgba(255,255,255,.06);color:#fff}
+
+  @keyframes pt-shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  .pt-box.shake{animation:pt-shake .28s}
+
+  @media (prefers-reduced-motion:reduce){
+    .pt-ov,.pt-box{transition:none}
+    .pt-box.shake{animation:none}
+  }
+  @media (max-width:360px){
+    .pt-inp{font-size:19px;padding-right:38px}
+  }
+  `;
+  document.head.appendChild(st);
+}
+
 function pedirTiempo(p) {
   return new Promise((resolve) => {
+    ptInyectarEstilos();
+
     const cfg = getTiemposCfg();
     const esDelivery = p.cliente?.tipo_entrega === "Delivery";
     const base = p.tiempo_estimado || (esDelivery ? cfg.delivery : cfg.recojo);
 
+    const presets = [
+      [10, 20],
+      [20, 30],
+      [30, 45],
+      [45, 60],
+    ];
+
     const ov = document.createElement("div");
-    ov.className = "dlv-ov";
+    ov.className = "pt-ov";
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.setAttribute("aria-labelledby", "ptTitulo");
     ov.innerHTML = `
-      <div class="dlv-box">
-        <div class="dlv-head"><span>⏱️ ¿Cuánto se demorará?</span><button type="button" data-x>✕</button></div>
-        <p class="dlv-cfg-sub">${esDelivery ? "🛵 Delivery" : "🏬 Recojo"} · Se lo mostramos al cliente en su seguimiento.</p>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="number" id="ptMin" class="deli-inp" min="1" value="${base.min}" style="flex:1"> <span>a</span>
-          <input type="number" id="ptMax" class="deli-inp" min="1" value="${base.max}" style="flex:1"> <span>min</span>
+      <div class="pt-box">
+        <div class="pt-head">
+          <div class="pt-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9.5 2.5h5"/>
+            </svg>
+          </div>
+          <div class="pt-ttl">
+            <h3 id="ptTitulo">¿Cuánto se demorará?</h3>
+            <p>Se lo mostramos al cliente en su seguimiento.</p>
+          </div>
+          <button type="button" class="pt-x" data-x aria-label="Cerrar">✕</button>
         </div>
-        <button type="button" class="np-confirmar-btn" id="ptOk" style="margin-top:16px;">Confirmar y aceptar</button>
-        <button type="button" class="oc-btn ghost" id="ptKeep" style="width:100%;margin-top:8px;">Mantener el tiempo actual</button>
+
+        <span class="pt-tag">${esDelivery ? "🛵 Delivery" : "🏬 Recojo"}</span>
+
+        <div class="pt-range">
+          <div class="pt-field">
+            <label for="ptMin">Desde</label>
+            <div class="pt-inwrap">
+              <input type="number" id="ptMin" class="pt-inp" min="1" inputmode="numeric" value="${base.min}">
+              <span class="pt-unit">min</span>
+            </div>
+          </div>
+          <span class="pt-sep">a</span>
+          <div class="pt-field">
+            <label for="ptMax">Hasta</label>
+            <div class="pt-inwrap">
+              <input type="number" id="ptMax" class="pt-inp" min="1" inputmode="numeric" value="${base.max}">
+              <span class="pt-unit">min</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-chips">
+          ${presets
+            .map(
+              ([a, b]) =>
+                `<button type="button" class="pt-chip" data-min="${a}" data-max="${b}">${a}–${b} min</button>`,
+            )
+            .join("")}
+        </div>
+
+        <p class="pt-err" id="ptErr" aria-live="polite"></p>
+
+        <div class="pt-actions">
+          <button type="button" class="pt-btn primary" id="ptOk">Confirmar y aceptar</button>
+          <button type="button" class="pt-btn ghost" id="ptKeep">Mantener el tiempo actual</button>
+        </div>
       </div>`;
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add("show"));
 
+    const box = ov.querySelector(".pt-box");
+    const inMin = ov.querySelector("#ptMin");
+    const inMax = ov.querySelector("#ptMax");
+    const errEl = ov.querySelector("#ptErr");
+    const chips = [...ov.querySelectorAll(".pt-chip")];
+
+    const marcarChip = () => {
+      chips.forEach((c) =>
+        c.classList.toggle(
+          "on",
+          Number(c.dataset.min) === Number(inMin.value) &&
+            Number(c.dataset.max) === Number(inMax.value),
+        ),
+      );
+    };
+    const limpiarError = () => {
+      errEl.textContent = "";
+      inMin.classList.remove("err");
+      inMax.classList.remove("err");
+    };
+
+    let cerrado = false;
     const cerrar = (val) => {
+      if (cerrado) return;
+      cerrado = true;
+      document.removeEventListener("keydown", onKey);
       ov.classList.remove("show");
       setTimeout(() => ov.remove(), 300);
       resolve(val);
     };
+
+    const confirmar = () => {
+      const min = Math.max(1, Math.round(Number(inMin.value) || 1));
+      const max = Math.max(1, Math.round(Number(inMax.value) || 1));
+      if (max < min) {
+        errEl.textContent = "El máximo no puede ser menor que el mínimo";
+        inMax.classList.add("err");
+        box.classList.remove("shake");
+        void box.offsetWidth; // reinicia la animación
+        box.classList.add("shake");
+        if (typeof showToast === "function")
+          showToast("El máximo no puede ser menor que el mínimo", true);
+        return;
+      }
+      cerrar({ min, max });
+    };
+
+    const onKey = (e) => {
+      if (e.key === "Escape") cerrar(null);
+      else if (e.key === "Enter") {
+        e.preventDefault();
+        confirmar();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+
+    chips.forEach((c) =>
+      c.addEventListener("click", () => {
+        inMin.value = c.dataset.min;
+        inMax.value = c.dataset.max;
+        limpiarError();
+        marcarChip();
+      }),
+    );
+    [inMin, inMax].forEach((i) =>
+      i.addEventListener("input", () => {
+        limpiarError();
+        marcarChip();
+      }),
+    );
+
     ov.addEventListener("click", (e) => {
       if (e.target === ov || e.target.hasAttribute("data-x")) cerrar(null);
     });
     ov.querySelector("#ptKeep").onclick = () => cerrar({});
-    ov.querySelector("#ptOk").onclick = () => {
-      const min = Math.max(
-        1,
-        Math.round(Number(ov.querySelector("#ptMin").value) || 1),
-      );
-      const max = Math.max(
-        1,
-        Math.round(Number(ov.querySelector("#ptMax").value) || 1),
-      );
-      if (max < min)
-        return showToast("El máximo no puede ser menor que el mínimo", true);
-      cerrar({ min, max });
-    };
+    ov.querySelector("#ptOk").onclick = confirmar;
+
+    marcarChip();
+    setTimeout(() => {
+      inMin.focus();
+      inMin.select();
+    }, 80);
   });
 }
 
@@ -13984,3 +14363,168 @@ document.head.appendChild(dlgFix);
   ajustar();
   setTimeout(ajustar, 600);
 })();
+
+/* ══════════ MENSAJES DE WHATSAPP EDITABLES ══════════ */
+const WA_ESTADOS_EDIT = [
+  ["pendiente_pago", "💳 Pendiente de pago"],
+  ["listo", "🛎️ Listo"],
+  ["en_pausa", "⏸️ En pausa"],
+  ["general", "💬 Otros estados"],
+];
+const WA_VARS = [
+  ["{cliente}", "Nombre del cliente"],
+  ["{negocio}", "Nombre del negocio"],
+  ["{codigo}", "Código del pedido"],
+  ["{link}", "Link del pedido"],
+  ["{motivo}", "Motivo de pausa"],
+  ["{productos}", "Productos agotados"],
+];
+
+const waMsgOv = document.createElement("div");
+waMsgOv.className = "dlv-ov";
+waMsgOv.innerHTML = `
+  <div class="dlv-box">
+    <div class="dlv-head"><span>💬 Mensajes de WhatsApp</span><button type="button" data-x>✕</button></div>
+    <p class="dlv-cfg-sub">Edita el texto que se envía al cliente según el estado. Toca una variable para insertarla donde tengas el cursor.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+      ${WA_VARS.map(([v, l]) => `<button type="button" class="np-adic-chip" data-var="${v}" title="${l}">${v}</button>`).join("")}
+    </div>
+    ${WA_ESTADOS_EDIT.map(
+      ([k, l]) => `
+      <div class="dlv-prev-title">${l}</div>
+      <textarea class="pausa-field" rows="5" data-wam="${k}"></textarea>`,
+    ).join("")}
+    <button type="button" class="np-confirmar-btn" id="waMsgGuardar" style="margin-top:14px;">Guardar</button>
+    <button type="button" class="oc-btn ghost" id="waMsgReset" style="width:100%;margin-top:8px;">Restaurar textos originales</button>
+  </div>`;
+document.body.appendChild(waMsgOv);
+waMsgOv.addEventListener("click", (e) => {
+  if (e.target === waMsgOv || e.target.hasAttribute("data-x"))
+    waMsgOv.classList.remove("show");
+});
+
+let waMsgFoco = null;
+waMsgOv.addEventListener("focusin", (e) => {
+  if (e.target.matches("[data-wam]")) waMsgFoco = e.target;
+});
+waMsgOv.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-var]");
+  if (!b) return;
+  const ta = waMsgFoco || waMsgOv.querySelector("[data-wam]");
+  const i = ta.selectionStart ?? ta.value.length;
+  const f = ta.selectionEnd ?? i;
+  ta.value = ta.value.slice(0, i) + b.dataset.var + ta.value.slice(f);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = i + b.dataset.var.length;
+});
+
+function waMsgAbrir() {
+  waMsgOv.querySelectorAll("[data-wam]").forEach((ta) => {
+    ta.value = waPlantilla(ta.dataset.wam);
+  });
+  document.getElementById("cfgPanel")?.classList.remove("show");
+  waMsgOv.classList.add("show");
+}
+
+document.getElementById("waMsgReset").addEventListener("click", () => {
+  waMsgOv.querySelectorAll("[data-wam]").forEach((ta) => {
+    ta.value = WA_MSG_DEF[ta.dataset.wam];
+  });
+});
+
+document.getElementById("waMsgGuardar").addEventListener("click", async () => {
+  const obj = {};
+  waMsgOv.querySelectorAll("[data-wam]").forEach((ta) => {
+    const v = ta.value.trim();
+    if (v && v !== WA_MSG_DEF[ta.dataset.wam]) obj[ta.dataset.wam] = v;
+  });
+  try {
+    await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), {
+      mensajes_whatsapp: obj,
+    });
+    bizDataGlobal = { ...(bizDataGlobal || {}), mensajes_whatsapp: obj };
+    waMsgOv.classList.remove("show");
+    showToast("💬 Mensajes guardados");
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo guardar", true);
+  }
+});
+
+const waMsgBtn = document.createElement("button");
+waMsgBtn.type = "button";
+waMsgBtn.className = "oc-btn ghost";
+waMsgBtn.textContent = "💬 Mensajes de WhatsApp";
+waMsgBtn.addEventListener("click", waMsgAbrir);
+document.getElementById("cfgPanel")?.appendChild(waMsgBtn);
+
+async function subirComprobantePagoNegocio(id) {
+  const url = await elegirFoto();
+  if (!url) return;
+  try {
+    await updateDoc(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id),
+      {
+        "pago.voucher_url": url,
+        "pago.voucher_visto": true,
+        "pago.voucher_por": "Negocio",
+      },
+    );
+    showToast("💸 Comprobante guardado");
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo subir el comprobante", true);
+  }
+}
+
+function cambiarMetodoPagoPedido(id, p) {
+  const actual = p.pago?.metodo || "";
+  let lista = metodosPagoActivos().map((m) => m.label);
+  if (!lista.length) lista = ["Efectivo"];
+  if (actual && !lista.includes(actual)) lista.unshift(actual);
+
+  const ov = document.createElement("div");
+  ov.className = "dlv-ov show";
+  ov.style.zIndex = 500;
+  ov.innerHTML = `
+    <div class="dlv-box">
+      <div class="dlv-head"><span>💳 Método de pago</span><button type="button" data-x>✕</button></div>
+      <p class="dlv-cfg-sub">Pago actual: <b>${escapeHtml(actual || "Sin especificar")}</b>. Elige el nuevo método:</p>
+      ${lista
+        .map(
+          (l) =>
+            `<button type="button" class="oc-btn ghost" data-m="${escapeHtml(l)}" style="width:100%;margin-bottom:8px;min-height:48px;${l === actual ? "border-color:#7c5cff;" : ""}">${escapeHtml(l)}${l === actual ? " ✓" : ""}</button>`,
+        )
+        .join("")}
+    </div>`;
+  document.body.appendChild(ov);
+
+  ov.addEventListener("click", async (e) => {
+    if (e.target === ov || e.target.hasAttribute("data-x")) return ov.remove();
+    const b = e.target.closest("[data-m]");
+    if (!b) return;
+    const nuevo = b.dataset.m;
+    ov.remove();
+    if (nuevo === actual) return;
+    try {
+      await updateDoc(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id),
+        {
+          "pago.metodo": nuevo,
+          "pago.metodo_anterior": actual || null,
+          "pago.cambiado_en": serverTimestamp(),
+          "pago.cambiado_por": datosVendedor().vendedor?.nombre || "Negocio",
+          ...(nuevo !== "Efectivo" ? { "pago.vuelto": "" } : {}),
+        },
+      );
+      showToast(`💳 Pago cambiado a ${nuevo}`);
+    } catch (err) {
+      console.error(err);
+      showToast("❌ No se pudo cambiar el método de pago", true);
+    }
+  });
+}
+
+const npLazyCss = document.createElement("style");
+npLazyCss.textContent = `.np-sentinel{grid-column:1/-1;height:1px;pointer-events:none;}`;
+document.head.appendChild(npLazyCss);

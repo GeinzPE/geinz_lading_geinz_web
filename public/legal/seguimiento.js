@@ -10,13 +10,15 @@ import {
   aliasTiendaDoc,
   tiendaDoc,
   reclamacionesCol,
-} from "../js/rutas/rutas.js"; // ⚠️ ajusta esta ruta a donde tengas rutas.js
+  setUbicacion,
+} from "../js/rutas/rutas.js";
 import { setFaviconCircular } from "../js/favicon/favicon.js";
 import {
   cargarColoresNegocio,
   aplicarColoresDesdeCache,
 } from "../js/colores_dinamicos/dinamicos.js";
 import { db } from "../js/db/db.js";
+
 // ══════════════════════════════════════════
 //  CAMPOS A MOSTRAR EN EL RESULTADO
 //  clave del doc del reclamo → cómo se pinta
@@ -58,37 +60,43 @@ const ESTADO_META = {
 //  (idéntico al de legal.js — soporta /legal/seguimiento/{alias},
 //  ?alias=... y el viejo ?id=&localidad= como fallback)
 // ══════════════════════════════════════════
+function conUbicacion(d) {
+  setUbicacion({ departamento: d.departamento, provincia: d.provincia });
+  return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
+}
+
 async function resolverNegocio() {
   if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    setUbicacion({
+      departamento: window.__NEGOCIO_DEPARTAMENTO__,
+      provincia: window.__NEGOCIO_PROVINCIA__,
+    });
     return {
       id: window.__NEGOCIO_ID__,
       localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
     };
   }
-  // Dominio propio (geinz.es): se resuelve por dominio_web_tiendas
+
+  // Dominio propio: se resuelve por dominio_web_tiendas
   const host = window.location.hostname.replace(/^www\./, "");
   if (host !== "geinztech.com") {
     const domSnap = await getDoc(doc(db, "dominio_web_tiendas", host));
     if (domSnap.exists()) {
       const d = domSnap.data();
-      if (d.id && d.localidad) {
-        return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
-      }
+      if (d.id && d.localidad) return conUbicacion(d);
     }
   }
-  const path = window.location.pathname;
 
+  const path = window.location.pathname;
   let alias = null;
 
   // Ruta nueva: /perfil/{alias}/seguimiento_reclamaciones
   const matchPerfil = path.match(
     /^\/perfil\/([^/]+)\/seguimiento_reclamaciones\/?$/,
   );
-  if (matchPerfil) {
-    alias = decodeURIComponent(matchPerfil[1]);
-  }
+  if (matchPerfil) alias = decodeURIComponent(matchPerfil[1]);
 
-  // Compatibilidad con la ruta vieja: /legal/seguimiento_reclamaciones/{alias}
+  // Ruta vieja: /legal/seguimiento_reclamaciones/{alias}
   if (!alias && path.startsWith("/legal/seguimiento_reclamaciones/")) {
     alias = decodeURIComponent(
       path.split("/legal/seguimiento_reclamaciones/")[1] || "",
@@ -97,8 +105,7 @@ async function resolverNegocio() {
   }
 
   const params = new URLSearchParams(window.location.search);
-  if (!alias) alias = params.get("alias"); // fallback a links viejos con ?alias=
-
+  if (!alias) alias = params.get("alias");
 
   if (!alias) {
     const id = params.get("id");
@@ -106,6 +113,10 @@ async function resolverNegocio() {
       .trim()
       .toLowerCase();
     if (!id) throw new Error("No se especificó el negocio.");
+    setUbicacion({
+      departamento: params.get("departamento"),
+      provincia: params.get("provincia"),
+    });
     return { id, localidad };
   }
 
@@ -113,11 +124,8 @@ async function resolverNegocio() {
   if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
 
   const data = aliasSnap.data();
-
-  const { id, localidad } = data;
-  if (!id || !localidad) throw new Error("Alias mal configurado.");
-
-  return { id, localidad: localidad.trim().toLowerCase() };
+  if (!data.id || !data.localidad) throw new Error("Alias mal configurado.");
+  return conUbicacion(data);
 }
 
 function formatFecha(ts) {

@@ -14,7 +14,7 @@ import {
   httpsCallable,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 import { db } from "/js/db/db.js";
-import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
+import { tiendaDoc, tiendaSubDoc, aliasTiendaDoc, setUbicacion } from "/js/rutas/rutas.js";
 import { setFaviconCircular } from "/js/favicon/favicon.js"; // ajusta la ruta a donde tengas el archivo
 import {
   configurarColoresNegocio,
@@ -133,46 +133,30 @@ function esc(s) {
   );
 }
 
-/* ══════════════ Resolución de ruta ══════════════
-   Formato nuevo y seguro:  /perfil/{alias}/{pedidoId}
-     -> se resuelve el negocio real (id + localidad) consultando alias_tiendas,
-        igual que hace carrito.js. La URL nunca expone el id ni la localidad reales.
-   Formato viejo (compatibilidad con links ya enviados por WhatsApp):
-     /pedidos/{negocioId}/{pedidoId}  o  ?negocioId=&pedidoId=
-     -> usa el id tal cual viene y LOCALIDAD_FIJA como localidad. */
-async function resolverNegocioDesdeDominio(host) {
-  try {
-    const snap = await getDoc(doc(db, "dominio_web_tiendas", host));
-    if (snap.exists()) {
-      const d = snap.data();
-      if (d.id && d.localidad) {
-        return {
-          id: d.id,
-          localidad: d.localidad.trim().toLowerCase(),
-          alias: d.alias || null,
-        };
-      }
-    }
-  } catch (e) {
-    console.error("[pedidos] No se pudo resolver el dominio:", e);
-  }
-  return null;
-}
-async function resolverNegocioDesdeAlias(alias) {
-  try {
-    const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
-    if (aliasSnap.exists()) {
-      const data = aliasSnap.data();
-      if (data.id && data.localidad) {
-        return { id: data.id, localidad: data.localidad.trim().toLowerCase() };
-      }
-    }
-  } catch (e) {
-    console.error("[pedidos] No se pudo resolver el alias del negocio:", e);
-  }
-  return null;
+function conUbicacion(d) {
+  setUbicacion({ departamento: d.departamento, provincia: d.provincia });
+  return {
+    id: d.id,
+    localidad: d.localidad.trim().toLowerCase(),
+    alias: d.alias || null,
+  };
 }
 
+async function resolverNegocioDesdeDominio(host) {
+  const snap = await getDoc(doc(db, "dominio_web_tiendas", host));
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  if (!d.id || !d.localidad) return null;
+  return conUbicacion(d);
+}
+
+async function resolverNegocioDesdeAlias(alias) {
+  const snap = await getDoc(aliasTiendaDoc(alias));
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  if (!d.id || !d.localidad) return null;
+  return conUbicacion(d);
+}
 function parseRutaCruda() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("negocioId") && params.get("pedidoId")) {
@@ -711,7 +695,12 @@ const loginPorTokenPromise = (async () => {
   }
 })();
 (async () => {
-  ids = await resolverRuta();
+  try {
+    ids = await resolverRuta();
+  } catch (e) {
+    console.error("[pedidos] resolverRuta:", e);
+    ids = null;
+  }
   if (!ids) {
     showEmpty();
     return;

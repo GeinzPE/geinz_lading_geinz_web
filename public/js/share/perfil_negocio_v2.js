@@ -11157,30 +11157,42 @@ async function traerPedidosUserPanel(st) {
   st.lastDoc = snap.docs[snap.docs.length - 1] || st.lastDoc;
   st.hayMas = snap.docs.length === UP_BATCH;
 }
+const PV_DIAS = 3; // días hacia atrás
+const PV_MAX = 10; // máximo de pedidos
+
 async function traerPedidosVivosUserPanel(st) {
   const { localidad, id } = _params;
-  const snap = await getDocs(
-    query(
-      tiendaSubCol(localidad, "tiendas", id, "pedidos"),
-      where("cliente.id_cliente", "==", st.uid),
-      limit(20),
-    ),
-  );
-  st.pedidosVivos = snap.docs
-    .map((d) => {
-      const x = d.data();
-      return {
-        id: d.id,
-        est: _paNormalizar(x.estado),
-        total: Number(x.total) || 0,
-        tipo: x.cliente?.tipo_entrega || "",
-        ts: x.timestamp || null,
-        fechaTxt: [x.fecha, x.hora].filter(Boolean).join(" · "), // respaldo
-      };
-    })
-    .sort((a, b) => (b.ts?.toMillis?.() || 0) - (a.ts?.toMillis?.() || 0));
+  st.pvError = false;
+  try {
+    const snap = await getDocs(
+      query(
+        tiendaSubCol(localidad, "tiendas", id, "pedidos"),
+        where("cliente.id_cliente", "==", st.uid),
+        limit(100),
+      ),
+    );
+    const desde = Date.now() - PV_DIAS * 864e5;
+    st.pedidosVivos = snap.docs
+      .map((d) => {
+        const x = d.data();
+        return {
+          id: d.id,
+          est: _paNormalizar(x.estado),
+          total: Number(x.total) || 0,
+          tipo: x.cliente?.tipo_entrega || "",
+          ts: x.timestamp || null,
+          fechaTxt: [x.fecha, x.hora].filter(Boolean).join(" · "),
+        };
+      })
+      .filter((p) => !p.ts?.toMillis || p.ts.toMillis() >= desde)
+      .sort((a, b) => (b.ts?.toMillis?.() || 0) - (a.ts?.toMillis?.() || 0))
+      .slice(0, PV_MAX);
+  } catch (e) {
+    console.warn("Pedidos recientes:", e.code, e.message);
+    st.pedidosVivos = [];
+    st.pvError = true;
+  }
 }
-
 async function traerAgregadoUserPanel(st) {
   try {
     const { localidad, id } = _params;
@@ -11199,7 +11211,6 @@ async function cargarUserPanel(uid) {
   await esperarFollowReady();
   const sig = _siguiendoNegocio;
 
-  // Si hay cache vigente, solo refresca los pedidos en curso
   if (
     _upState &&
     _upState.uid === uid &&
@@ -11215,11 +11226,7 @@ async function cargarUserPanel(uid) {
     sig,
     raw: {},
     cliente: null,
-    orders: [],
-    pedidosVivos: [], // ← NUEVO
-    lastDoc: null,
-    hayMas: false,
-    agg: null,
+    pedidosVivos: [],
     ts: Date.now(),
   };
   const tareas = [
@@ -11228,9 +11235,8 @@ async function cargarUserPanel(uid) {
         st.raw = s.exists() ? s.data() : {};
       })
       .catch((e) => console.warn("Perfil:", e.message)),
-    // ← NUEVO: siempre se cargan, siga o no al negocio
     traerPedidosVivosUserPanel(st).catch((e) =>
-      console.warn("Pedidos en curso:", e.code, e.message),
+      console.warn("Pedidos recientes:", e.code, e.message),
     ),
   ];
   if (sig) {
@@ -11241,10 +11247,6 @@ async function cargarUserPanel(uid) {
           st.cliente = s.exists() ? s.data() : null;
         })
         .catch((e) => console.warn("Cliente:", e.message)),
-      traerPedidosUserPanel(st).catch((e) =>
-        console.warn("Historial:", e.message),
-      ),
-      traerAgregadoUserPanel(st),
     );
   }
   await Promise.all(tareas);
@@ -11362,9 +11364,31 @@ const PV_FILTROS = [
   ["listo", "Listo"],
   ["entregado", "Entregado"],
 ];
+function urlHistorialPedidos() {
+  const ruta = rutaNegocio("historial_pedidos", _params.alias || _bizAliasKey);
+  if (ruta) return ruta;
+  const u = new URL(
+    "../../seguimiento/historial_pedidos.html",
+    window.location.href,
+  );
+  u.searchParams.set("id", _params.id);
+  u.searchParams.set("localidad", _params.localidad);
+  return u.toString();
+}
+
 function _upVivosInnerHTML(st) {
   const todos = st.pedidosVivos || [];
-  if (!todos.length) return "";
+  const verTodos = `<a class="up-all-link" data-nav href="${escapeHtml(urlHistorialPedidos())}">Ver todos mis pedidos →</a>`;
+  const titulo = `<h4 class="up-sec-title">Mis pedidos</h4>
+      <p class="up-sub" style="margin:-6px 0 12px">Últimos ${PV_DIAS} días</p>`;
+
+  if (!todos.length) {
+    const msg = st.pvError
+      ? "No se pudieron cargar tus pedidos, intenta de nuevo."
+      : "No tienes pedidos recientes.";
+    return `${titulo}<div class="up-empty">${msg}</div>${verTodos}`;
+  }
+
   const f = st.pvFiltro || "todos";
   const vis = st.pvVisibles || PV_BATCH;
   const lista = f === "todos" ? todos : todos.filter((p) => p.est === f);
@@ -11383,11 +11407,11 @@ function _upVivosInnerHTML(st) {
           const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
           return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
               <span class="pa-dot"></span>
-            <div class="pa-main">
-    <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
-    <div class="pa-state">${e.label}${p.tipo ? " · " + escapeHtml(p.tipo) : ""}</div>
-    <div class="pa-date">🗓️ ${p.ts ? _fmtFecha(p.ts, true) : escapeHtml(p.fechaTxt || "—")}</div>
-  </div>
+              <div class="pa-main">
+                <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
+                <div class="pa-state">${e.label}${p.tipo ? " · " + escapeHtml(p.tipo) : ""}</div>
+                <div class="pa-date">🗓️ ${p.ts ? _fmtFecha(p.ts, true) : escapeHtml(p.fechaTxt || "—")}</div>
+              </div>
               <div class="pa-total">${_fmtSoles(p.total)}</div>
               <span class="pa-go">Ver →</span>
             </a>`;
@@ -11400,13 +11424,10 @@ function _upVivosInnerHTML(st) {
       ? `<button type="button" class="up-btn-ghost up-more" data-act="pv-mas">Ver más (${Math.min(PV_BATCH, restantes)} de ${restantes})</button>`
       : "";
 
-  return `<h4 class="up-sec-title">Mis pedidos</h4>
-      <div class="pv-chips">${chips}</div>
-      ${filas}${mas}`;
+  return `${titulo}<div class="pv-chips">${chips}</div>${filas}${mas}${verTodos}`;
 }
 
 function _upPedidosVivosHTML(st) {
-  if (!(st.pedidosVivos || []).length) return "";
   return `<div class="up-sec" id="upVivos">${_upVivosInnerHTML(st)}</div>`;
 }
 
@@ -11451,10 +11472,8 @@ function pintarUserPanel() {
   sc.innerHTML =
     _upHeaderHTML({ nombre: completo, foto, sub }) +
     (_upEditando ? _upFormHTML(raw) : _upDatosHTML(raw, user, edad)) +
-    _upPedidosVivosHTML(st) +
-    _upPedidosHTML(st);
+    _upPedidosVivosHTML(st);
 }
-
 async function cargarMasPedidosUserPanel(btn) {
   const st = _upState;
   if (!st || btn.disabled) return;
@@ -11777,7 +11796,8 @@ const PEDIDO_ACTUAL_CSS = `
     background:rgba(255,255,255,.08);color:#fff;cursor:pointer;}
   .pw-sheet-title{margin:0 40px 4px 0;font-size:17px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;}
   .pw-sheet-sub{margin:0 0 16px;font-size:12px;color:#9c9ca3;}
-
+  .up-all-link{display:block;text-align:center;margin-top:14px;padding:12px;border-radius:14px;font-size:13px;font-weight:700;color:#fff;text-decoration:none;background:rgba(var(--dr),var(--dg),var(--db),.12);border:1px solid rgba(var(--dr),var(--dg),var(--db),.35);transition:background .2s ease,transform .15s ease;}
+  .up-all-link:hover{background:rgba(var(--dr),var(--dg),var(--db),.22);transform:translateY(-1px);}
  @media (min-width:1024px){
   .pw-pill{display:none !important;}
   .pw-card{

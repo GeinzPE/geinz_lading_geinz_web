@@ -2,7 +2,7 @@ import {
   getDoc,
   doc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { aliasTiendaDoc, tiendaDoc } from "../js/rutas/rutas.js"; // ruta real de tu módulo de rutas Firestore
+import { aliasTiendaDoc, tiendaDoc, setUbicacion } from "../js/rutas/rutas.js";
 import { setFaviconCircular } from "../js/favicon/favicon.js"; // ⚠️ ajusta esta ruta si tu favicon.js está en otro lugar
 import {
   cargarColoresNegocio,
@@ -18,25 +18,35 @@ import { db } from "../js/db/db.js";
 //  como alias. Si no, cae a ?alias=... y luego a ?id=&localidad=
 //  como fallback viejo.
 // ══════════════════════════════════════════
+function conUbicacion(d) {
+  setUbicacion({ departamento: d.departamento, provincia: d.provincia });
+  return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
+}
+
 async function resolverNegocio(pathPrefix, seccion) {
   if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    setUbicacion({
+      departamento: window.__NEGOCIO_DEPARTAMENTO__,
+      provincia: window.__NEGOCIO_PROVINCIA__,
+    });
     return {
       id: window.__NEGOCIO_ID__,
       localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
     };
   }
+
   const path = window.location.pathname;
-  // Dominio propio (geinz.es): se resuelve por dominio_web_tiendas
+
+  // Dominio propio: se resuelve por dominio_web_tiendas
   const host = window.location.hostname.replace(/^www\./, "");
   if (host !== "geinztech.com") {
     const domSnap = await getDoc(doc(db, "dominio_web_tiendas", host));
     if (domSnap.exists()) {
       const d = domSnap.data();
-      if (d.id && d.localidad) {
-        return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
-      }
+      if (d.id && d.localidad) return conUbicacion(d);
     }
   }
+
   let alias = null;
 
   // Ruta nueva: /perfil/{alias}/{seccion}
@@ -55,8 +65,7 @@ async function resolverNegocio(pathPrefix, seccion) {
   }
 
   const params = new URLSearchParams(window.location.search);
-  if (!alias) alias = params.get("alias"); // fallback a links viejos con ?alias=
-
+  if (!alias) alias = params.get("alias");
 
   if (!alias) {
     const id = params.get("id");
@@ -64,6 +73,10 @@ async function resolverNegocio(pathPrefix, seccion) {
       .trim()
       .toLowerCase();
     if (!id) throw new Error("No se especificó el negocio.");
+    setUbicacion({
+      departamento: params.get("departamento"),
+      provincia: params.get("provincia"),
+    });
     return { id, localidad };
   }
 
@@ -71,11 +84,8 @@ async function resolverNegocio(pathPrefix, seccion) {
   if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
 
   const data = aliasSnap.data();
-
-  const { id, localidad } = data;
-  if (!id || !localidad) throw new Error("Alias mal configurado.");
-
-  return { id, localidad: localidad.trim().toLowerCase() };
+  if (!data.id || !data.localidad) throw new Error("Alias mal configurado.");
+  return conUbicacion(data);
 }
 
 function formatFecha(ts) {

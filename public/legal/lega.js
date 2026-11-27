@@ -9,7 +9,8 @@ import {
   tiendaDoc,
   libroReclamacionesConfigDoc,
   reclamacionesCol,
-} from "../js/rutas/rutas.js"; // ruta real de tu módulo de rutas Firestore
+  setUbicacion,
+} from "../js/rutas/rutas.js";
 import { setFaviconCircular } from "../js/favicon/favicon.js"; // ══════════════════════════════════════════
 import {
   cargarColoresNegocio,
@@ -153,24 +154,32 @@ const DOC_TIPO_VALIDATORS = {
 // ══════════════════════════════════════════
 //  RESOLVER ALIAS → { id, localidad }
 // ══════════════════════════════════════════
+
+function conUbicacion(d) {
+  setUbicacion({ departamento: d.departamento, provincia: d.provincia });
+  return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
+}
+
 async function resolverNegocio() {
   if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    setUbicacion({
+      departamento: window.__NEGOCIO_DEPARTAMENTO__,
+      provincia: window.__NEGOCIO_PROVINCIA__,
+    });
     return {
       id: window.__NEGOCIO_ID__,
       localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
     };
   }
 
-  // Dominio propio (geinz.es): se resuelve por dominio_web_tiendas
+  // Dominio propio: se resuelve por dominio_web_tiendas
   const host = window.location.hostname.replace(/^www\./, "");
   const esDominioPropio = host !== "geinztech.com";
   if (esDominioPropio) {
     const domSnap = await getDoc(doc(db, "dominio_web_tiendas", host));
     if (domSnap.exists()) {
       const d = domSnap.data();
-      if (d.id && d.localidad) {
-        return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
-      }
+      if (d.id && d.localidad) return conUbicacion(d);
     }
   }
 
@@ -196,16 +205,19 @@ async function resolverNegocio() {
       .trim()
       .toLowerCase();
     if (!id) throw new Error("No se especificó el negocio.");
+    setUbicacion({
+      departamento: params.get("departamento"),
+      provincia: params.get("provincia"),
+    });
     return { id, localidad };
   }
 
   const aliasSnap = await getDoc(aliasTiendaDoc(alias));
   if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
 
-  const { id, localidad } = aliasSnap.data();
-  if (!id || !localidad) throw new Error("Alias mal configurado.");
-
-  return { id, localidad: localidad.trim().toLowerCase() };
+  const d = aliasSnap.data();
+  if (!d.id || !d.localidad) throw new Error("Alias mal configurado.");
+  return conUbicacion(d);
 }
 
 // ══════════════════════════════════════════
