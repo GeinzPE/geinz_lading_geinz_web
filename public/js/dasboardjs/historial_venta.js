@@ -6,6 +6,10 @@ import {
   onSnapshot,
   getDocs,
   Timestamp,
+  updateDoc,
+  arrayUnion,
+  serverTimestamp,
+  runTransaction,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import { tiendaSubCol, tiendaSubDoc } from "../rutas/rutas.js";
@@ -42,6 +46,27 @@ function leerEsAdmin() {
   }
 }
 const esAdmin = leerEsAdmin();
+function leerSesion() {
+  try {
+    const raw =
+      sessionStorage.getItem("rolActivo") ||
+      localStorage.getItem("rolActivo_pwa");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+const sesionRol = leerSesion();
+const tienePermiso = (k) =>
+  !!sesionRol && (sesionRol.esAdmin || (sesionRol.permisos || []).includes(k));
+const verTodas = tienePermiso("ventas_ver_todas");
+const esMia = (p) => verTodas || p.vendedor?.id === sesionRol?.roleId;
+const puedeTocar = (p, permiso) =>
+  !p.esMesa &&
+  p.cliente?.tipo_entrega === "Venta directa" &&
+  (p.estado || "").toLowerCase() === "entregado" &&
+  esMia(p) &&
+  tienePermiso(permiso);
 
 // Si NO es admin, deja solo lo necesario para cuadrar la caja
 function vistaCajero() {
@@ -56,7 +81,9 @@ function vistaCajero() {
   ["origenTopLabel", "topProductoNombre", "kpiIngresos"].forEach((id) =>
     ocultar($id(id)?.closest("section")),
   );
-  ["btnCostConfig", "exportDropdownWrap", "btnVista"].forEach((id) => ocultar($id(id)));
+  ["btnCostConfig", "exportDropdownWrap", "btnVista"].forEach((id) =>
+    ocultar($id(id)),
+  );
   ["filterOrigen", "filterComprobante"].forEach((id) =>
     ocultar($id(id)?.parentElement),
   );
@@ -439,13 +466,15 @@ function turnoBadge(p) {
   const t = turnoDePedido(p);
   return t
     ? `<span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-primary/15 border border-primary/40 text-white">⏱ ${escHtml(t.nombre)}</span>`
-    : `<span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-amber-400/10 border border-amber-400/30 text-amber-300">⚠️ Fuera de turno</span>`;
+    : `<span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-panel2 border border-line text-inkdim">Fuera de turno</span>`;
 }
 
 function pintarAvisoTurnos() {
   const actual = $id("turnoActualBox");
   const fueraEl = $id("avisoFuera");
   const visible = usaTurnos() && turnosEstado === "ok";
+  const caja =
+    "display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px 16px;border-radius:16px;font-size:13px;color:#fff;";
 
   if (actual) {
     if (!visible) actual.classList.add("hidden");
@@ -453,12 +482,19 @@ function pintarAvisoTurnos() {
       const t = turnos
         .filter((x) => x.estado === "abierto")
         .sort((a, b) => b.abiertoMs - a.abiertoMs)[0];
-      actual.className = t
-        ? "mt-2 text-xs rounded-xl px-3 py-2 bg-green-500/10 border border-green-500/30 text-green-300"
-        : "mt-2 text-xs rounded-xl px-3 py-2 bg-panel2 border border-line text-inkdim";
-      actual.textContent = t
-        ? `🟢 Caja abierta: ${t.nombre} desde ${fmtHoraMs(t.abiertoMs)}`
-        : "🔴 No hay caja abierta ahora. Las ventas que se hagan quedarán como «Fuera de turno».";
+      actual.classList.remove("hidden");
+      actual.setAttribute(
+        "style",
+        caja +
+          (t
+            ? "background:linear-gradient(135deg,rgba(136,85,255,.18),rgba(136,85,255,.06));border:1px solid rgba(136,85,255,.35);"
+            : "background:#15151b;border:1px solid rgba(255,255,255,.07);"),
+      );
+      actual.innerHTML = t
+        ? `<span style="width:9px;height:9px;border-radius:50%;background:#8855ff;box-shadow:0 0 0 4px rgba(136,85,255,.25);flex-shrink:0"></span>
+           <span><b>Caja abierta</b> · ${escHtml(t.nombre)} <span style="color:#a1a1aa">desde las ${fmtHoraMs(t.abiertoMs)}</span></span>`
+        : `<span style="width:9px;height:9px;border-radius:50%;background:#71717a;flex-shrink:0"></span>
+           <span><b>Caja cerrada</b> <span style="color:#a1a1aa">· las ventas quedarán como «Fuera de turno»</span></span>`;
     }
   }
 
@@ -483,7 +519,12 @@ function pintarAvisoTurnos() {
       return;
     }
     const monto = fuera.reduce((s, p) => s + (Number(p.total) || 0), 0);
-    fueraEl.textContent = `⚠️ ${fuera.length} venta(s) por ${fmtMoney(monto)} se hicieron con la caja cerrada (fuera de turno). No están dentro de ningún turno.`;
+    fueraEl.setAttribute(
+      "style",
+      caja +
+        "background:#15151b;border:1px solid rgba(255,255,255,.07);color:#a1a1aa;font-size:12px;",
+    );
+    fueraEl.innerHTML = `<span>ℹ️</span><span><b style="color:#fff">${fuera.length} venta(s) · ${fmtMoney(monto)}</b> se hicieron con la caja cerrada y no pertenecen a ningún turno.</span>`;
     fueraEl.classList.remove("hidden");
   }
 }
@@ -565,7 +606,11 @@ function listenPedidos() {
 
   // "Hoy" se queda en vivo. Otros rangos: una sola lectura.
   if (currentRange === "hoy") {
-    unsubscribePedidos = onSnapshot(q, (snap) => alLlegar(snap, "hoy"), alFallar);
+    unsubscribePedidos = onSnapshot(
+      q,
+      (snap) => alLlegar(snap, "hoy"),
+      alFallar,
+    );
   } else {
     setConnStatus("cargando…", null);
     getDocs(q)
@@ -637,6 +682,25 @@ const METODOS_INFO = {
   agora: ["🏦", "Agora"],
   otros: ["❔", "Sin especificar"],
 };
+/* Logos de los métodos de pago (si una imagen no carga, se muestra el emoji) */
+const ICONOS_METODO = {
+  efectivo: ["../../img/efectivo_logo.webp"],
+  yape: ["../../img/yape_logo.webp"],
+  plin: ["../../img/logo_plin.webp"],
+  yape_plin: ["../../img/yape_logo.webp", "../../img/logo_plin.webp"],
+  visa_mastercard: ["../../img/visa_logo.webp"],
+};
+function icoMetodo(clave) {
+  const emoji = (METODOS_INFO[clave] || ["💳"])[0];
+  const srcs = ICONOS_METODO[clave];
+  if (!srcs) return emoji;
+  return srcs
+    .map(
+      (s) =>
+        `<img class="mi" src="${escHtml(s)}" alt="" data-fb="${escHtml(emoji)}" onerror="this.outerHTML=this.dataset.fb">`,
+    )
+    .join("");
+}
 function metodoPagoDe(p) {
   if (p.pago_metodo?.label) return p.pago_metodo.label;
   const pago = p.pago;
@@ -685,24 +749,42 @@ function renderCuadrePago(entregados) {
     (filas.length
       ? filas
           .map((f) => {
-            const [ico, label] = METODOS_INFO[f.clave] || ["💳", f.clave];
-            return `<div class="flex justify-between items-center bg-panel2 border border-line rounded-xl px-3 py-2">
-            <span class="text-sm text-white">${ico} ${escHtml(label)} <span class="text-[11px] text-inkfaint">· ${f.cant} pedido(s)</span></span>
-            <span class="font-mono text-sm font-bold text-white">${fmtMoney(f.monto)}</span></div>`;
+      const [, label] = METODOS_INFO[f.clave] || ["", f.clave];
+return `<div class="flex justify-between items-center bg-panel2 border border-line rounded-xl px-3 py-2">
+  <span class="text-sm text-white">${icoMetodo(f.clave)} ${escHtml(label)} <span class="text-[11px] text-inkfaint">· ${f.cant} pedido(s)</span></span>
+  <span class="font-mono text-sm font-bold text-white">${fmtMoney(f.monto)}</span></div>`;
           })
           .join("") +
         `<div class="flex justify-between px-3 pt-1 text-sm font-bold text-white"><span>Total</span><span class="font-mono">${fmtMoney(total)}</span></div>`
       : `<p class="text-sm text-inkfaint">Sin ventas en el rango</p>`);
 }
 
+/* ---------------- Vendedor y anulaciones ---------------- */
 function nombreVendedor(p) {
   return p.vendedor?.nombre || "";
 }
+const claveVendedor = (p) => p.vendedor?.id || nombreVendedor(p);
+
+// Una venta anulada se detecta por el flag, o por el estado "anulado"
+const estaAnulado = (p) =>
+  !!p.anulada || (p.estado || "").toLowerCase() === "anulado";
+const estadoDe = (p) =>
+  estaAnulado(p) ? "anulado" : (p.estado || "").toLowerCase();
+function anuladoPor(p) {
+  if (p.anulada_por?.nombre) return p.anulada_por.nombre;
+  const l = Array.isArray(p.historial_cambios) ? p.historial_cambios : [];
+  const r = [...l].reverse().find((c) => c.tipo === "anulacion");
+  return r?.por?.nombre || "";
+}
+
 function vendedorHtml(p) {
   const n = nombreVendedor(p);
-  return n
+  let h = n
     ? `<p class="text-[11px] text-primary mt-0.5">👤 Vendido por: ${escHtml(n)}</p>`
     : "";
+  if (estaAnulado(p))
+    h += `<p class="text-[11px] text-inkdim mt-0.5">🚫 Anulado por: ${escHtml(anuladoPor(p) || "—")}</p>`;
+  return h;
 }
 function fmtMoney(n) {
   return (
@@ -889,15 +971,16 @@ function renderOrigenMetrics(list) {
   const topCantEl = $id("origenTopCant");
   if (topCantEl) topCantEl.textContent = top ? top.c : 0;
 }
-function estadoBadge(estado) {
-  const e = (estado || "").toLowerCase();
+function estadoBadge(p) {
+  const e = estadoDe(p);
   const map = {
     pendiente: { key: "pendiente", label: "Pendiente" },
     "en proceso": { key: "en_proceso", label: "En proceso" },
     entregado: { key: "entregado", label: "Completado" },
     rechazado: { key: "rechazado", label: "Rechazado" },
+    anulado: { key: "anulado", label: "Anulado" },
   };
-  const info = map[e] || { key: "pendiente", label: estado || "—" };
+  const info = map[e] || { key: "pendiente", label: p.estado || "—" };
   return `<span data-est="${info.key}" class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap">${escHtml(info.label)}</span>`;
 }
 
@@ -976,6 +1059,7 @@ function getFilteredOrders() {
   const origenF = $id("filterOrigen").value;
   const deliF = $id("filterDelivery")?.value || "todos";
   const compF = $id("filterComprobante")?.value || "todos";
+  const vendF = $id("filterVendedor")?.value || "todos";
   const q = $id("searchBox").value.trim().toLowerCase();
 
   return pedidosRaw
@@ -983,9 +1067,9 @@ function getFilteredOrders() {
       const d = fechaEfectiva(p);
       if (!d || d < from || d > to) return false;
       if (!pasaFiltroTurno(p)) return false;
-
-      if (estadoF !== "todos" && (p.estado || "").toLowerCase() !== estadoF)
-        return false;
+      if (!esMia(p)) return false;
+      if (estadoF !== "todos" && estadoDe(p) !== estadoF) return false;
+      if (vendF !== "todos" && claveVendedor(p) !== vendF) return false;
       if (deliF === "con" && !tieneDelivery(p)) return false;
       if (deliF === "sin" && tieneDelivery(p)) return false;
       if (origenF !== "todos" && getOrigenInfo(p).key !== origenF) return false;
@@ -1050,16 +1134,16 @@ function renderMetrics(list) {
     esBilleteraDigital(metodoPagoDe(p)),
   ).length;
   const efectivoCount = count - digitalCount;
-  renderBarPair(
-    "barPago",
-    { label: "📱 Yape / Plin", value: digitalCount, color: "bg-primary" },
-    {
-      label: "💵 Efectivo / Tarjeta",
-      value: efectivoCount,
-      color: "bg-primary/40",
-    },
-    count,
-  );
+renderBarPair(
+  "barPago",
+  { label: `${icoMetodo("yape")}${icoMetodo("plin")} Yape / Plin`, value: digitalCount, color: "bg-primary" },
+  {
+    label: `${icoMetodo("efectivo")}${icoMetodo("visa_mastercard")} Efectivo / Tarjeta`,
+    value: efectivoCount,
+    color: "bg-primary/40",
+  },
+  count,
+);
 
   const [from, to] = getRangeBounds();
   if (esAdmin) {
@@ -1256,7 +1340,8 @@ function loadCostosConfig() {
       const c = JSON.parse(raw);
       return {
         porcentaje: Number(c.porcentaje) || 0,
-        overrides: c.overrides && typeof c.overrides === "object" ? c.overrides : {},
+        overrides:
+          c.overrides && typeof c.overrides === "object" ? c.overrides : {},
       };
     }
   } catch (e) {
@@ -1353,8 +1438,18 @@ function renderRentabilidad(entregados) {
   // Los ingresos son el 100% y los costos se miden contra ellos
   renderBarPair(
     "barIngresoCosto",
-    { label: "💰 Ingresos", value: ingresos, color: "bg-primary", fmt: fmtMoney },
-    { label: "📦 Costos", value: costos, color: "bg-primary/40", fmt: fmtMoney },
+    {
+      label: "💰 Ingresos",
+      value: ingresos,
+      color: "bg-primary",
+      fmt: fmtMoney,
+    },
+    {
+      label: "📦 Costos",
+      value: costos,
+      color: "bg-primary/40",
+      fmt: fmtMoney,
+    },
     ingresos || costos,
   );
 
@@ -1422,7 +1517,8 @@ $id("btnCostConfig")?.addEventListener("click", openCostModal);
 $id("btnGuardarCostos")?.addEventListener("click", () => {
   const overrides = {};
   document.querySelectorAll(".costo-override-input").forEach((input) => {
-    if (input.value !== "") overrides[input.dataset.nombre] = Number(input.value);
+    if (input.value !== "")
+      overrides[input.dataset.nombre] = Number(input.value);
   });
   const pct = Math.min(
     100,
@@ -1463,7 +1559,8 @@ function renderList(list) {
   if (btnLoadMore && restantes > 0)
     btnLoadMore.textContent = `Mostrar más pedidos (${restantes} restantes)`;
 
-  const nombreDe = (p) => escHtml((p.cliente && p.cliente.nombre) || "Sin nombre");
+  const nombreDe = (p) =>
+    escHtml((p.cliente && p.cliente.nombre) || "Sin nombre");
 
   tbody.innerHTML = visibles
     .map(
@@ -1473,15 +1570,16 @@ function renderList(list) {
       <td class="px-4 py-3 text-inkdim">${fmtFechaHora(p)}</td>
       <td class="px-4 py-3">
         <p class="font-medium text-white">${nombreDe(p)}</p>
+        ${vendedorHtml(p)}
       </td>
       <td class="px-4 py-3 text-right font-mono font-semibold text-white">
         ${fmtMoney(p.total)}
         ${tieneDelivery(p) ? `<p class="text-[10px] text-inkfaint font-normal">🛵 incl. ${fmtMoney(deliveryDePedido(p))}</p>` : ""}
       </td>
-      <td class="px-4 py-3 text-inkdim">${escHtml(metodoPagoDe(p))}</td>
+<td class="px-4 py-3 text-inkdim"><span class="inline-flex items-center gap-1">${claveMetodo(p) !== "otros" ? icoMetodo(claveMetodo(p)) : ""}${escHtml(metodoPagoDe(p))}</span></td>
       <td class="px-4 py-3">${cuponBadge(p)}</td>
       <td class="px-4 py-3"><div class="flex flex-col items-start gap-1">${origenBadge(p)}${turnoBadge(p)}</div></td>
-      <td class="px-4 py-3">${estadoBadge(p.estado)}</td>
+      <td class="px-4 py-3">${estadoBadge(p)}</td>
       <td class="px-4 py-3 text-primary">›</td>
     </tr>`,
     )
@@ -1496,7 +1594,7 @@ function renderList(list) {
           <p class="font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? ` · 🧾 ${escHtml(p.comprobante.numero)}` : ""}</p>
           <p class="font-medium text-white">${nombreDe(p)}</p>
         </div>
-        ${estadoBadge(p.estado)}
+        ${estadoBadge(p)}
       </div>
       <div class="flex items-center justify-between text-sm mb-2">
         <span class="text-inkfaint text-xs">${fmtFechaHora(p)}</span>
@@ -1564,10 +1662,10 @@ function openModal(id) {
       </div>
 
       <div class="flex flex-wrap gap-2 mb-5">
-        ${estadoBadge(p.estado)}
+        ${estadoBadge(p)}
         ${origenBadge(p)}
         ${turnoBadge(p)}
-        <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-white text-xs font-medium">${metodo}</span>
+        <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-white text-xs font-medium inline-flex items-center gap-1">${claveMetodo(p) !== "otros" ? icoMetodo(claveMetodo(p)) : ""}${metodo}</span>
       </div>
 
       ${
@@ -1632,7 +1730,7 @@ function openModal(id) {
           <p class="font-display font-extrabold text-xl text-white">${fmtMoney(p.total)}</p>
         </div>
       </div>
-
+      ${botonesEdicion(p)}
       <div class="flex gap-2">
         <button onclick="window.reimprimirTicket()" class="flex-1 bg-panel2 border border-line font-semibold text-sm py-2.5 rounded-xl hover:bg-line transition text-white">${p.comprobante?.numero ? "🖨️ Reimprimir boleta" : "🧾 Sacar boleta"}</button>
         <button onclick="window.exportarTicketWhatsApp()" class="flex-1 bg-primary text-white font-semibold text-sm py-2.5 rounded-xl hover:brightness-110 transition shadow-lg shadow-primary/20">📤 Enviar comprobante</button>
@@ -1646,6 +1744,7 @@ function openModal(id) {
 function closeModal() {
   $id("modalOverlay")?.classList.add("hidden");
   currentOrder = null;
+  editando = null;
 }
 $id("modalOverlay")?.addEventListener("click", (e) => {
   if (e.target.id === "modalOverlay") closeModal();
@@ -1705,12 +1804,295 @@ async function exportarTicketWhatsApp() {
   }
 }
 
+/* ---------------- Editar / anular ventas ---------------- */
+let editando = null;
+const refPedido = (id) =>
+  tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
+const quien = () => ({
+  id: sesionRol?.roleId || null,
+  nombre: sesionRol?.nombre || "",
+  usuario: sesionRol?.usuario || "",
+});
+
+function botonesEdicion(p) {
+  const ed = puedeTocar(p, "ventas_editar");
+  const an = puedeTocar(p, "ventas_anular");
+  const hist = cambiosHtml(p);
+  if (!ed && !an) return hist;
+  return `${hist}
+    <div class="flex gap-2 mb-3">
+      ${ed ? `<button onclick="window.abrirEditor('${escHtml(p.id)}')" class="flex-1 text-sm font-semibold py-2.5 rounded-xl">✏️ Editar venta</button>` : ""}
+      ${an ? `<button onclick="window.anularVenta('${escHtml(p.id)}')" class="flex-1 text-sm font-semibold py-2.5 rounded-xl text-red-400">🗑️ Anular venta</button>` : ""}
+    </div>`;
+}
+
+function cambiosHtml(p) {
+  const l = Array.isArray(p.historial_cambios) ? p.historial_cambios : [];
+  if (!l.length) return "";
+  return `<div class="mb-5">
+    <p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Historial de cambios</p>
+    <div class="space-y-2">${l
+      .map(
+        (c) => `
+      <div class="bg-panel2 border border-line rounded-xl px-3 py-2 text-xs">
+        <p class="text-white font-semibold">${c.tipo === "anulacion" ? "🗑️ Anulada" : "✏️ Editada"} por ${escHtml(c.por?.nombre || "—")}
+          · ${new Date(c.en).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })}</p>
+        <p class="text-inkdim">Motivo: ${escHtml(c.motivo || "—")}</p>
+        <p class="text-inkfaint">Total: ${fmtMoney(c.total_antes)} → ${fmtMoney(c.total_despues)}</p>
+      </div>`,
+      )
+      .join("")}</div></div>`;
+}
+
+const totalEditado = () =>
+  editando.items.reduce(
+    (s, it) =>
+      s + (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0),
+    0,
+  );
+
+function abrirEditor(id) {
+  const p = pedidosRaw.find((x) => x.id === id);
+  if (!p || !puedeTocar(p, "ventas_editar"))
+    return showToast("No tienes permiso para editar esta venta");
+  editando = { id, p, items: (p.productos || []).map((it) => ({ ...it })) };
+  pintarEditor();
+}
+
+function pintarEditor() {
+  const { p, items } = editando;
+  $id("modalContent").innerHTML = `
+    <div class="flex justify-between items-start mb-4">
+      <div><p class="font-mono text-xs text-primary font-semibold">${codigoPedido(p)}</p>
+      <h3 class="font-display font-bold text-xl text-white">Editar venta</h3></div>
+      <button onclick="window.openModal('${escHtml(p.id)}')" class="w-8 h-8 rounded-full bg-panel2 text-white">✕</button>
+    </div>
+    <div class="space-y-2 mb-4">
+      ${items
+        .map(
+          (it, i) => `
+        <div class="bg-panel2 border border-line rounded-xl p-3 ${Number(it.cantidad) > 0 ? "" : "opacity-40"}">
+          <p class="text-sm text-white font-medium mb-2">${escHtml(it.nombre)}${opcionesDetalleTexto(it) ? ` <span class="text-xs text-primary">· ${escHtml(opcionesDetalleTexto(it))}</span>` : ""}</p>
+          <div class="flex items-center gap-2">
+            <label class="text-[11px] text-inkfaint">Cant.</label>
+            <input type="number" min="0" step="1" value="${Number(it.cantidad) || 0}" data-i="${i}" data-f="cantidad" class="w-20 text-sm">
+            <label class="text-[11px] text-inkfaint">Precio S/</label>
+            <input type="number" min="0" step="0.1" value="${Number(it.precio_unitario) || 0}" data-i="${i}" data-f="precio_unitario" class="w-24 text-sm">
+            <button type="button" data-quitar="${i}" class="ml-auto text-red-400 text-sm" style="min-height:0;background:none;border:0">Quitar</button>
+          </div>
+        </div>`,
+        )
+        .join("")}
+    </div>
+    <div class="flex justify-between items-center bg-panel2 border border-line rounded-xl px-4 py-3 mb-4">
+      <span class="text-sm text-inkdim">Nuevo total (antes ${fmtMoney(p.total)})</span>
+      <b id="edTotal" class="font-display text-xl text-white">${fmtMoney(totalEditado())}</b>
+    </div>
+    <label class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold block mb-1.5">Motivo del cambio (obligatorio)</label>
+    <input id="edMotivo" type="text" maxlength="120" placeholder="Ej: me equivoqué de precio" class="w-full text-sm mb-3">
+    <label class="flex items-center gap-2 text-sm text-inkdim mb-4">
+      <input type="checkbox" id="edStock" checked style="min-height:0"> Devolver al stock lo que se reduzca o quite
+    </label>
+    <button onclick="window.guardarEdicion()" class="w-full bg-primary text-white font-semibold text-sm py-2.5 rounded-xl">💾 Guardar cambios</button>`;
+}
+
+$id("modalContent")?.addEventListener("input", (e) => {
+  const t = e.target;
+  if (!editando || t.dataset.i === undefined) return;
+  editando.items[t.dataset.i][t.dataset.f] =
+    t.value === "" ? 0 : Number(t.value);
+  $id("edTotal").textContent = fmtMoney(totalEditado());
+});
+$id("modalContent")?.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-quitar]");
+  if (!b || !editando) return;
+  editando.items[b.dataset.quitar].cantidad = 0;
+  pintarEditor();
+});
+
+// delta > 0 devuelve stock; delta < 0 lo descuenta
+async function ajustarStock(lineas) {
+  for (const { it, delta } of lineas) {
+    if (!delta || !it.id || !it.categoria || it.esPromo || it.esAdicional)
+      continue;
+    const ref = tiendaSubDoc(
+      localidad,
+      "tiendas",
+      tiendaId,
+      "productos",
+      it.categoria,
+      it.categoria,
+      it.id,
+    );
+    try {
+      await runTransaction(ref.firestore, async (tx) => {
+        const s = await tx.get(ref);
+        if (!s.exists()) return;
+        const d = s.data();
+        const up = {};
+        if (typeof d.stock === "number") {
+          up.stock = Math.max(0, d.stock + delta);
+          if (d.autoDesactivar && up.stock > 0) up.disponible = true;
+        }
+        if (it.opciones && Array.isArray(d.condiciones)) {
+          up.condiciones = d.condiciones.map((c) => ({
+            ...c,
+            opciones: (c.opciones || []).map((o) => {
+              const hit = entradasDeOpcion(it.opciones[c.nombre]).find(
+                ([n]) => n === o.nombre,
+              );
+              if (!hit || typeof o.stock !== "number") return o;
+              const st = Math.max(0, o.stock + hit[1] * delta);
+              return { ...o, stock: st, activo: st > 0 ? true : o.activo };
+            }),
+          }));
+        }
+        if (Object.keys(up).length) tx.update(ref, up);
+      });
+    } catch (err) {
+      console.warn("No se pudo ajustar el stock de", it.nombre, err);
+    }
+  }
+}
+
+async function guardarEdicion() {
+  if (!editando) return;
+  const { id, p, items } = editando;
+  const motivo = $id("edMotivo").value.trim();
+  if (!motivo) return showToast("Escribe el motivo del cambio");
+
+  const nuevos = items
+    .filter((it) => Number(it.cantidad) > 0)
+    .map((it) => {
+      const cantidad = Math.round(Number(it.cantidad));
+      const precio = +Number(it.precio_unitario || 0).toFixed(2);
+      return {
+        ...it,
+        cantidad,
+        precio_unitario: precio,
+        subtotal: +(cantidad * precio).toFixed(2),
+      };
+    });
+  if (!nuevos.length)
+    return showToast("No queda ningún producto: usa «Anular venta»");
+
+  const total = +nuevos.reduce((s, it) => s + it.subtotal, 0).toFixed(2);
+  const totalItems = nuevos.reduce((s, it) => s + it.cantidad, 0);
+  const registro = {
+    tipo: "edicion",
+    por: quien(),
+    en: Date.now(),
+    motivo,
+    total_antes: Number(p.total) || 0,
+    total_despues: total,
+    productos_antes: p.productos || [],
+  };
+  try {
+    await updateDoc(refPedido(id), {
+      productos: nuevos,
+      total,
+      total_items: totalItems,
+      editado: true,
+      historial_cambios: arrayUnion(registro),
+      actualizado: serverTimestamp(),
+    });
+    if ($id("edStock").checked) {
+      const originales = p.productos || [];
+      await ajustarStock(
+        items.map((it, i) => ({
+          it: originales[i] || it,
+          delta:
+            (Number(originales[i]?.cantidad) || 0) -
+            (Math.round(Number(it.cantidad)) || 0),
+        })),
+      );
+    }
+    Object.assign(p, {
+      productos: nuevos,
+      total,
+      total_items: totalItems,
+      editado: true,
+      historial_cambios: [...(p.historial_cambios || []), registro],
+    });
+    editando = null;
+    renderAll();
+    openModal(id);
+    showToast("Venta actualizada");
+  } catch (e) {
+    console.error(e);
+    showToast("No se pudo guardar el cambio");
+  }
+}
+
+async function anularVenta(id) {
+  const p = pedidosRaw.find((x) => x.id === id);
+  if (!p || !puedeTocar(p, "ventas_anular"))
+    return showToast("No tienes permiso para anular esta venta");
+  const motivo = (
+    window.prompt(
+      "Motivo de la anulación (ej: el cliente devolvió el producto):",
+    ) || ""
+  ).trim();
+  if (!motivo) return;
+  const devolver = window.confirm("¿Devolver los productos al stock?");
+  const registro = {
+    tipo: "anulacion",
+    por: quien(),
+    en: Date.now(),
+    motivo,
+    total_antes: Number(p.total) || 0,
+    total_despues: 0,
+    productos_antes: p.productos || [],
+  };
+  try {
+    await updateDoc(refPedido(id), {
+      estado: "anulado",
+      anulada: true,
+      anulada_motivo: motivo,
+      anulada_por: quien(),
+      anulada_en: Date.now(),
+      historial_cambios: arrayUnion(registro),
+      actualizado: serverTimestamp(),
+    });
+    if (devolver)
+      await ajustarStock(
+        (p.productos || []).map((it) => ({
+          it,
+          delta: Number(it.cantidad) || 0,
+        })),
+      );
+    Object.assign(p, {
+      estado: "anulado",
+      anulada: true,
+      anulada_por: quien(),
+      historial_cambios: [...(p.historial_cambios || []), registro],
+    });
+    renderAll();
+    openModal(id);
+    showToast("Venta anulada");
+  } catch (e) {
+    console.error(e);
+    showToast("No se pudo anular la venta");
+  }
+}
+window.abrirEditor = abrirEditor;
+window.guardarEdicion = guardarEdicion;
+window.anularVenta = anularVenta;
+
 /* ---------------- Exportaciones ---------------- */
 const TIPO_DESC_LARGO = {
   canje_puntos: "Canje de puntos",
   descuento_fidelizacion: "Descuento fidelización",
   cupon_descuento: "Cupón negocio",
 };
+const ESTADO_TXT = {
+  pendiente: "Pendiente",
+  "en proceso": "En proceso",
+  entregado: "Entregado",
+  rechazado: "Rechazado",
+  anulado: "Anulado",
+};
+const estadoTexto = (p) => ESTADO_TXT[estadoDe(p)] || p.estado || "";
 
 function exportarCSV() {
   const list = getFilteredOrders();
@@ -1737,6 +2119,7 @@ function exportarCSV() {
     "Venta neta (S/)",
     "Delivery (S/)",
     "Vendido por",
+    "Anulado por",
   ];
   const rows = list.map((p) => {
     const productos = (p.productos || [])
@@ -1752,7 +2135,7 @@ function exportarCSV() {
       getOrigenInfo(p).label,
       productos,
       metodoPagoDe(p),
-      p.estado || "",
+      estadoTexto(p),
       (Number(p.total) || 0).toFixed(2),
       tipoLabel,
       (p.cupon && p.cupon.codigo) || "",
@@ -1761,6 +2144,7 @@ function exportarCSV() {
       totalSinDelivery(p).toFixed(2),
       deliveryDePedido(p).toFixed(2),
       nombreVendedor(p),
+      estaAnulado(p) ? anuladoPor(p) : "",
     ];
   });
   const entregados = list.filter(
@@ -1839,7 +2223,7 @@ async function exportarExcel() {
       Origen: getOrigenInfo(p).label,
       Productos: productos,
       "Método de pago": metodoPagoDe(p),
-      Estado: p.estado || "",
+      Estado: estadoTexto(p),
       "Total (S/)": Number(p.total) || 0,
       "Tipo descuento": TIPO_DESC_LARGO[getTipoCuponPedido(p)] || "",
       "Código cupón": (p.cupon && p.cupon.codigo) || "",
@@ -1848,6 +2232,7 @@ async function exportarExcel() {
       "Venta neta (S/)": totalSinDelivery(p),
       "Delivery (S/)": deliveryDePedido(p),
       "Vendido por": nombreVendedor(p),
+      "Anulado por": estaAnulado(p) ? anuladoPor(p) : "",
     };
   });
 
@@ -1869,6 +2254,7 @@ async function exportarExcel() {
     { wch: 14 },
     { wch: 14 },
     { wch: 12 },
+    { wch: 18 },
     { wch: 18 },
   ];
 
@@ -1892,7 +2278,10 @@ async function exportarExcel() {
   );
   const digitalCount = digitales.length;
   const efectivoCount = entregados.length - digitalCount;
-  const digitalMonto = digitales.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const digitalMonto = digitales.reduce(
+    (s, p) => s + (Number(p.total) || 0),
+    0,
+  );
   const efectivoMonto = totalCobrado - digitalMonto;
 
   const resumen = [
@@ -1903,7 +2292,10 @@ async function exportarExcel() {
     },
     { Métrica: "Pedidos entregados", Valor: entregados.length },
     { Métrica: "Total cobrado (S/)", Valor: totalCobrado.toFixed(2) },
-    { Métrica: "Ingresos sin delivery (S/)", Valor: finanzas.ingresos.toFixed(2) },
+    {
+      Métrica: "Ingresos sin delivery (S/)",
+      Valor: finanzas.ingresos.toFixed(2),
+    },
     { Métrica: "Delivery cobrado (S/)", Valor: deliveryCobrado.toFixed(2) },
     { Métrica: "Costos estimados (S/)", Valor: finanzas.costos.toFixed(2) },
     { Métrica: "Margen bruto (S/)", Valor: finanzas.margenBruto.toFixed(2) },
@@ -1939,7 +2331,10 @@ async function exportarExcel() {
   wsResumen["!cols"] = [{ wch: 32 }, { wch: 40 }];
   XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
 
-  XLSX.writeFile(wb, `pedidos_${fechaArchivo(from)}_a_${fechaArchivo(to)}.xlsx`);
+  XLSX.writeFile(
+    wb,
+    `pedidos_${fechaArchivo(from)}_a_${fechaArchivo(to)}.xlsx`,
+  );
   showToast(`Exportados ${list.length} pedidos a Excel`);
 }
 
@@ -2034,11 +2429,11 @@ async function exportarPDF() {
       (p.cliente && p.cliente.nombre) || "",
       telefonoCliente(p),
       getOrigenInfo(p).label,
-      (p.productos || [])
-        .map((pr) => `${pr.cantidad}x ${pr.nombre}`)
-        .join(", "),
+      (p.productos || []).map((pr) => `${pr.cantidad}x ${pr.nombre}`).join(", "),
       metodoPagoDe(p),
-      p.estado || "",
+      estaAnulado(p)
+        ? `Anulado${anuladoPor(p) ? " por " + anuladoPor(p) : ""}`
+        : estadoTexto(p),
       fmtMoney(p.total),
       deliveryDePedido(p) ? fmtMoney(deliveryDePedido(p)) : "—",
       descuentoTxt,
@@ -2115,9 +2510,13 @@ $id("dateChips")?.addEventListener("click", (e) => {
     if (currentRange === "custom") listenPedidos();
   }),
 );
-["filterComprobante", "filterEstado", "filterOrigen", "filterDelivery"].forEach(
-  (id) => $id(id)?.addEventListener("change", renderAll),
-);
+[
+  "filterComprobante",
+  "filterEstado",
+  "filterOrigen",
+  "filterDelivery",
+  "filterVendedor",
+].forEach((id) => $id(id)?.addEventListener("change", renderAll));
 
 // Búsqueda con pequeño debounce
 const searchBox = $id("searchBox");
@@ -2128,12 +2527,16 @@ searchBox?.addEventListener("input", () => {
 });
 
 $id("btnResetFilters")?.addEventListener("click", () => {
-  ["filterEstado", "filterOrigen", "filterDelivery", "filterComprobante"].forEach(
-    (id) => {
-      const el = $id(id);
-      if (el) el.value = "todos";
-    },
-  );
+  [
+    "filterEstado",
+    "filterOrigen",
+    "filterDelivery",
+    "filterComprobante",
+    "filterVendedor",
+  ].forEach((id) => {
+    const el = $id(id);
+    if (el) el.value = "todos";
+  });
   $id("searchBox").value = "";
   turnoSel = "todos";
   pintarChipsTurno();
@@ -2164,6 +2567,31 @@ if (comparativaInfoBtn && comparativaTooltip) {
   comparativaTooltip.addEventListener("click", (e) => e.stopPropagation());
 }
 
+/* ---------------- Filtro de trabajador ---------------- */
+function pintarFiltroVendedor() {
+  const sel = $id("filterVendedor");
+  const wrap = $id("wrapFiltroVendedor");
+  if (!sel) return;
+  if (wrap) wrap.style.display = verTodas ? "" : "none"; // quien solo ve lo suyo no lo necesita
+  if (!verTodas) return;
+  const mapa = new Map();
+  pedidosRaw.forEach((p) => {
+    if (p.vendedor?.id || p.vendedor?.nombre)
+      mapa.set(claveVendedor(p), nombreVendedor(p) || "Sin nombre");
+  });
+  const opts = [...mapa.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const firma = opts.map(([k, n]) => k + n).join("|");
+  if (sel.dataset.firma === firma) return;
+  sel.dataset.firma = firma;
+  const actual = sel.value;
+  sel.innerHTML =
+    `<option value="todos">Todos</option>` +
+    opts
+      .map(([k, n]) => `<option value="${escHtml(k)}">${escHtml(n)}</option>`)
+      .join("");
+  sel.value = mapa.has(actual) ? actual : "todos";
+}
+
 /* ---------------- Render ----------------
    renderAll() agrupa varias llamadas en UN solo pintado por frame.
    renderAllNow() pinta de inmediato. */
@@ -2188,6 +2616,7 @@ function filtroKey() {
     v("filterOrigen"),
     v("filterDelivery"),
     v("filterComprobante"),
+    v("filterVendedor"),
     v("searchBox"),
     v("customFrom"),
     v("customTo"),
@@ -2195,6 +2624,7 @@ function filtroKey() {
 }
 
 function renderAllNow() {
+  pintarFiltroVendedor();
   const key = filtroKey();
   if (key !== lastFilterKey) {
     lastFilterKey = key;
@@ -2243,10 +2673,6 @@ window.closeModal = closeModal;
 window.reimprimirTicket = reimprimirTicket;
 window.exportarTicketWhatsApp = exportarTicketWhatsApp;
 
-if (tiendaId && localidad) {
-  listenPedidos();
-}
-
 /* ---------------- Personalizar vista (se guarda en este dispositivo) ---------------- */
 const VISTA_KEY = "historial_vista_v1";
 const VISTA_OPCIONES = [
@@ -2264,25 +2690,33 @@ const VISTA_OPCIONES = [
 ];
 
 let vistaCfg = (() => {
-  try { return JSON.parse(localStorage.getItem(VISTA_KEY)) || {}; }
-  catch (e) { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem(VISTA_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
 })();
 const vistaVisible = (k) => vistaCfg[k] !== false;
 
 function guardarVista() {
-  try { localStorage.setItem(VISTA_KEY, JSON.stringify(vistaCfg)); } catch (e) {}
+  try {
+    localStorage.setItem(VISTA_KEY, JSON.stringify(vistaCfg));
+  } catch (e) {}
 }
 
 function aplicarVista() {
-  document.querySelectorAll("[data-vista]").forEach((el) =>
-    el.classList.toggle("vista-oculta", !vistaVisible(el.dataset.vista)),
-  );
+  document
+    .querySelectorAll("[data-vista]")
+    .forEach((el) =>
+      el.classList.toggle("vista-oculta", !vistaVisible(el.dataset.vista)),
+    );
   // Si a una sección no le queda nada visible, se oculta entera (con su título)
   document.querySelectorAll("#metricsSections > section").forEach((sec) => {
     const partes = [...sec.querySelectorAll("[data-vista]")];
     if (!partes.length) return;
     const alguna = partes.some(
-      (el) => !el.classList.contains("vista-oculta") && el.style.display !== "none",
+      (el) =>
+        !el.classList.contains("vista-oculta") && el.style.display !== "none",
     );
     sec.classList.toggle("vista-oculta", !alguna);
   });
@@ -2294,7 +2728,10 @@ function pintarOpcionesVista() {
   let grupoActual = "";
   box.innerHTML = VISTA_OPCIONES.filter((o) => esAdmin || !o.admin)
     .map((o) => {
-      const titulo = o.grupo !== grupoActual ? `<p class="vista-grupo">${escHtml(o.grupo)}</p>` : "";
+      const titulo =
+        o.grupo !== grupoActual
+          ? `<p class="vista-grupo">${escHtml(o.grupo)}</p>`
+          : "";
       grupoActual = o.grupo;
       return `${titulo}
         <label class="vista-opt">
@@ -2334,3 +2771,8 @@ $id("btnVistaTodo")?.addEventListener("click", () => {
 });
 
 if (esAdmin) aplicarVista();
+
+// Se inicia al final, cuando todo lo anterior ya está definido
+if (tiendaId && localidad) {
+  listenPedidos();
+}

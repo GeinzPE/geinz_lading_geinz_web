@@ -333,7 +333,7 @@
   [data-est="en_proceso"] { background: rgba(56, 189, 248, .12); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, .25); }
   [data-est="entregado"] { background: var(--h-acc); color: #fff; border: 1px solid transparent; font-weight: 700; box-shadow: 0 6px 16px -8px rgba(136, 85, 255, .8); }
   [data-est="rechazado"] { background: rgba(255, 255, 255, .05); color: #a1a1aa; border: 1px solid var(--h-line-strong); }
-
+[data-est="anulado"] { background: rgba(239, 68, 68, .12); color: #f87171; border: 1px solid rgba(239, 68, 68, .28); }
   #btnLoadMore {
     background: var(--h-surface-2) !important;
     border: 1px solid var(--h-line) !important;
@@ -460,6 +460,15 @@
 }
 .vista-opt input:checked { background: var(--h-acc); }
 .vista-opt input:checked::after { transform: translateX(18px); }
+.mi {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 4px;
+  border-radius: 4px;
+  display: inline-block;
+}
 </style>
   <script type="module" src="../js/dasboardjs/historial_venta.js"></script>
 
@@ -567,7 +576,7 @@
           <div class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Pedidos entregados</p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiCount">0</p>
-            <p class="text-[11px] text-inkfaint mt-1"><span id="kpiOtros">0</span> pend./cancel. en el rango</p>
+            <p class="text-[11px] text-inkfaint mt-1"><span id="kpiOtros">0</span> pend./anul. en el rango</p>
           </div>
           <div class="bg-panel border border-line rounded-2xl p-4">
             <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ticket promedio</p>
@@ -811,13 +820,9 @@
         </div>
         <p id="turnoInfo" class="text-[11px] text-inkfaint font-mono mt-1.5"></p>
         <div id="turnoActualBox" class="hidden"></div>
-        <div id="avisoFuera"
-          class="hidden mt-2 text-xs rounded-xl px-3 py-2 bg-amber-400/10 border border-amber-400/30 text-amber-300">
-        </div>
-        <p class="text-[11px] text-inkfaint mt-2 leading-relaxed">
-          Cada pedido pertenece al turno que estaba abierto <b class="text-white">a la hora en que se vendió</b>.
-          <b class="text-white">Fuera de turno</b> = se vendió con la caja cerrada.
-          Usa los botones de arriba para ver solo un turno.
+        <div id="avisoFuera" class="hidden"></div>
+        <p class="text-[11px] text-inkfaint mt-3 leading-relaxed">
+          Cada venta se asigna al turno que estaba abierto cuando se hizo.
         </p>
       </div>
 
@@ -831,6 +836,14 @@
             <option value="en proceso">En proceso</option>
             <option value="entregado">Entregado</option>
             <option value="rechazado">Rechazado</option>
+            <option value="anulado">Anulado</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2" id="wrapFiltroVendedor">
+          <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Trabajador</span>
+          <select id="filterVendedor"
+            class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+            <option value="todos">Todos</option>
           </select>
         </div>
         <div class="flex items-center gap-2">

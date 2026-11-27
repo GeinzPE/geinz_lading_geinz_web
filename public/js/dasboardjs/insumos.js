@@ -35,16 +35,23 @@ import { exportarCaja } from "./exportar_caja.js";
    .../tiendas/<id>/config/caja          ← OPCIONAL. Si no existe: no hay turnos.
    .../tiendas/<id>/turnos/<id>          ← cada apertura y cierre de caja
 
-   Tipos en gastos_insumos (campo "tipo"):
-   - compra_insumo / gasto_general → gastos reales
-   - retiro        → el dueño saca plata de la caja (no es gasto)
-   - saldo_inicial → plata con la que empezó la caja (solo sin turnos)
+   REGLAS (son solo dos cuentas, y no se mezclan):
 
-   Los números (ventas por método, gastos, efectivo) se calculan con
-   ./cuadre.js, el MISMO archivo que usa Historial de ventas.
+   ① EL CAJÓN (efectivo que cuentas con la mano)
+        Empezó con + Ventas en efectivo − Gastos pagados del cajón − Retiros
 
-   config/caja → turnos: [{ nombre, montoFijo, inicio:"HH:MM", fin:"HH:MM" }]
-   (inicio y fin son opcionales: sirven para identificar el turno)
+   ② LO QUE TE QUEDÓ (ganancia)
+        Todo lo vendido − Gastos del negocio
+        (la plata con la que empezó la caja NO es venta, no entra aquí)
+
+   Cada gasto se anota con "de dónde salió la plata":
+     - cajon    → origen "negocio", descuenta_caja true   (baja ① y ②)
+     - otro     → origen "negocio", descuenta_caja false  (baja solo ②)
+     - bolsillo → origen "bolsillo", es_inversion true    (no baja ninguna)
+   Los retiros bajan ① pero no son gasto. El saldo inicial sube ① (solo sin turnos).
+
+   Las ventas por método se calculan con ./cuadre.js (el mismo archivo
+   que usa Historial de ventas).
    ═══════════════════════════════════════════════════════════════════ */
 const GASTOS_COL = "gastos_insumos";
 const TURNOS_COL = "turnos";
@@ -96,6 +103,33 @@ const diaG = (g) => {
 };
 const sumaT = (arr) => arr.reduce((s, p) => s + p.total, 0);
 
+/* ¿De dónde salió la plata de este gasto? */
+const esBolsillo = (g) => !!g.es_inversion || g.origen === "bolsillo";
+const esGastoNegocio = (g) => esReal(g) && !esBolsillo(g); // baja "Te quedó"
+const metodoDe = (g) => g.metodoPago || "efectivo";
+const saleDelCajon = (g) => metodoDe(g) === "efectivo";
+const esGastoCajon = (g) => esGastoNegocio(g) && saleDelCajon(g); // solo lo pagado en efectivo baja el cajón
+
+/* ═══════════════════════════════════════════════════════════════
+   ICONOS DE LOS MÉTODOS DE PAGO
+   Cambia aquí la ruta de cada imagen. Si una imagen no carga,
+   se muestra el emoji de siempre (nunca queda un hueco).
+   ═══════════════════════════════════════════════════════════════ */
+const ICONOS_METODO = {
+  efectivo: "../../img/efectivo_logo.webp",
+  yape: "../../img/yape_logo.webp",
+  plin: "../../img/logo_plin.webp",
+  tarjeta: "../../img/visa_logo.webp",
+};
+const icoMetodo = (clave) => {
+  const emoji = (METODOS_INFO[clave] || ["💳"])[0];
+  const src = ICONOS_METODO[clave];
+  return src
+    ? `<img class="mi" src="${esc(src)}" alt="" data-fb="${esc(emoji)}" onerror="this.outerHTML=this.dataset.fb">`
+    : emoji;
+};
+const nombreMetodo = (clave) => (METODOS_INFO[clave] || ["", clave])[1];
+
 /* "14:00" → "2:00 PM" */
 const hora12 = (hhmm) => {
   if (!/^\d{1,2}:\d{2}$/.test(hhmm || "")) return "";
@@ -107,6 +141,15 @@ const hora12 = (hhmm) => {
 /* { inicio:"07:00", fin:"15:00" } → "7:00 AM – 3:00 PM" (vacío si no hay horario) */
 const horarioTurno = (t) => (t && t.inicio && t.fin ? `${hora12(t.inicio)} – ${hora12(t.fin)}` : "");
 
+/* Cambia un número con un pequeño destello suave */
+function setNum(el, txt) {
+  if (el.textContent === txt) return;
+  el.textContent = txt;
+  el.classList.remove("pulso");
+  void el.offsetWidth;
+  el.classList.add("pulso");
+}
+
 let toastT;
 function toast(msg) {
   const t = $("toast");
@@ -115,8 +158,16 @@ function toast(msg) {
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove("show"), 2600);
 }
-const openMd = (id) => $(id).classList.add("show");
-const closeMd = (id) => $(id).classList.remove("show");
+
+/* ---------------- Diálogos: el fondo NO se mueve mientras haya uno abierto ---------------- */
+const openMd = (id) => {
+  $(id).classList.add("show");
+  document.documentElement.classList.add("md-open");
+};
+const closeMd = (id) => {
+  $(id).classList.remove("show");
+  if (!document.querySelector(".overlay.show")) document.documentElement.classList.remove("md-open");
+};
 document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => closeMd(b.dataset.close)));
 document.querySelectorAll(".overlay").forEach((o) =>
   o.addEventListener("click", (e) => {
@@ -252,6 +303,17 @@ let pedidosTurnoOk = false;
 let turnosPeriodo = [];
 
 const usaTurnos = () => !!(cfgCaja?.usaTurnos && Array.isArray(cfgCaja.turnos) && cfgCaja.turnos.length);
+/* Si el negocio usa turnos, el trabajador solo ve su turno; el administrador ve todo */
+const vistaTrabajador = () => !esAdmin && usaTurnos();
+/* Turno que el administrador le asignó al trabajador (vacío = puede abrir cualquiera) */
+const miTurno = () => (esAdmin ? null : leerRol()?.turno || null);
+/* Turnos que esta persona puede abrir */
+function turnosDisponibles() {
+  const lista = cfgCaja?.turnos || [];
+  const mio = miTurno();
+  const propios = mio ? lista.filter((t) => t.nombre === mio) : lista;
+  return propios.length ? propios : lista;
+}
 
 /* Horario programado de un turno guardado (usa lo que se guardó al abrir; si no hay, lo busca en la configuración) */
 function horarioDeTurno(t) {
@@ -289,6 +351,18 @@ function renderTodo() {
   renderPendiente = true;
   requestAnimationFrame(() => {
     renderPendiente = false;
+    const solo = vistaTrabajador();
+    document.documentElement.classList.toggle("solo-turno", solo);
+    if (solo && (vista !== "dia" || diaSel !== limaHoy())) {
+      vista = "dia";
+      diaSel = limaHoy();
+      mesSel = limaMes();
+      sincronizarControles();
+      if (started) {
+        escucharVentas();
+        escucharTurnosPeriodo();
+      }
+    }
     renderCaja();
     renderTurno();
     renderGastos();
@@ -455,31 +529,96 @@ function escucharTurnosPeriodo() {
   );
 }
 
-/* Cuánto debe haber en el cajón de un turno abierto */
+/* ══════════ CUENTAS (siempre las mismas fórmulas) ══════════ */
+
+/* ① Cajón de un turno abierto */
 function cuentaTurno(t) {
   const ventasEf = sumaT(pedidosTurno.filter((p) => p.efectivo));
   const ventasTot = sumaT(pedidosTurno);
-  const gastos = suma(gastosAll.filter((g) => g.turnoId === t.id && esReal(g) && g.descuenta_caja));
-  const retiros = suma(gastosAll.filter((g) => g.turnoId === t.id && g.tipo === "retiro"));
+  const gastos = suma(gastosAll.filter((g) => g.turnoId === t.id && esGastoCajon(g)));
+  const gastosNeg = suma(gastosAll.filter((g) => g.turnoId === t.id && esGastoNegocio(g)));
+  const retirosTot = suma(gastosAll.filter((g) => g.turnoId === t.id && g.tipo === "retiro"));
+  const retiros = suma(gastosAll.filter((g) => g.turnoId === t.id && g.tipo === "retiro" && saleDelCajon(g)));
   const apertura = num(t.montoApertura);
   return {
     apertura,
     ventasEf,
+    ventasTot,
     otrosMedios: ventasTot - ventasEf,
-    gastos,
+    gastos, // pagados del cajón
+    gastosNeg, // todos los del negocio (cajón + otros medios)
+    retirosTot,
+    salidas: gastosAll.filter((g) => g.turnoId === t.id && (g.tipo === "retiro" || esGastoNegocio(g))),
     retiros,
-    esperado: r2(apertura + ventasEf - gastos - retiros),
+    esperado: r2(apertura + ventasEf - gastos - retiros), // efectivo que debe haber en el cajón
+    total: r2(apertura + ventasTot - gastosNeg - retirosTot), // empezó + todo lo vendido − todos los gastos − todos los retiros
   };
 }
+
+/* Totales del día o mes que se está viendo */
+function datosCuadre() {
+  const delPeriodo = gastosAll.filter(enPeriodo);
+  const v = cuadreVentas(pedidosPeriodo);
+  const gOrig = cuadreGastos(delPeriodo);
+  const negocio = suma(delPeriodo.filter(esGastoNegocio));
+  const cajon = suma(delPeriodo.filter(esGastoCajon));
+  const bolsillo = suma(delPeriodo.filter((g) => esReal(g) && esBolsillo(g)));
+  const retiros = suma(delPeriodo.filter((g) => g.tipo === "retiro"));
+  const retirosCajon = suma(delPeriodo.filter((g) => g.tipo === "retiro" && saleDelCajon(g)));
+  const saldoInicial = suma(delPeriodo.filter((g) => g.tipo === "saldo_inicial"));
+  const inicio = usaTurnos() ? 0 : saldoInicial;
+  const g = { ...gOrig, negocio, cajon, bolsillo, retiros, retirosCajon, saldoInicial };
+  const c = {
+    ...cuadreCaja(v, gOrig, inicio),
+    queda: r2(v.total - negocio),
+    efectivoNeto: r2(inicio + v.efectivo - cajon - retirosCajon),
+  };
+  return { delPeriodo, v, g, inicio, c };
+}
+
+/* ══════════ PINTADO DE LAS DOS CUENTAS ══════════ */
+const fila = (label, valor, cls = "") => `<div class="tc-r ${cls}"><span>${label}</span><b>${valor}</b></div>`;
+
+function filasVentas(v) {
+  if (!v.porMetodo.length) return `<p class="tc-note">Todavía no hay ventas entregadas.</p>`;
+  return v.porMetodo
+    .map((m) => fila(`${icoMetodo(m.clave)} ${esc(nombreMetodo(m.clave))} <small>· ${m.cant}</small>`, money(m.monto), "sub"))
+    .join("");
+}
+
+/* ② Lo que te quedó */
+function tarjetaQueda({ titulo, ayudaTxt, v, gastos, bolsillo, retiros, nota, listo, sinDato }) {
+  const queda = r2(v.total - gastos);
+  return `<div class="cd-c"><h4>🧾 ${esc(titulo)}${ayuda(ayudaTxt)}</h4><div class="tc-rows">
+      ${listo ? filasVentas(v) : `<p class="tc-note">Cargando ventas…</p>`}
+      ${fila("Total vendido", listo ? money(v.total) : sinDato)}
+      ${fila("− Gastos del negocio", money(gastos))}
+      ${fila("= Te quedó", listo ? `<span${queda < 0 ? ' style="color:var(--bad)"' : ""}>${money(queda)}</span>` : sinDato, "tot")}
+      ${listo && retiros ? fila("− Ya sacó el dueño", money(retiros), "sub") + fila("= Ganancia que sigue en la caja", money(r2(queda - retiros)), "sub") : ""}
+    </div>
+    ${nota ? `<p class="tc-note">${nota}</p>` : ""}
+    ${bolsillo ? `<p class="tc-note">Pagaste ${money(bolsillo)} con tu bolsillo: no se resta aquí.</p>` : ""}</div>`;
+}
+
+/* ① El cajón */
+function tarjetaCajon({ titulo, ayudaTxt, k, nota }) {
+  return `<div class="cd-c cajon"><h4>💵 ${esc(titulo)}${ayuda(ayudaTxt)}</h4>${filasTurnoHtml(k)}${nota ? `<p class="tc-note">${nota}</p>` : ""}</div>`;
+}
+
 function filasTurnoHtml(k) {
+  const digital = k.mostrarTotal
+    ? `${fila("+ Yape, Plin y tarjeta <small>(no está en el cajón)</small>", money(k.otrosMedios))}
+    ${fila("Total del negocio (cajón + digital)", money(r2(k.esperado + k.otrosMedios)), "tot")}`
+    : "";
   return `<div class="tc-rows">
-    <div class="tc-r"><span>Empezó con</span><b>${money(k.apertura)}</b></div>
-    <div class="tc-r"><span>+ Ventas en efectivo</span><b>${money(k.ventasEf)}</b></div>
-    <div class="tc-r"><span>− Gastos pagados con la caja</span><b>${money(k.gastos)}</b></div>
-    ${k.retiros ? `<div class="tc-r"><span>− Retiros</span><b>${money(k.retiros)}</b></div>` : ""}
+    ${k.apertura || k.empiezaMostrar ? fila("Empezó con", money(k.apertura)) : ""}
+    ${fila("+ Ventas en efectivo", money(k.ventasEf))}
+    ${fila("− Gastos pagados del cajón", money(k.gastos))}
+    ${k.retiros ? fila("− Retiros", money(k.retiros)) : ""}
     <div class="tc-r tot"><span>Debe haber en el cajón</span><b${k.esperado < 0 ? ' style="color:var(--bad)"' : ""}>${money(k.esperado)}</b></div>
+    ${digital}
   </div>
-  ${k.otrosMedios > 0 ? `<p class="tc-note">Yape, Plin y tarjeta (${money(k.otrosMedios)}) no se cuentan: esa plata no está en el cajón.</p>` : ""}`;
+  ${!k.mostrarTotal && k.otrosMedios > 0 ? `<p class="tc-note">Yape, Plin y tarjeta (${money(k.otrosMedios)}) no están en el cajón.</p>` : ""}`;
 }
 function resultadoHtml(d, grande) {
   if (Math.abs(d) < 0.005) return grande ? `<div class="res ok">✓ Cuadra exacto</div>` : `<span class="t-ok">✓ Cuadró</span>`;
@@ -487,6 +626,161 @@ function resultadoHtml(d, grande) {
   return grande ? `<div class="res sob">Sobra ${money(d)}</div>` : `<span class="t-sob">Sobró ${money(d)}</span>`;
 }
 
+const AYUDA_QUEDA =
+  "Lo que ganaste: todo lo que vendiste (efectivo, Yape, Plin, tarjeta) menos los gastos del negocio. La plata con la que empezó la caja no es venta, así que no se suma. Lo que pagaste de tu bolsillo no se resta. Si el dueño sacó plata de la caja, no cuenta como gasto: abajo ves cuánto de esa ganancia ya se llevó y cuánto sigue en la caja.";
+const AYUDA_CAJON =
+  "El efectivo que debes tener en la mano: lo que empezó la caja + las ventas en efectivo − los gastos pagados del cajón − los retiros. Yape, Plin y tarjeta no están en el cajón. Esto es lo que cuentas al cerrar.";
+
+const AYUDA_TOTAL =
+  "Es la plata total de esta caja: lo que empezó + todo lo que vendiste (efectivo, Yape, Plin, tarjeta) − los gastos − los retiros. Abajo ves cuánto de ese total está en el cajón (efectivo) y cuánto en Yape, Plin y tarjeta.";
+
+let metodosSel = new Set(); // recuadros tocados (cajón, yape, plin...)
+let pasosAbierto = false;
+const salidasDe = (k, clave) => k.salidas.filter((g) => metodoDe(g) === clave);
+const ventasDe = (k, clave) => (k.porMetodo || []).find((m) => m.clave === clave) || { monto: 0, cant: 0 };
+const netoMetodo = (k, clave) =>
+  r2((clave === "efectivo" ? k.apertura : 0) + ventasDe(k, clave).monto - suma(salidasDe(k, clave)));
+const rotulo = (clave) => (clave === "efectivo" ? "En el cajón" : nombreMetodo(clave));
+
+function tarjetaTotalTurno(k) {
+  const rojo = (n) => (n < 0 ? ' style="color:var(--bad)"' : "");
+  const pedidos = (n) => `${n} pedido${n === 1 ? "" : "s"}`;
+
+  const chip = (clave, cls) => {
+    const m = ventasDe(k, clave);
+    const sal = suma(salidasDe(k, clave));
+    const neto = netoMetodo(k, clave);
+    const base = clave === "efectivo" ? "efectivo: lo que cuentas al cerrar" : pedidos(m.cant);
+    return `<button type="button" class="tt-chip ${cls}${metodosSel.has(clave) ? " sel" : ""}" data-metodo="${clave}" aria-pressed="${metodosSel.has(clave)}">
+      <small>${icoMetodo(clave)} ${esc(rotulo(clave))}</small><b${rojo(neto)}>${money(neto)}</b>
+      <em>${base}${sal ? ` · salió ${money(sal)}` : ""}</em></button>`;
+  };
+
+  const digClaves = [...new Set([...(k.porMetodo || []).map((m) => m.clave), ...k.salidas.map(metodoDe)])].filter(
+    (c) => c !== "efectivo",
+  );
+  const chipsDig = digClaves.length
+    ? digClaves.map((c) => chip(c, "dig")).join("")
+    : `<div class="tt-chip dig"><small>📱 Yape, Plin o tarjeta</small><b>${money(0)}</b><em>sin pagos digitales</em></div>`;
+
+  const detalle = (clave) => {
+    const m = ventasDe(k, clave);
+    const sal = salidasDe(k, clave).sort((a, b) => (msDeGasto(a) || 0) - (msDeGasto(b) || 0));
+    const neto = netoMetodo(k, clave);
+    return `<div class="tc-met"><p class="tc-note" style="margin:10px 0 4px"><b>${icoMetodo(clave)} ${esc(clave === "efectivo" ? "Cajón (efectivo)" : nombreMetodo(clave))}</b></p>
+      ${clave === "efectivo" ? fila("Empezó con", money(k.apertura)) : ""}
+      ${fila(`+ Ventas <small>· ${m.cant}</small>`, money(m.monto))}
+      ${
+        sal.length
+          ? sal
+              .map((g) =>
+                fila(
+                  `− ${esc(g.nombre)} <small>· ${g.tipo === "retiro" ? "retiro del dueño" : esc(tipoLabel(g))}</small>`,
+                  money(num(g.monto)),
+                  "sub",
+                ),
+              )
+              .join("")
+          : `<p class="tc-note">No ha salido plata de aquí.</p>`
+      }
+      <div class="tc-r tot"><span>${clave === "efectivo" ? "Debe haber en el cajón" : "Queda en " + esc(nombreMetodo(clave))}</span><b${rojo(neto)}>${money(neto)}</b></div></div>`;
+  };
+
+  const general = `${fila("Empezó con", money(k.apertura))}
+      ${fila("+ Ventas del turno", money(k.ventasTot))}
+      ${fila(`${icoMetodo("efectivo")} Efectivo`, money(k.ventasEf), "sub")}
+      ${(k.porMetodo || [])
+        .filter((m) => m.clave !== "efectivo")
+        .map((m) => fila(`${icoMetodo(m.clave)} ${esc(nombreMetodo(m.clave))} <small>· ${m.cant}</small>`, money(m.monto), "sub"))
+        .join("")}
+      ${fila("− Gastos", money(k.gastosNeg))}
+      ${k.retirosTot ? fila("− Retiros del dueño", money(k.retirosTot)) : ""}
+      <div class="tc-r tot"><span>Total de la caja</span><b${rojo(k.total)}>${money(k.total)}</b></div>`;
+
+  const orden = ["efectivo", ...digClaves].filter((c) => metodosSel.has(c));
+  const cuerpo = orden.length ? orden.map(detalle).join("") : general;
+
+  return `<div class="cd-c cajon">
+    <div class="tt-hero">
+      <div><small>💰 Total de la caja${ayuda(AYUDA_TOTAL)}</small><b${rojo(k.total)}>${money(k.total)}</b></div>
+      <div class="tt-split">
+        ${chip("efectivo", "caj")}
+        ${chipsDig}
+      </div>
+    </div>
+    <p class="tc-note" style="margin-top:8px">Toca un recuadro para ver qué salió de ahí.</p>
+    <details class="tc-det"${pasosAbierto ? " open" : ""}><summary>Ver la cuenta paso a paso</summary><div class="tc-rows">${cuerpo}</div></details>
+    ${k.esperado < 0 ? `<p class="tc-note" style="color:#fbbf24">Hay más gastos que efectivo en el cajón. Si alguno se pagó antes de abrir esta caja, edítalo con ✎ y márcalo.</p>` : ""}</div>`;
+}
+
+/* Tarjetas de arriba (día o mes) */
+function renderCaja() {
+  const cu = cuando();
+  const { v, g, inicio, c } = datosCuadre();
+  const ok = ventasEstado === "ok";
+  const sinDato = ventasEstado === "cargando" ? "…" : "—";
+  const viendoHoy = vista === "dia" && diaSel === limaHoy();
+  const turnoVisible = viendoHoy && !!turnoAbierto; // el cajón ya se muestra dentro de la caja abierta
+
+  /* Número grande */
+  $("kLblQueda").textContent = `Te quedó ${cu}`;
+  const q = $("kMesQueda");
+  setNum(q, ok ? money(c.queda) : sinDato);
+  q.style.color = ok && c.queda < 0 ? "var(--bad)" : "";
+  setNum($("kVend"), ok ? money(v.total) : sinDato);
+  setNum($("kGas"), money(g.negocio));
+  $("kSubQueda").textContent = ok
+    ? `Vendiste ${money(v.total)} − gastos del negocio ${money(g.negocio)}`
+    : "lo que vendiste menos los gastos";
+
+  const notaApertura =
+    turnoVisible && ok && turnoAbierto ? `No incluye los ${money(num(turnoAbierto.montoApertura))} con los que empezó la caja.` : "";
+
+  let html = tarjetaQueda({
+    titulo: `Ventas ${cu}`,
+    ayudaTxt: AYUDA_QUEDA,
+    v,
+    gastos: g.negocio,
+bolsillo: g.bolsillo,
+    retiros: g.retiros,
+    nota: notaApertura,
+    listo: ok,
+    sinDato,
+  });
+
+  if (!turnoVisible) {
+    const k = {
+      apertura: inicio,
+      ventasEf: v.efectivo,
+      gastos: g.cajon,
+      retiros: g.retirosCajon,
+      otrosMedios: v.otros,
+      esperado: c.efectivoNeto,
+      mostrarTotal: !usaTurnos(),
+    };
+    html += ok
+      ? tarjetaCajon({
+          titulo: usaTurnos() ? `Efectivo que entró y salió ${cu}` : `Efectivo en el cajón ${cu}`,
+          ayudaTxt: AYUDA_CAJON,
+          k,
+          nota: usaTurnos() ? "No incluye lo que cada turno tenía al empezar." : "",
+        })
+      : `<div class="cd-c cajon"><h4>💵 Efectivo en el cajón</h4><p class="tc-note">Cargando ventas…</p></div>`;
+  }
+
+  $("cdGrid").innerHTML = html;
+  $("subMes").textContent = vistaTrabajador()
+    ? turnoAbierto
+      ? `Tu turno: ${turnoAbierto.nombre}`
+      : miTurno()
+        ? `Tu turno: ${miTurno()} · caja cerrada`
+        : "Caja cerrada"
+    : vista === "dia"
+      ? `Día: ${diaLargo(diaSel)}`
+      : `Mostrando ${mesLabel(mesSel)}`;
+}
+
+/* ══════════ CAJA ABIERTA / CERRADA ══════════ */
 function renderTurno() {
   const box = $("turnoBox");
   renderTurnosHist();
@@ -497,8 +791,12 @@ function renderTurno() {
   box.hidden = false;
   box.classList.toggle("abierta", !!turnoAbierto);
   if (!turnoAbierto) {
+    const ult = turnosPeriodo.find((t) => t.estado === "cerrado");
+    const sub = ult
+      ? `Último cierre: Turno ${esc(ult.nombre)}${ult.quedoEnCaja != null ? " · dejó " + money(num(ult.quedoEnCaja)) + " en el cajón" : ""}`
+      : "Ábrela cuando empiece el turno.";
     box.innerHTML = `<div class="tc-head">
-      <div><b><span class="tc-dot"></span>Caja cerrada${ayuda("La caja está cerrada: nadie la está usando ahora. Toca “Abrir caja” cuando empiece tu turno y escribe con cuánta plata empiezas.")}</b><small>Ábrela cuando empiece el turno.</small></div>
+      <div><b><span class="tc-dot"></span>Caja cerrada${ayuda("La caja está cerrada: nadie la está usando ahora. Toca “Abrir caja” cuando empiece tu turno y escribe con cuánta plata empiezas.")}</b><small>${sub}</small></div>
       <button class="btn go tc-btn" data-accion="abrir">Abrir caja</button>
     </div>`;
     return;
@@ -508,7 +806,7 @@ function renderTurno() {
   const desdeOtroDia = ymdLima(t.abiertoMs) !== limaHoy();
   const horario = horarioDeTurno(t);
   const head = `<div class="tc-head">
-      <div><b><span class="tc-dot on"></span>Caja abierta · Turno ${esc(t.nombre)}${ayuda("Hay un turno trabajando. Aquí ves cuánta plata debe haber en el cajón y lo que vendiste desde que se abrió la caja. Al terminar, toca “Cerrar caja” y cuenta la plata.")}</b>
+      <div><b><span class="tc-dot on"></span>Caja abierta · Turno ${esc(t.nombre)}${ayuda("Hay un turno trabajando. Abajo ves cuánta plata debe haber en el cajón y lo que te quedó en este turno. Al terminar, toca “Cerrar caja” y cuenta la plata.")}</b>
       <small>${horario ? "Horario " + esc(horario) + " · " : ""}Desde ${desdeOtroDia ? fmtDia(t.abiertoMs) + ", " : ""}${horaLima(t.abiertoMs)}${t.abiertoPor ? " · abrió " + esc(t.abiertoPor) : ""}</small></div>
       <button class="btn go tc-btn" data-accion="cerrar">Cerrar caja</button>
     </div>`;
@@ -521,54 +819,15 @@ function renderTurno() {
     return;
   }
 
-  const k = cuentaTurno(t); // cajón: empezó + ventas efectivo − gastos − retiros
-  const v = cuadreVentas(pedidosTurno); // ventas del turno por método
-  const quedo = r2(v.total - k.gastos); // lo que ganó el turno: vendido − gastos del negocio
-  const digitales = v.porMetodo.filter((m) => m.clave !== "efectivo");
-  const todo = r2(k.esperado + v.otros); // cajón + billeteras/tarjeta
+  const k = cuentaTurno(t);
+  const v = cuadreVentas(pedidosTurno);
+  k.empiezaMostrar = true; // en el turno siempre se muestra con cuánto empezó (aunque sea 0)
+  k.mostrarTotal = true;
+  k.porMetodo = v.porMetodo;
 
-  const digitalFilas = digitales.length
-    ? digitales
-        .map((m) => {
-          const [ico, lab] = METODOS_INFO[m.clave] || ["💳", m.clave];
-          return `<div class="mini"><span>${ico} ${esc(lab)} · ${m.cant}</span><b>${money(m.monto)}</b></div>`;
-        })
-        .join("")
-    : `<em>No hubo pagos por Yape, Plin ni tarjeta.</em>`;
+  const cuentas = `<div class="cd-grid">${tarjetaTotalTurno(k)}</div>`;
 
-  const tiles = `<div class="tc-tiles">
-      <div class="tc-tile main">
-        <small>💵 En el cajón debe haber${ayuda("Es el efectivo que debes tener en la mano ahora: lo que empezó la caja + las ventas en efectivo − los gastos pagados con la caja − los retiros. Esto es lo que cuentas al cerrar.")}</small>
-        <b${k.esperado < 0 ? ' style="color:var(--bad)"' : ""}>${money(k.esperado)}</b>
-        <em>Efectivo. Es lo que cuentas al cerrar.</em>
-      </div>
-      <div class="tc-tile">
-        <small>📱 Yape, Plin y tarjeta${ayuda("Lo que te pagaron sin efectivo. Esa plata no está en el cajón (llega a tu cuenta o billetera), por eso no se cuenta al cerrar la caja.")}</small>
-        <b>${money(v.otros)}</b>
-        ${digitalFilas}
-      </div>
-      <div class="tc-tile">
-        <small>🧾 Vendiste en el turno${ayuda("El total de pedidos entregados desde que se abrió la caja, sin importar si pagaron en efectivo, Yape, Plin o tarjeta.")}</small>
-        <b>${money(v.total)}</b>
-        <em>${v.cant} pedido${v.cant === 1 ? "" : "s"} entregado${v.cant === 1 ? "" : "s"}</em>
-      </div>
-      <div class="tc-tile${quedo < 0 ? " neg" : ""}">
-        <small>✅ Te quedó en el turno${ayuda("Lo que ganó el turno: todo lo vendido menos los gastos que pagó el negocio. No es la plata del cajón, es la ganancia del turno.")}</small>
-        <b>${money(quedo)}</b>
-        <em>Vendido − gastos del negocio</em>
-      </div>
-    </div>
-    <div class="tc-total">
-      <span>Para que todo cuadre: cajón ${money(k.esperado)} + digital ${money(v.otros)}${ayuda("Suma del efectivo del cajón más lo cobrado por Yape, Plin y tarjeta. Sirve para comprobar que cuadra con lo que vendiste menos lo que gastaste.")}</span>
-      <b>${money(todo)}</b>
-    </div>`;
-
-  /* El trabajador ve solo lo esencial; el administrador, además, el detalle */
-  const detalle = esAdmin
-    ? `<details class="tc-det" open><summary>Ver el detalle del cajón${ayuda("Muestra paso a paso cómo se calcula la plata que debe haber en el cajón.")}</summary>${filasTurnoHtml(k)}</details>`
-    : "";
-
-  box.innerHTML = head + tiles + detalle + aviso;
+  box.innerHTML = head + cuentas + aviso;
 }
 $("turnoBox").addEventListener("click", (e) => {
   const b = e.target.closest("[data-accion]");
@@ -576,6 +835,24 @@ $("turnoBox").addEventListener("click", (e) => {
   if (b.dataset.accion === "abrir") abrirModalAbrir();
   else abrirModalCerrar();
 });
+
+$("turnoBox").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-metodo]");
+  if (!c) return;
+  const m = c.dataset.metodo;
+  if (metodosSel.has(m)) metodosSel.delete(m);
+  else metodosSel.add(m);
+  if (metodosSel.size) pasosAbierto = true;
+  renderTodo();
+});
+
+$("turnoBox").addEventListener(
+  "toggle",
+  (e) => {
+    if (e.target.classList?.contains("tc-det")) pasosAbierto = e.target.open;
+  },
+  true,
+);
 
 function renderTurnosHist() {
   const box = $("turnosHist");
@@ -619,7 +896,7 @@ async function abrirModalAbrir() {
     console.warn(e);
   }
   // Sugiere el turno que sigue al último que se cerró hoy
-  const lista = cfgCaja.turnos;
+  const lista = turnosDisponibles();
   aTurnoSel = 0;
   if (ultimoCerrado && ymdLima(ultimoCerrado.abiertoMs) === limaHoy()) {
     const i = lista.findIndex((t) => t.nombre === ultimoCerrado.nombre);
@@ -630,7 +907,7 @@ async function abrirModalAbrir() {
   if (!$("aMonto").readOnly) setTimeout(() => $("aMonto").focus(), 200);
 }
 function pintarAbrir() {
-  const lista = cfgCaja.turnos;
+  const lista = turnosDisponibles();
   $("aTurnosWrap").hidden = lista.length < 2;
   $("aTurnos").innerHTML = lista
     .map((t, i) => {
@@ -662,7 +939,7 @@ $("aTurnos").addEventListener("click", (e) => {
   pintarAbrir();
 });
 $("btnConfirmAbrir").addEventListener("click", async () => {
-  const t = cfgCaja?.turnos?.[aTurnoSel];
+  const t = turnosDisponibles()[aTurnoSel];
   if (!t) return;
   if ($("aMonto").value === "") return toast("Escribe con cuánta plata empieza (0 si no hay).");
   const monto = r2(num($("aMonto").value));
@@ -713,6 +990,7 @@ function abrirModalCerrar() {
 function pintarCierre() {
   if (!turnoAbierto) return;
   const k = cuentaTurno(turnoAbierto);
+  k.empiezaMostrar = true;
   $("cResumen").innerHTML = filasTurnoHtml(k);
   const c = $("cContado").value;
   $("cResultado").innerHTML = c === "" ? "" : resultadoHtml(r2(num(c) - k.esperado), true);
@@ -850,80 +1128,6 @@ $("cfgGuardar").addEventListener("click", async () => {
   }
 });
 
-/* ══════════ CUADRE DEL DÍA / MES (tarjeta de arriba) ══════════
-   Se lee de arriba hacia abajo:
-   1) Cuánto vendiste y con qué te pagaron
-   2) Cuánto salió (gastos del negocio, retiros)
-   3) Cuánto debe haber en efectivo en el cajón                      */
-const fila = (label, valor, cls = "") => `<div class="tc-r ${cls}"><span>${label}</span><b>${valor}</b></div>`;
-
-function datosCuadre() {
-  const delPeriodo = gastosAll.filter(enPeriodo);
-  const v = cuadreVentas(pedidosPeriodo);
-  const g = cuadreGastos(delPeriodo);
-  const inicio = usaTurnos() ? 0 : g.saldoInicial;
-  return { delPeriodo, v, g, inicio, c: cuadreCaja(v, g, inicio) };
-}
-
-function renderCaja() {
-  const cu = cuando();
-  const { v, g, inicio, c } = datosCuadre();
-  const ok = ventasEstado === "ok";
-  const sinDato = ventasEstado === "cargando" ? "…" : "—";
-  const viendoHoy = vista === "dia" && diaSel === limaHoy();
-
-  /* Número grande */
-  $("kLblQueda").textContent = `Te quedó ${cu}`;
-  const q = $("kMesQueda");
-  q.textContent = ok ? money(c.queda) : sinDato;
-  q.style.color = ok && c.queda < 0 ? "var(--bad)" : "";
-  $("kSubQueda").textContent = ok
-    ? `Vendiste ${money(v.total)} − gastó el negocio ${money(g.negocio)}`
-    : "lo que vendiste menos lo que gastó el negocio";
-
-  /* 1) Ventas */
-  const ventasRows = ok
-    ? v.porMetodo.length
-      ? v.porMetodo
-          .map((m) => {
-            const [ico, lab] = METODOS_INFO[m.clave] || ["💳", m.clave];
-            return fila(`${ico} ${esc(lab)} <small>· ${m.cant}</small>`, money(m.monto), "sub");
-          })
-          .join("")
-      : `<p class="tc-note">Todavía no hay ventas entregadas.</p>`
-    : `<p class="tc-note">Cargando ventas…</p>`;
-  const cVentas = `<div class="cd-c"><h4>① Vendiste ${esc(cu)}${ayuda("Todo lo que vendiste (pedidos entregados), separado por la forma de pago: efectivo, Yape, Plin o tarjeta. El número pequeño al lado es la cantidad de pedidos.")}</h4><div class="tc-rows">
-      ${ventasRows}
-      ${fila("Total vendido", ok ? money(v.total) : sinDato, "tot")}
-    </div></div>`;
-
-  /* 2) Gastos */
-  const cGastos = `<div class="cd-c"><h4>② Salió ${esc(cu)}${ayuda("La plata que salió del negocio: gastos pagados con la caja y retiros del dueño. Lo que pagaste tú con tu propia plata se muestra aparte y no baja la caja.")}</h4><div class="tc-rows">
-      ${fila("Gastos pagados por el negocio", money(g.negocio))}
-      ${g.retiros ? fila("Retiros del dueño", money(g.retiros)) : ""}
-      ${g.bolsillo ? fila("Pagado por ti con tu plata <small>(no baja la caja)</small>", money(g.bolsillo), "sub") : ""}
-      ${fila("Gastó el negocio", money(g.negocio), "tot")}
-    </div></div>`;
-
-  /* 3) Efectivo */
-  let efRows = "";
-  if (inicio) efRows += fila("Empezó la caja con", money(inicio));
-  efRows += fila("+ Ventas en efectivo", ok ? money(v.efectivo) : sinDato);
-  efRows += fila("− Gastos del negocio", money(g.negocio));
-  if (g.retiros) efRows += fila("− Retiros", money(g.retiros));
-  efRows += fila(viendoHoy && turnoAbierto ? "Efectivo del día" : "Efectivo", ok ? money(c.efectivoNeto) : sinDato, "tot");
-  let extra = "";
-  if (viendoHoy && turnoAbierto && pedidosTurnoOk) {
-    const k = cuentaTurno(turnoAbierto);
-    extra = fila(`En el cajón ahora · Turno ${esc(turnoAbierto.nombre)}`, money(k.esperado), "tot cajon");
-  }
-  const nota = ok && v.otros > 0 ? `<p class="tc-note">Yape, Plin y tarjeta (${money(v.otros)}) no están en el cajón.</p>` : "";
-  const cEfectivo = `<div class="cd-c"><h4>③ Efectivo en el cajón${ayuda("Cuánta plata en efectivo debería haber físicamente: lo que empezó la caja + ventas en efectivo − gastos del negocio − retiros. Yape, Plin y tarjeta no entran aquí.")}</h4><div class="tc-rows">${efRows}${extra}</div>${nota}</div>`;
-
-  $("cdGrid").innerHTML = cVentas + cGastos + cEfectivo;
-  $("subMes").textContent = vista === "dia" ? `Día: ${diaLargo(diaSel)}` : `Mostrando ${mesLabel(mesSel)}`;
-}
-
 /* ══════════ HISTORIAL ══════════ */
 const tipoLabel = (g) => {
   if (g.tipo === "retiro") return "Retiro del dueño";
@@ -935,12 +1139,13 @@ function gastosFiltrados() {
   const or = $("fOrigen").value;
   return gastosAll
     .filter(enPeriodo)
+    .filter((g) => !vistaTrabajador() || (!!turnoAbierto && g.turnoId === turnoAbierto.id))
     .filter((g) => {
       if (fTipo === "todos") return true;
       if (fTipo === "caja") return g.tipo === "retiro" || g.tipo === "saldo_inicial";
       return g.tipo === fTipo;
     })
-    .filter((g) => or === "todos" || !esReal(g) || g.origen === or)
+    .filter((g) => or === "todos" || !esReal(g) || (or === "bolsillo" ? esBolsillo(g) : !esBolsillo(g)))
     .filter((g) => !q || (g.nombre || "").toLowerCase().includes(q) || tipoLabel(g).toLowerCase().includes(q))
     .sort((a, b) => (msDeGasto(b) || 0) - (msDeGasto(a) || 0));
 }
@@ -953,7 +1158,7 @@ function cuadrePorDia() {
     (dias[d] ??= { v: 0, g: 0 }).v += p.total;
   });
   gastosAll
-    .filter((g) => enPeriodo(g) && esReal(g) && g.descuenta_caja)
+    .filter((g) => enPeriodo(g) && esGastoNegocio(g))
     .forEach((g) => {
       const d = diaG(g);
       if (d) (dias[d] ??= { v: 0, g: 0 }).g += num(g.monto);
@@ -972,9 +1177,9 @@ function renderCuadreDias() {
   const tv = ks.reduce((s, k) => s + dias[k].v, 0);
   const tg = ks.reduce((s, k) => s + dias[k].g, 0);
   const rojo = (n) => (n < 0 ? ' style="color:var(--bad)"' : "");
-  box.innerHTML = `<h2>Cuadre por día <span class="mut">(toca un día para verlo)</span>${ayuda("Resumen de cada día del mes: cuánto vendiste, cuánto gastó el negocio y cuánto te quedó. Toca un día para ver su detalle completo.")}</h2>
+  box.innerHTML = `<h2>Cuadre por día <span class="mut">(toca un día para verlo)</span>${ayuda("Resumen de cada día del mes: cuánto vendiste, cuánto fueron los gastos del negocio y cuánto te quedó. Toca un día para ver su detalle completo.")}</h2>
     <div class="wrap"><table>
-      <thead><tr><th>Día</th><th class="r">Vendiste</th><th class="r">Gastó el negocio</th><th class="r">Te quedó</th></tr></thead>
+      <thead><tr><th>Día</th><th class="r">Vendiste</th><th class="r">Gastos</th><th class="r">Te quedó</th></tr></thead>
       <tbody>${
         ks.length
           ? ks
@@ -995,6 +1200,16 @@ $("cuadreBox").addEventListener("click", (e) => {
   if (tr) irADia(tr.dataset.dia);
 });
 
+/* Etiqueta de "de dónde salió" para la tabla */
+function badgeOrigen(g) {
+  if (g.tipo === "retiro") return `<span class="badge dueno">Sacó el dueño${saleDelCajon(g) ? "" : " · " + esc(nombreMetodo(metodoDe(g)))} (no es gasto)</span>`;
+  if (g.tipo === "saldo_inicial") return `<span class="badge neg">Suma a la caja</span>`;
+  if (esBolsillo(g)) return `<span class="badge dueno">Mi bolsillo (no resta)</span>`;
+  return saleDelCajon(g)
+    ? `<span class="badge neg">Resta del cajón</span>`
+    : `<span class="badge neg">Pagado con ${esc(nombreMetodo(metodoDe(g)))} (no toca el cajón)</span>`;
+}
+
 function renderGastos() {
   const cu = cuando();
   renderCuadreDias();
@@ -1008,24 +1223,18 @@ function renderGastos() {
         .map((g) => {
           const det = g.cantidad ? `${g.cantidad} ${g.unidad === "unid" ? "unid" : g.unidad || ""}` : "";
           const turno = nombreTurno(g.turnoId);
-          const badge =
-            g.tipo === "retiro"
-              ? `<span class="badge dueno">Sacó el dueño</span>`
-              : g.tipo === "saldo_inicial"
-                ? `<span class="badge neg">Entró a caja</span>`
-                : `<span class="badge ${g.es_inversion ? "dueno" : "neg"}">${g.es_inversion ? "Lo pagué yo" : "Negocio"}</span>`;
           const ms = msDeGasto(g);
           return `<tr data-gid="${g.id}">
         <td>${isFinite(ms) ? fmtDia(ms) : "—"}</td>
         <td><div class="nm">${esc(g.nombre)}<small>${det || esc(tipoLabel(g))}${turno ? " · Turno " + esc(turno) : ""}${g.insumoId ? " · desde Insumos" : ""}</small></div></td>
         <td class="hide-sm">${esc(tipoLabel(g))}</td>
-        <td class="hide-sm">${badge}</td>
+        <td class="hide-sm">${badgeOrigen(g)}</td>
         <td class="r"><span class="money ${g.tipo === "saldo_inicial" ? "plus" : ""}">${g.tipo === "saldo_inicial" ? "+ " : ""}${money(num(g.monto))}</span></td>
         <td class="r"><button class="x" data-edit title="Editar">✎</button><button class="x" data-del title="Eliminar">✕</button></td>
       </tr>`;
         })
         .join("")
-    : `<tr><td colspan="6"><div class="empty">No hay nada con estos filtros. Toca “+ Anotar gasto”.</div></td></tr>`;
+    : `<tr><td colspan="6"><div class="empty">${vistaTrabajador() && !turnoAbierto ? "Abre la caja para empezar tu turno." : "No hay nada con estos filtros. Toca “+ Anotar gasto”."}</div></td></tr>`;
   if (chartsOpen) renderCharts();
 }
 
@@ -1069,7 +1278,15 @@ $("listGastos").addEventListener("click", async (e) => {
 function contextoExport() {
   const { delPeriodo, v, g, inicio, c } = datosCuadre();
   const origenTxt = (x) =>
-    x.tipo === "retiro" ? "Retiro del dueño (sale de la caja)" : x.tipo === "saldo_inicial" ? "Entró a la caja" : x.es_inversion ? "El dueño, con su plata" : "El negocio (sale de la caja)";
+    x.tipo === "retiro"
+      ? "Retiro del dueño (sale del cajón)"
+      : x.tipo === "saldo_inicial"
+        ? "Entró al cajón"
+        : esBolsillo(x)
+          ? "El dueño, con su plata"
+          : x.descuenta_caja
+            ? "El negocio (sale del cajón)"
+            : "El negocio (sin tocar el cajón)";
   const gastos = [...delPeriodo]
     .sort((a, b) => (msDeGasto(a) || 0) - (msDeGasto(b) || 0))
     .map((x) => {
@@ -1181,13 +1398,13 @@ function renderCharts() {
   }
 
   const vP = ventasEstado === "ok" ? sumaT(pedidosPeriodo) : undefined;
-  const negP = suma(delPeriodo.filter((g) => g.descuenta_caja));
+  const negP = suma(delPeriodo.filter(esGastoNegocio));
   const cuadre =
     vP === undefined
       ? ""
-      : `<div class="chart"><h4>Ventas vs. gastos del negocio${ayuda("Compara lo que vendiste con lo que gastó el negocio. La última barra es la diferencia: lo que te quedó (o lo que te faltó si gastaste más de lo que vendiste).")}</h4>${barsH([
+      : `<div class="chart"><h4>Ventas vs. gastos del negocio${ayuda("Compara lo que vendiste con los gastos del negocio. La última barra es la diferencia: lo que te quedó (o lo que te faltó si gastaste más de lo que vendiste).")}</h4>${barsH([
           { l: "Vendiste", v: vP, cls: "alt" },
-          { l: "Gastó el negocio", v: negP },
+          { l: "Gastos del negocio", v: negP },
           { l: vP - negP >= 0 ? "Te quedó" : "Te faltó", v: Math.abs(vP - negP), cls: vP - negP >= 0 ? "alt" : "bad" },
         ])}</div>`;
   const top = [...delPeriodo]
@@ -1211,34 +1428,56 @@ $("btnCharts").addEventListener("click", () => {
 
 /* ══════════ ANOTAR / EDITAR GASTO ══════════ */
 const esEspecial = () => ["__retiro", "__saldo"].includes($("gCat").value);
-const origenSel = () => document.querySelector('input[name="origenG"]:checked').value;
+const origenSel = () => "cajon"; // todo gasto se resta del total de la caja
 /* ¿A qué turno pertenece un gasto nuevo de esta fecha? */
 const turnoParaFecha = (fecha) =>
   turnoAbierto && fecha === limaHoy() && fecha >= ymdLima(turnoAbierto.abiertoMs) ? turnoAbierto.id : null;
 
+/* Qué hace cada opción con las dos cuentas (se lo muestra al usuario antes de guardar) */
+const EFECTOS = {
+  cajon: "Se resta del total de la caja y de lo que te quedó.",
+  otro: "Baja lo que te quedó. No toca el cajón.",
+  bolsillo: "No baja el cajón ni lo que te quedó. Queda anotado como plata que pusiste tú.",
+  retiro: "Se resta del total de la caja porque la plata sale del cajón. No es un gasto: es ganancia que el dueño ya se llevó, por eso no baja “Te quedó”.",
+  saldo: "Sube el cajón. No es una venta, así que no sube lo que te quedó.",
+};
+
 function actualizarFormGasto() {
   const esp = esEspecial();
-  $("gOrigenBox").hidden = esp;
+  const cat = $("gCat").value;
+  const modo = cat === "__retiro" ? "retiro" : cat === "__saldo" ? "saldo" : origenSel();
+  let txt = EFECTOS[modo];
   const av = $("gAviso");
   av.hidden = true;
-  // Aviso solo si hay caja abierta y el gasto sale del cajón de este turno
+
+  // Si hay caja abierta y el gasto sale del cajón de este turno, muestra cómo queda el cajón
   const previo = editId ? gastosAll.find((x) => x.id === editId) : null;
-  const turnoId = previo ? previo.turnoId : turnoParaFecha($("gFecha").value);
-  if (!turnoAbierto || turnoId !== turnoAbierto.id || !pedidosTurnoOk) return;
-  const baja = $("gCat").value !== "__saldo" && (esp || origenSel() === "negocio");
-  if (!baja) return;
-  const monto = num($("gMonto").value);
-  const yaContado = previo && previo.turnoId === turnoAbierto.id && (previo.descuenta_caja || previo.tipo === "retiro") ? num(previo.monto) : 0;
-  const disponible = cuentaTurno(turnoAbierto).esperado + yaContado;
-  if (monto > disponible) {
-    av.hidden = false;
-    av.textContent = `En el cajón debería haber ${money(disponible)} y esto es de ${money(monto)}. Si lo pagaste tú, elige “Lo pagué yo, con mi plata”.`;
+  const turnoId = $("gAntes").checked ? null : previo ? previo.turnoId : turnoParaFecha($("gFecha").value);
+  const baja = modo === "retiro" || modo === "cajon";
+  const metodoSel = $("gMetodo").value;
+  $("gMetodoBox").hidden = cat === "__saldo";
+  if (modo !== "saldo" && metodoSel !== "efectivo") txt += " Como no sale del efectivo, el cajón físico no cambia.";
+  if (turnoAbierto && turnoId === turnoAbierto.id && pedidosTurnoOk && baja) {
+    const monto = num($("gMonto").value);
+    const yaContado = previo && previo.turnoId === turnoAbierto.id && (previo.descuenta_caja || previo.tipo === "retiro") ? num(previo.monto) : 0;
+    const kt = cuentaTurno(turnoAbierto);
+    const disponible = (metodoSel === "efectivo" ? kt.esperado : kt.total) + yaContado;
+    if (monto > 0) {
+      txt += ` El total de la caja pasaría de ${money(disponible)} a ${money(r2(disponible - monto))}.`;
+      if (monto > disponible) {
+        av.hidden = false;
+        av.textContent = `La caja tiene ${money(Math.max(0, disponible))} en total y esto es de ${money(monto)}. Si se pagó antes de abrir esta caja, marca la casilla de abajo.`;
+      }
+    }
   }
+  $("gAntesBox").hidden = !($("gAntes").checked || !av.hidden || (previo && turnoAbierto && previo.turnoId === turnoAbierto.id));
+  $("gEfecto").textContent = txt;
 }
 $("gMonto").addEventListener("input", actualizarFormGasto);
 $("gFecha").addEventListener("change", actualizarFormGasto);
 $("gCat").addEventListener("change", actualizarFormGasto);
 document.querySelectorAll('input[name="origenG"]').forEach((r) => r.addEventListener("change", actualizarFormGasto));
+$("gAntes").addEventListener("change", actualizarFormGasto);
 
 function abrirGasto(g = null) {
   editId = g?.id || null;
@@ -1248,6 +1487,7 @@ function abrirGasto(g = null) {
   const ms = g ? msDeGasto(g) : NaN;
   $("gFecha").value = isFinite(ms) ? ymdLima(ms) : fechaDefault();
   $("gFecha").max = limaHoy();
+  $("gMetodo").value = g?.metodoPago || "efectivo";
   let cat = "Insumos";
   if (g?.tipo === "retiro") cat = "__retiro";
   else if (g?.tipo === "saldo_inicial") cat = "__saldo";
@@ -1260,12 +1500,16 @@ function abrirGasto(g = null) {
   optSaldo.disabled = !verSaldo;
   if (![...sel.options].some((o) => o.value === cat)) sel.add(new Option(cat, cat));
   sel.value = cat;
-  document.querySelector(`input[name="origenG"][value="${g?.es_inversion ? "bolsillo" : "negocio"}"]`).checked = true;
+  $("gAntes").checked = false;
+  $("gAntesBox").hidden = !(g && turnoAbierto && g.turnoId === turnoAbierto.id);
   actualizarFormGasto();
   openMd("mdGasto");
   setTimeout(() => $("gNombre").focus(), 200);
 }
-$("btnNuevoGasto").addEventListener("click", () => abrirGasto(null));
+$("btnNuevoGasto").addEventListener("click", () => {
+  if (vistaTrabajador() && !turnoAbierto) return toast("Abre la caja primero.");
+  abrirGasto(null);
+});
 
 $("btnGuardarGasto").addEventListener("click", async () => {
   const nombre = $("gNombre").value.trim();
@@ -1283,19 +1527,22 @@ $("btnGuardarGasto").addEventListener("click", async () => {
   else if (cat === "__saldo")
     datos = { tipo: "saldo_inicial", categoria: "Saldo inicial", origen: "negocio", descuenta_caja: false, es_inversion: false };
   else {
-    const origen = origenSel();
+    const modo = origenSel();
     datos = {
       tipo: cat === "Insumos" ? "compra_insumo" : "gasto_general",
       categoria: cat,
-      origen,
-      descuenta_caja: origen === "negocio",
-      es_inversion: origen === "bolsillo",
+      origen: modo === "bolsillo" ? "bolsillo" : "negocio",
+      descuenta_caja: modo === "cajon",
+      es_inversion: modo === "bolsillo",
     };
   }
   const previo = editId ? gastosAll.find((x) => x.id === editId) : null;
-  const turnoId = previo ? previo.turnoId || null : turnoParaFecha(fecha);
+  const metodoPago = cat === "__saldo" ? "efectivo" : $("gMetodo").value;
+  datos.metodoPago = metodoPago;
+  datos.descuenta_caja = datos.descuenta_caja && metodoPago === "efectivo";
+  let turnoId = previo ? previo.turnoId || null : turnoParaFecha(fecha);
+  if ($("gAntes").checked) turnoId = null;
 
-  if (!$("gAviso").hidden && !confirm(`${$("gAviso").textContent}\n\n¿Anotarlo igual?`)) return;
 
   // Si se edita sin cambiar el día, se conserva la hora original
   const msPrevio = previo ? msDeGasto(previo) : NaN;

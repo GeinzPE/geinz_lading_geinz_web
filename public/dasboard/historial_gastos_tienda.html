@@ -130,7 +130,7 @@
     }
     .exp-menu .btn { text-align: left; }
 
-    /* ---- Botón "?" de ayuda (explica para qué sirve cada cosa) ---- */
+    /* ---- Botón "?" de ayuda ---- */
     .qm {
       display: inline-flex; align-items: center; justify-content: center;
       width: 18px; height: 18px; margin-left: 6px; padding: 0;
@@ -150,19 +150,43 @@
       text-transform: none; letter-spacing: 0; text-align: left;
       box-shadow: 0 10px 30px rgba(0, 0, 0, .7);
     }
+button.tt-chip { font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%; }
+.tt-chip.sel { outline: 2px solid #8855ff; box-shadow: 0 0 18px rgba(136, 85, 255, .35); }
+.tc-met + .tc-met { border-top: 1px solid #221b35; margin-top: 12px; padding-top: 4px; }
+    /* ═════════ DIÁLOGOS: el fondo NO se mueve y el diálogo siempre cabe en pantalla ═════════ */
+    html.md-open,
+    html.md-open body { overflow: hidden; }
+    .overlay { overscroll-behavior: contain; touch-action: none; }
+    .overlay .sheet {
+      max-height: 92vh;
+      max-height: 92dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .overlay .sheet-head,
+    .overlay .sheet-foot { flex-shrink: 0; }
+    .overlay .sheet-body {
+      overflow-y: auto;
+      min-height: 0;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
 
-    /* ---- Cuadre del día: 3 columnas ---- */
-    .cd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    /* ---- Tarjetas de cuenta (cajón / lo que te quedó) ---- */
+    .cd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 18px; }
     .cd-c { background: #0d0d0d; border: 1px solid #221b35; border-radius: 16px; padding: 14px; }
     .cd-c h4 { margin: 0 0 4px; font-size: 14px; color: #fff; }
     .cd-c .tc-rows { max-width: none; margin-top: 10px; }
+    .cd-c.cajon { border-color: rgba(34, 197, 94, .4); }
+    .cd-c.cajon .tc-r.tot b { color: #4ade80; }
     .tc-r.sub { font-size: 13px; color: #9a9a9a; padding-left: 8px; }
-    .tc-r.cajon b { color: #4ade80; }
     .tc-r small { color: #8a8a8a; }
 
     /* ---- Tarjeta de caja / turno ---- */
     .turno { background: #0d0d0d; border: 1px solid #221b35; border-radius: 16px; padding: 16px; margin-bottom: 18px; }
     .turno.abierta { border-color: rgba(136, 85, 255, .6); box-shadow: 0 0 24px rgba(136, 85, 255, .08); }
+    .turno .cd-grid { margin: 14px 0 0; }
     .tc-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
     .tc-head b { font-size: 17px; color: #fff; }
     .tc-head small { display: block; color: #9a9a9a; font-size: 12.5px; margin-top: 3px; }
@@ -186,6 +210,14 @@
     .t-sob { color: #fbbf24; font-weight: 700; }
     .big-input { font-size: 22px !important; font-weight: 800; text-align: center; }
     .hint { font-size: 12.5px; color: #9a9a9a; margin: -2px 0 12px; }
+    .efecto { font-size: 13px; color: #e6dcff; background: rgba(136, 85, 255, .1); border: 1px solid rgba(136, 85, 255, .3); border-radius: 12px; padding: 10px 12px; margin: 4px 0 0; }
+
+    /* ---- ¿Con qué plata pagaste?: 3 botones grandes ---- */
+    #gOrigenSeg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    #gOrigenSeg .radio { margin: 0; padding: 10px 6px; justify-content: center; text-align: center; }
+    #gOrigenSeg .radio span { display: block; }
+    #gOrigenSeg .radio b { font-size: 13px; }
+    #mdSobra .sheet-foot { flex-wrap: wrap; gap: 8px; }
 
     /* ---- Elegir turno al abrir caja: nombre + horario ---- */
     #aTurnos button { display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.2; }
@@ -201,28 +233,165 @@
     .cfg-row .x { grid-column: 4; grid-row: 1; align-self: end; }
     .cfg-row input { width: 100%; box-sizing: border-box; }
 
-    /* ---- Turno abierto: tarjetas fáciles de leer ---- */
-    .tc-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
-    .tc-tile { background: #111; border: 1px solid #221b35; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .tc-tile small { font-size: 12.5px; color: #9a9a9a; }
-    .tc-tile b { font-size: 26px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.1; }
-    .tc-tile em { font-style: normal; font-size: 12px; color: #8a8a8a; }
-    .tc-tile.main { border-color: rgba(34, 197, 94, .45); background: rgba(34, 197, 94, .06); }
-    .tc-tile.main b { color: #4ade80; }
-    .tc-tile .mini { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: #cfcfcf; }
-    .tc-tile .mini b { font-size: 12.5px; font-weight: 600; }
-    .tc-tile.neg b { color: var(--bad, #f87171); }
-    .tc-total { margin-top: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(136, 85, 255, .1); border: 1px solid rgba(136, 85, 255, .3); font-size: 13.5px; color: #e6dcff; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-    .tc-total b { color: #fff; font-size: 15px; }
-    .tc-det { margin-top: 12px; }
+    /* ═════════ TARJETA DEL TURNO: número grande + dónde está la plata ═════════ */
+    .turno.abierta { background: linear-gradient(180deg, rgba(136, 85, 255, .08), #0d0d0d 55%); }
+    .turno .cd-grid { display: block; margin: 16px 0 0; }
+    .turno .cd-c { background: transparent; border: 0; padding: 0; }
+    .tt-hero { display: flex; gap: 24px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .tt-hero > div:first-child small { font-size: 13px; color: #9a9a9a; display: flex; align-items: center; }
+    .tt-hero > div:first-child b { display: block; font-size: 46px; font-weight: 800; line-height: 1.05; color: #4ade80; font-variant-numeric: tabular-nums; margin-top: 4px; }
+    .tt-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; min-width: 280px; max-width: 480px; }
+    .tt-chip { background: #111; border: 1px solid #221b35; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .tt-chip small { font-size: 12.5px; color: #9a9a9a; }
+    .tt-chip b { font-size: 22px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+    .tt-chip em { font-style: normal; font-size: 11.5px; color: #8a8a8a; }
+    .tc-det { margin-top: 16px; border-top: 1px solid #221b35; padding-top: 12px; }
     .tc-det summary { cursor: pointer; font-size: 13px; color: #b9a2ff; }
-    @media (max-width: 1100px) { .tc-tiles { grid-template-columns: repeat(2, 1fr); } }
+    .tc-det .tc-rows { max-width: none; margin-top: 10px; }
+
+    /* ---- Resumen del KPI (PC) ---- */
+    .kpi.big { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    .kstats { display: none; gap: 12px; }
+    .kpi.big .kstat { background: #111; border: 1px solid #221b35; border-radius: 14px; padding: 12px 20px; min-width: 170px; }
+    .kpi.big .kstat small { display: block; color: #9a9a9a; font-size: 12.5px; margin-bottom: 2px; }
+    .kpi.big .kstat b { font-size: 24px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+
+    /* ═════════ TRABAJADOR (si el negocio usa turnos): solo ve su turno ═════════ */
+    html.solo-turno #vistaSel,
+    html.solo-turno #navDia,
+    html.solo-turno #mesSel,
+    html.solo-turno .exp-wrap,
+    html.solo-turno #btnCharts,
+    html.solo-turno #chartsBox,
+    html.solo-turno .kpis,
+    html.solo-turno #cdGrid,
+    html.solo-turno #turnosHist,
+    html.solo-turno #cuadreBox { display: none !important; }
+
+    /* ═════════ PULIDO: esquinas redondeadas, color y aire (como Historial de ventas) ═════════ */
+    .turno, .cd-c, .kpi.big { border-radius: 22px; }
+    .kpi.big { background: linear-gradient(135deg, rgba(136, 85, 255, .22), rgba(136, 85, 255, .05) 60%, #0d0d0d); border: 1px solid rgba(136, 85, 255, .45); padding: 20px 24px; box-shadow: 0 0 34px rgba(136, 85, 255, .10); }
+    .kpi-lbl small { text-transform: uppercase; letter-spacing: .09em; font-size: 11.5px; color: #b9a2ff; font-weight: 700; }
+    .kpi.big .kstat { border-radius: 16px; }
+    .kpi.big .kstat.vend { border-color: rgba(56, 189, 248, .35); background: rgba(56, 189, 248, .07); }
+    .kpi.big .kstat.vend b { color: #7dd3fc; }
+    .kpi.big .kstat.gas { border-color: rgba(251, 191, 36, .35); background: rgba(251, 191, 36, .07); }
+    .kpi.big .kstat.gas b { color: #fbbf24; }
+
+    .turno { background: #0b0b0f; border: 1px solid rgba(136, 85, 255, .22); }
+    .turno.abierta { border-color: rgba(136, 85, 255, .6); }
+    .tc-head b { font-size: 18px; }
+    .tc-btn { border-radius: 14px; box-shadow: 0 6px 20px rgba(136, 85, 255, .28); }
+    .tt-chip { border-radius: 16px; }
+    .tt-chip.caj { background: rgba(34, 197, 94, .08); border-color: rgba(34, 197, 94, .38); }
+    .tt-chip.caj b { color: #4ade80; }
+    .tt-chip.dig { background: rgba(136, 85, 255, .10); border-color: rgba(136, 85, 255, .42); }
+    .tt-chip.dig b { color: #c4b0ff; }
+
+    .cd-c { background: #0b0b0f; border: 1px solid rgba(136, 85, 255, .2); padding: 18px; }
+    .cd-c.cajon { border-color: rgba(34, 197, 94, .4); }
+    .cd-c h4 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .08em; color: #b9a2ff; }
+    #cdGrid .tc-rows { gap: 8px; }
+    #cdGrid .tc-r.sub { background: #111; border: 1px solid #1d1830; border-radius: 12px; padding: 10px 14px; font-size: 14px; color: #e9e9e9; }
+    .cd-c:not(.cajon) .tc-r.tot b { color: #4ade80; }
+
+    .wrap { border-radius: 20px; }
+    .btn { border-radius: 14px; }
+    #qGas, #fOrigen { border-radius: 14px; }
+    #pane-gas > h2 { font-size: 20px; }
+
+    /* ═════════ PUENTE "¿CUÁNTO GANASTE?" ═════════ */
+    .tt-puente { margin-top: 16px; padding: 16px 18px; border-radius: 18px; background: rgba(34, 197, 94, .06); border: 1px solid rgba(34, 197, 94, .28); }
+    .tt-puente-t { margin: 0 0 4px; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #86efac; }
+    .tt-puente .tc-rows { max-width: none; margin-top: 8px; }
+    .tt-puente .tc-r { padding: 2px 4px; }
+    .tt-puente .tc-r.tot { background: transparent; border: 0; border-top: 1px solid rgba(34, 197, 94, .3); border-radius: 0; padding: 10px 4px 0; margin-top: 6px; }
+    .tt-puente .tc-r.tot b { color: #4ade80; }
+
+    /* ═════════ ANIMACIONES SUAVES (premium, sobre todo en móvil) ═════════ */
+    html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+    @keyframes subir { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes hoja { from { opacity: 0; transform: translateY(26px) scale(.98); } to { opacity: 1; transform: none; } }
+    @keyframes pulso { 0% { transform: scale(1); } 40% { transform: scale(1.05); filter: brightness(1.25); } 100% { transform: scale(1); } }
+    @keyframes vivo { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, .55); } 70% { box-shadow: 0 0 0 9px rgba(34, 197, 94, 0); } }
+
+    #turnoBox, #kpiBox, #cdGrid, #turnosHist, .filters, #pane-gas > h2, .wrap { animation: subir .55s cubic-bezier(.2, .8, .2, 1) both; }
+    #kpiBox { animation-delay: .06s; }
+    #cdGrid { animation-delay: .12s; }
+    .filters { animation-delay: .18s; }
+    #pane-gas > h2 { animation-delay: .2s; }
+    .wrap { animation-delay: .24s; }
+    .pulso { display: inline-block; animation: pulso .55s ease; }
+    .tc-dot.on { animation: vivo 2s infinite; }
+    .overlay.show { animation: aparecer .2s ease; }
+    .overlay.show .sheet { animation: hoja .32s cubic-bezier(.2, .8, .2, 1); }
+    .btn, .tc-btn, .seg button, .tt-chip, .kstat, .cd-c, .turno, .x, .qm { transition: transform .18s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease, filter .2s ease; }
+    .btn:active, .tc-btn:active, .seg button:active { transform: scale(.96); }
+    @media (hover: hover) {
+      .tt-chip:hover, .kpi.big .kstat:hover { transform: translateY(-2px); }
+      .cd-c:hover { border-color: rgba(136, 85, 255, .4); }
+      .btn:hover { filter: brightness(1.12); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
+
+    /* ═════════ ALINEACIÓN, ICONOS Y MÓVIL ═════════ */
+    .mi { width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin-right: 4px; border-radius: 5px; }
+    .tt-chip .mi { width: 18px; height: 18px; }
+
+    /* Misma medida en todas las tarjetas, para que todo quede recto */
+    .cd-c, .kpi.big { padding: 20px 22px; }
+    .kpi.big .kstat { padding: 12px 16px; }
+
+    /* Número grande arriba; los recuadros de cada método debajo, en cuadrícula */
+    .tt-hero { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 16px; }
+    .tt-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; flex: none; min-width: 0; max-width: none; width: 100%; }
+    .tt-chip small { display: flex; align-items: center; }
+
+    /* Filas de las cuentas: mismo margen izquierdo y derecho */
+    #cdGrid .tc-r { padding-left: 14px; padding-right: 14px; }
+    #cdGrid .tc-r.tot { background: rgba(34, 197, 94, .08); border: 1px solid rgba(34, 197, 94, .3); border-radius: 14px; padding: 12px 14px; margin-top: 6px; }
+    .tc-det .tc-r { padding: 2px 4px; }
+    .tc-det .tc-r.sub { padding-left: 22px; }
+    .tc-det .tc-r.tot { padding: 10px 4px 0; }
+
+    @media (min-width: 1024px) { #turnoBox { align-self: stretch; } }
+
+    /* ═════════ PC: panel en dos columnas, centrado, sin huecos ═════════ */
+    @media (min-width: 1024px) {
+      .top-in, main { max-width: 1280px; margin-left: auto; margin-right: auto; }
+      .kpi.big #kSubQueda { display: none; }
+      .kpi.big #kMesQueda { font-size: 46px; }
+      #pane-gas { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; grid-template-rows: auto 1fr; }
+      #pane-gas > * { grid-column: 1 / -1; margin-bottom: 0; }
+      #turnoBox { grid-column: 1; grid-row: 1 / span 2; padding: 22px; }
+      #kpiBox { grid-column: 2; grid-row: 1; }
+      #cdGrid { grid-column: 2; grid-row: 2; grid-template-columns: 1fr; }
+      /* Sin turnos: "Te quedó" arriba y las dos cuentas lado a lado */
+      #pane-gas:has(#turnoBox[hidden]) #kpiBox { grid-column: 1 / -1; grid-row: 1; }
+      #pane-gas:has(#turnoBox[hidden]) #cdGrid { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      /* Caja cerrada: franja arriba, luego "Te quedó" y las dos cuentas lado a lado */
+      #pane-gas:has(#turnoBox:not(.abierta):not([hidden])) #turnoBox { grid-column: 1 / -1; grid-row: 1; }
+      #pane-gas:has(#turnoBox:not(.abierta):not([hidden])) #kpiBox { grid-column: 1 / -1; grid-row: 2; }
+      #pane-gas:has(#turnoBox:not(.abierta):not([hidden])) #cdGrid { grid-column: 1 / -1; grid-row: 3; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      html.solo-turno #turnoBox { grid-column: 1 / -1; grid-row: 1; }
+      /* "Te quedó": en la columna angosta va apilado; a todo el ancho, en fila */
+      .kpi.big { flex-direction: column; align-items: stretch; gap: 16px; }
+      .kstats { display: grid; grid-template-columns: 1fr 1fr; }
+      .kpi.big .kstat { min-width: 0; }
+      #pane-gas:has(#turnoBox[hidden]) .kpi.big,
+      #pane-gas:has(#turnoBox:not(.abierta):not([hidden])) .kpi.big { flex-direction: row; align-items: center; }
+      #pane-gas:has(#turnoBox[hidden]) .kstats,
+      #pane-gas:has(#turnoBox:not(.abierta):not([hidden])) .kstats { grid-template-columns: repeat(2, minmax(170px, 220px)); }
+      #pane-gas > h2 { margin: 8px 0 -6px; }
+    }
 
     /* ═════════ MÓVIL: más compacto y con scroll horizontal ═════════ */
     .wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
     @media (max-width: 700px) {
-      /* Barra de acciones: una sola fila que se desliza de lado */
       .top-actions {
         flex-wrap: nowrap;
         justify-content: flex-start;
@@ -250,38 +419,19 @@
       }
       .exp-menu .btn { text-align: center; }
 
-      /* Botón "?" un poco más grande para tocarlo con el dedo */
       .qm { width: 22px; height: 22px; font-size: 12px; }
-
-      /* KPI principal más chico */
       .kpi.big b { font-size: 34px; }
 
-      /* Caja abierta: más compacta */
       .turno { padding: 12px; margin-bottom: 12px; }
       .tc-btn { width: 100%; min-width: 0; }
       .tc-rows { max-width: none; }
       .tc-r.tot b { font-size: 20px; }
+      .tt-hero > div:first-child b { font-size: 38px; }
+      .tt-split { min-width: 0; max-width: none; width: 100%; }
 
-      /* Tarjetas del turno: 2 por fila, la del cajón ocupa todo el ancho */
-      .tc-tiles { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-      .tc-tile.main { grid-column: 1 / -1; }
-      .tc-tile b { font-size: 22px; }
-      .tc-tile.main b { font-size: 30px; }
+      .cd-grid { grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+      .cd-c { padding: 12px; }
 
-      /* Cuadre ①②③: tarjetas que se deslizan de lado */
-      .cd-grid {
-        display: flex;
-        overflow-x: auto;
-        scroll-snap-type: x mandatory;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        gap: 10px;
-        margin-bottom: 12px;
-      }
-      .cd-grid::-webkit-scrollbar { display: none; }
-      .cd-c { flex: 0 0 86%; scroll-snap-align: start; padding: 12px; }
-
-      /* Filtros en una fila deslizable */
       .filters {
         flex-wrap: nowrap;
         overflow-x: auto;
@@ -295,7 +445,6 @@
       #fTipo { flex-wrap: nowrap; }
       #fTipo button { white-space: nowrap; }
 
-      /* Tablas: deslizan de lado en vez de apretarse */
       .wrap table { min-width: 440px; }
     }
   </style>
@@ -370,13 +519,6 @@
         </div>
       </div>
 
-      <div class="kpis">
-        <div class="kpi big">
-          <span class="kpi-lbl"><small id="kLblQueda">Te quedó hoy</small><button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Es lo que ganaste en el período: todo lo que vendiste menos lo que gastó el negocio. Lo que pagaste con tu propia plata no se resta aquí.">?</button></span>
-          <b id="kMesQueda">…</b>
-          <em id="kSubQueda">lo que vendiste menos lo que gastó el negocio</em>
-        </div>
-      </div>
     </div>
   </header>
 
@@ -386,12 +528,26 @@
       <!-- Caja abierta / cerrada (solo si el negocio trabaja por turnos) -->
       <div class="turno" id="turnoBox" hidden></div>
 
-      <div class="guide" id="guide" hidden>
-        <b>Empieza aquí</b>
-        <p>1. Toca <b>“+ Anotar gasto”</b> y escribe lo que pagaste (pollo, luz, gaseosas…).<br>2. Mira cuánto vendiste, cuánto gastaste y cuánto te quedó cada día.<br>3. Si sacas plata de la caja para ti, anótala como <b>“Retiro del dueño”</b>.</p>
+      <div class="kpis" id="kpiBox">
+        <div class="kpi big">
+          <div class="kmain">
+          <span class="kpi-lbl"><small id="kLblQueda">Te quedó hoy</small><button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Es lo que ganaste: todo lo que vendiste menos los gastos del negocio. La plata con la que empezó la caja NO se suma, porque no es una venta. Lo que pagaste con tu propio bolsillo tampoco se resta.">?</button></span>
+          <b id="kMesQueda">…</b>
+          <em id="kSubQueda">lo que vendiste menos los gastos</em>
+          </div>
+          <div class="kstats">
+            <div class="kstat vend"><small>Vendiste</small><b id="kVend">…</b></div>
+            <div class="kstat gas"><small>Gastos del negocio</small><b id="kGas">…</b></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Cuadre: ① vendiste · ② salió · ③ efectivo en el cajón -->
+      <div class="guide" id="guide" hidden>
+        <b>Empieza aquí</b>
+        <p>1. Toca <b>“+ Anotar gasto”</b> y escribe lo que pagaste (pollo, luz, gaseosas…).<br>2. El gasto se <b>resta del total de la caja</b> (lo que empezó + lo que vendiste).<br>3. Mira cuánto <b>debe haber en el cajón</b> y cuánto <b>te quedó</b>.</p>
+      </div>
+
+      <!-- Dos cuentas simples: lo que te quedó · el efectivo del cajón -->
       <div class="cd-grid" id="cdGrid"></div>
 
       <!-- Cierres de caja del día / mes -->
@@ -407,7 +563,7 @@
           <button data-f="gasto_general">Otros gastos</button>
           <button data-f="caja">Retiros y caja</button>
         </div>
-        <select id="fOrigen">
+        <select id="fOrigen" hidden>
           <option value="todos">De dónde salió: todos</option>
           <option value="negocio">Del negocio</option>
           <option value="bolsillo">Lo pagué yo</option>
@@ -426,7 +582,7 @@
               <th>Fecha</th>
               <th>¿Qué fue?</th>
               <th class="hide-sm">Tipo</th>
-              <th class="hide-sm">Quién pagó</th>
+              <th class="hide-sm">Cómo afecta</th>
               <th class="r">Monto</th>
               <th></th>
             </tr>
@@ -468,13 +624,18 @@
             <input id="gFecha" type="date">
           </label>
         </div>
-        <fieldset id="gOrigenBox">
-          <legend>¿Quién pagó?<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="“El negocio” descuenta la plata de la caja. “Lo pagué yo” es cuando pusiste tu propia plata: no baja la caja y queda anotado como lo que pusiste tú.">?</button></legend>
-          <label class="radio"><input type="radio" name="origenG" value="negocio" checked>
-            <span><b>El negocio</b><small>Sale de la caja.</small></span></label>
-          <label class="radio"><input type="radio" name="origenG" value="bolsillo">
-            <span><b>Lo pagué yo, con mi plata</b><small>No baja la caja. Se anota como lo que pusiste tú.</small></span></label>
-        </fieldset>
+                <label id="gMetodoBox">¿De dónde salió la plata?
+          <select id="gMetodo">
+            <option value="efectivo">Efectivo (del cajón)</option>
+            <option value="yape">Yape</option>
+            <option value="plin">Plin</option>
+            <option value="tarjeta">Tarjeta / transferencia</option>
+          </select>
+        </label>
+    
+        <label class="radio" id="gAntesBox" hidden><input type="checkbox" id="gAntes">
+          <span><b>Se pagó antes de abrir esta caja</b><small>Así no se resta del total de esta caja.</small></span></label>
+        <p class="efecto" id="gEfecto"></p>
         <p class="warn" id="gAviso" hidden></p>
       </div>
       <div class="sheet-foot">
@@ -495,7 +656,7 @@
           <p class="hint" style="margin:0 0 8px">¿Qué turno empieza?<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Elige el turno que vas a trabajar. Debajo del nombre verás el horario del turno (a qué hora empieza y termina).">?</button></p>
           <div class="seg" id="aTurnos" style="margin-bottom:16px"></div>
         </div>
-        <label>¿Con cuánta plata empieza la caja? (S/)<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Cuenta el efectivo que hay en el cajón al empezar el turno y escríbelo. Con este monto el sistema calcula cuánto debe haber al cerrar.">?</button>
+        <label>¿Con cuánta plata empieza la caja? (S/)<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="Cuenta el efectivo que hay en el cajón al empezar el turno y escríbelo. Esta plata NO es venta: solo sirve para calcular cuánto debe haber en el cajón al cerrar.">?</button>
           <input id="aMonto" class="big-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
         </label>
         <p class="hint" id="aHint"></p>

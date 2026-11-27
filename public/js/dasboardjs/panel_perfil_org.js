@@ -731,7 +731,7 @@ window.PanelPerfil = {
         div.onclick = () => this.deSubirImg(k, i);
       } else {
         div.className = "photo-item photo-item-add";
-        div.innerHTML = "<span>📷</span><span>Agregar</span>";
+        div.innerHTML = '<img src="../img/iconos_dasboard/camara_icon.png" alt="" style="width:26px;height:26px;object-fit:contain;opacity:.7"><span>Agregar</span>';
         div.onclick = () => this.deSubirImg(k, i);
       }
       grid.appendChild(div);
@@ -2181,7 +2181,7 @@ window.PanelPerfil = {
       } else {
         const div = document.createElement("div");
         div.className = "photo-item photo-item-add";
-        div.innerHTML = "<span>📷</span><span>Agregar</span>";
+        div.innerHTML = '<img src="../img/iconos_dasboard/camara_icon.png" alt="" style="width:26px;height:26px;object-fit:contain;opacity:.7"><span>Agregar</span>';
         div.onclick = () => this.openFotoGrid(gridTipo, i);
         grid.appendChild(div);
       }

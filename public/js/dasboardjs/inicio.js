@@ -100,7 +100,16 @@ const SECCIONES = [
 
   { key: "recargas", label: "Recargas" },
 ];
-const TODOS_LOS_PERMISOS = SECCIONES.map((s) => s.key);
+const PERMISOS_ESPECIALES = [
+  { key: "ventas_editar", label: "Editar sus ventas" },
+  { key: "ventas_anular", label: "Anular sus ventas" },
+  { key: "ventas_ver_todas", label: "Ver las ventas de todos" },
+];
+const KEYS_ESPECIALES = new Set(PERMISOS_ESPECIALES.map((p) => p.key));
+const TODOS_LOS_PERMISOS = [
+  ...SECCIONES.map((s) => s.key),
+  ...PERMISOS_ESPECIALES.map((p) => p.key),
+];
 // Mapa directo a tu JSON de plan (nota: "produtos" es como está en la DB)
 const MAPA_PLAN = {
   perfil: "mi_negocio.perfil",
@@ -443,7 +452,7 @@ function listenMiRol(sesion) {
       const nueva = {
         ...getSession(),
         nombre: d.nombre,
-             permisos: sesion.esAdmin ? TODOS_LOS_PERMISOS : d.permisos || [],
+        permisos: sesion.esAdmin ? TODOS_LOS_PERMISOS : d.permisos || [],
       };
       saveSession(nueva);
       broadcastRolActivo(nueva);
@@ -777,11 +786,14 @@ function listenPedidos() {
       snap.forEach((docSnap) => {
         const p = docSnap.data();
         if (p.fecha !== hoy) return;
+              const yo = getSession();
+        const verTodo = yo?.esAdmin || (yo?.permisos || []).includes("ventas_ver_todas");
+        const esMio = verTodo || p.vendedor?.id === yo?.roleId;
         const estado = (p.estado || "").toLowerCase();
         const rechazado =
           estado.includes("rechaz") || estado.includes("cancel");
         const enCocina = estado.includes("cocina");
-        if (!rechazado) ventas += Number(p.total) || 0;
+            if (!rechazado) ventas += Number(p.total) || 0;
         if (enCocina) cocina++;
         else if (!rechazado) atendidos++;
       });
@@ -875,7 +887,13 @@ function buildPermGrid(gridId) {
         );
       }).join("")
     : `<p class="empty" style="grid-column:1/-1;">Tu plan no tiene secciones para asignar.</p>`;
-
+grid.insertAdjacentHTML(
+  "beforeend",
+  `<p class="perm-grupo-t">Ventas</p>` +
+    PERMISOS_ESPECIALES.map(
+      (p) => `<label class="perm-chip"><input type="checkbox" value="${p.key}"> ${esc(p.label)}</label>`,
+    ).join(""),
+);
   grid
     .querySelectorAll("input")
     .forEach((i) => (i.checked = marcados.has(i.value)));
@@ -912,7 +930,7 @@ function renderRoles(docs) {
         ? `<span class="admin-tag">Acceso total</span>`
         : (data.permisos || [])
             .map((p) => {
-              const found = SECCIONES.find((x) => x.key === p);
+           const found = [...SECCIONES, ...PERMISOS_ESPECIALES].find((x) => x.key === p);
               return `<span class="perm-tag">${esc(found ? found.label : p)}</span>`;
             })
             .join("");
@@ -1007,7 +1025,9 @@ document
       document.querySelectorAll("#editPermGrid input:checked"),
     ).map((i) => i.value);
     // Conserva permisos que hoy el plan no ofrece (por si el plan se reactiva)
-    const fueraDelPlan = editPermActuales.filter((k) => !planPermite(k));
+const fueraDelPlan = editPermActuales.filter(
+  (k) => !planPermite(k) && !KEYS_ESPECIALES.has(k),
+);
     const nuevosPermisos = [...new Set([...marcados, ...fueraDelPlan])];
 
     if (!marcados.length) {
@@ -1098,7 +1118,9 @@ function openRoles() {
 
 // Si marcan "Administrador", se ocultan las secciones (tendrá todo)
 document.getElementById("fEsAdmin")?.addEventListener("change", (e) => {
-  document.getElementById("permGrid").classList.toggle("hidden", e.target.checked);
+  document
+    .getElementById("permGrid")
+    .classList.toggle("hidden", e.target.checked);
 });
 
 document.getElementById("roleForm").addEventListener("submit", async (e) => {
@@ -1108,12 +1130,17 @@ document.getElementById("roleForm").addEventListener("submit", async (e) => {
   if (!sesion?.esAdmin) return;
 
   const nombre = document.getElementById("fNombre").value.trim();
-  const usuario = document.getElementById("fUsuario").value.trim().toLowerCase();
+  const usuario = document
+    .getElementById("fUsuario")
+    .value.trim()
+    .toLowerCase();
   const password = document.getElementById("fPassword").value;
   const esAdminNuevo = document.getElementById("fEsAdmin").checked;
   const permisos = esAdminNuevo
     ? TODOS_LOS_PERMISOS
-    : Array.from(document.querySelectorAll("#permGrid input:checked")).map((i) => i.value);
+    : Array.from(document.querySelectorAll("#permGrid input:checked")).map(
+        (i) => i.value,
+      );
 
   if (!esAdminNuevo) {
     if (!permisos.length) {
@@ -1130,7 +1157,9 @@ document.getElementById("roleForm").addEventListener("submit", async (e) => {
   btn.disabled = true;
   btn.textContent = "Creando…";
   try {
-    const dup = await getDocs(query(rolesRef(), where("usuario", "==", usuario)));
+    const dup = await getDocs(
+      query(rolesRef(), where("usuario", "==", usuario)),
+    );
     if (!dup.empty) {
       setMsg("formMsg", "Ese nombre de usuario ya existe.", "error");
       return;
@@ -1164,7 +1193,9 @@ document.getElementById("roleForm").addEventListener("submit", async (e) => {
     );
     e.target.reset();
     document.getElementById("permGrid").classList.remove("hidden");
-    document.querySelectorAll("#permGrid input").forEach((i) => (i.checked = false));
+    document
+      .querySelectorAll("#permGrid input")
+      .forEach((i) => (i.checked = false));
   } catch (err) {
     console.error(err);
     setMsg("formMsg", "No se pudo crear el rol. Intenta de nuevo.", "error");
@@ -1236,7 +1267,8 @@ function pintarInstall() {
   b.classList.toggle("hidden", !!pwa.instalada);
 }
 window.addEventListener("message", (e) => {
-  if (e.origin !== window.location.origin || e.data?.tipo !== "PWA_ESTADO") return;
+  if (e.origin !== window.location.origin || e.data?.tipo !== "PWA_ESTADO")
+    return;
   pwa = e.data;
   pintarInstall();
 });
@@ -1248,7 +1280,9 @@ on("installBtn", () => {
   } else if (pwa.ios) {
     showToast("Toca Compartir ⬆️ y luego «Añadir a pantalla de inicio».");
   } else {
-    showToast("Este navegador aún no permite instalar. Abre el menú ⋮ → Instalar app.");
+    showToast(
+      "Este navegador aún no permite instalar. Abre el menú ⋮ → Instalar app.",
+    );
   }
 });
 // ── Init ──

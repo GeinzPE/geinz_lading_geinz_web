@@ -5,8 +5,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../db/db.js";
 let PAIS = "peru";
-let DEPARTAMENTO = "lima";
-let PROVINCIA = "barranca";
+let DEPARTAMENTO = "";
+let PROVINCIA = "";
 
 // Rechaza valores que son solo dígitos (ej. "3926")
 const SLUG = /^(?!\d+$)[a-z0-9-]{2,60}$/;

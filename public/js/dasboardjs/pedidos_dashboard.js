@@ -61,6 +61,8 @@ const PLAN_PED = {
   camara: true,
   celular: true,
 };
+let scanDispositivos = new Set();
+let scanCreando = false;
 const URL_NOTIFICAR_CLIENTE =
   " https://enviar-notificacion-con-solo-id-desde-la-web-oixttik5rq-uc.a.run.app";
 // Usuario logueado en inicio.js: se guarda en cada venta
@@ -976,7 +978,10 @@ const NPAdicionales = {
   iniciar() {
     if (this.unsub || !tiendaId || !localidad) return;
     this.unsub = onSnapshot(
-      query(tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales"), orderBy("createdAt", "asc")),
+      query(
+        tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales"),
+        orderBy("createdAt", "asc"),
+      ),
       (snap) => {
         this.lista = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -1459,9 +1464,24 @@ const autoRejectingIds = new Set(); // evita disparos duplicados mientras se act
 let autoResEnabled = localStorage.getItem("geinz_autores_on") === "1";
 let autoResMinutes = Number(localStorage.getItem("geinz_autores_min")) || 20;
 const autoResReleasingIds = new Set(); // evita disparos duplicados (mesaDocId o grupoId) mientras se actualiza Firestore
-
+function soloMisVentasDirectas(p) {
+  if (p.cliente?.tipo_entrega !== "Venta directa") return true;
+  try {
+    const raw =
+      sessionStorage.getItem("rolActivo") ||
+      localStorage.getItem("rolActivo_pwa");
+    const r = raw ? JSON.parse(raw) : null;
+    if (!r) return true;
+    if (r.esAdmin || (r.permisos || []).includes("ventas_ver_todas"))
+      return true;
+    return p.vendedor?.id === r.roleId;
+  } catch {
+    return true;
+  }
+}
 function pedidoVisible(id, p) {
   const origen = getOrigen(p);
+  if (!soloMisVentasDirectas(p)) return false;
   if (originFilter === "whatsapp") {
     return origen.tipo === "whatsapp" && pedidoCumpleTipo(p);
   }
@@ -7958,7 +7978,7 @@ const NuevoPedido = {
   },
 
   async cargarCatalogo(forceReload = false) {
-      NPAdicionales.iniciar();
+    NPAdicionales.iniciar();
     if ((this.cargado && !forceReload) || this.cargando) return;
     this.cargando = true;
     this.catalogoCompleto = false;
@@ -9465,6 +9485,7 @@ async function cerrarSesionCelular() {
   unsubCodigos = null;
   scanSesion = null;
   scanClave = "";
+  scanDispositivos.clear();
   pintarEstadoCelular(false);
   await borrarSesionScan(sid);
 }
@@ -9505,6 +9526,9 @@ async function abrirEmparejar() {
   ov.classList.add("show");
 
   if (!scanSesion) {
+    if (scanCreando) return;
+    scanCreando = true;
+    scanDispositivos.clear();
     body.innerHTML = `<p class="np-pair-steps">Generando código…</p>`;
     try {
       await limpiarSesionesViejas();
@@ -9520,36 +9544,47 @@ async function abrirEmparejar() {
       scanSesion = ref.id;
 
       unsubCodigos = onSnapshot(scanColRef(scanSesion), (snap) => {
-        snap.docChanges().forEach((ch) => {
+        snap.docChanges().forEach(async (ch) => {
           if (ch.type !== "added") return;
           const d = ch.doc.data();
           deleteDoc(ch.doc.ref).catch(() => {});
-          if (d.tipo === "hola") {
-            pintarEstadoCelular(true);
-            return;
+          if (!d.dev) return;
+
+          if (!scanDispositivos.has(d.dev)) {
+            if (d.tipo !== "hola") return; // sin registrarse no vale
+            if (scanDispositivos.size >= 5) {
+              // límite máximo
+              updateDoc(scanSesRef(scanSesion), {
+                rechazados: arrayUnion(d.dev),
+              }).catch(() => {});
+              return;
+            }
+            scanDispositivos.add(d.dev);
           }
-          if (d.codigo) {
-            pintarEstadoCelular(true);
-            NuevoPedido.procesarCodigo(d.codigo);
-          }
+          pintarEstadoCelular(true);
+          if (d.codigo) NuevoPedido.procesarCodigo(d.codigo);
         });
       });
-    } catch (e) {
-      console.error(e);
-      body.innerHTML = `<p class="np-pair-steps">No se pudo crear la sesión. Revisa las reglas de Firestore.</p>`;
-      return;
-    }
+   } catch (e) {
+    console.error(e);
+    body.innerHTML = `<p class="np-pair-steps">No se pudo crear la sesión. Revisa las reglas de Firestore.</p>`;
+    return;
+  } finally {
+    scanCreando = false;
+  }
   }
 
-  // import.meta.url = ruta real de pedidos_dashboard.js, que está en la MISMA carpeta
-  // que scanner_movil.html (js/dasboardjs/), así que siempre apunta bien
-  const urlScanner = new URL("./scanner_movil.html", import.meta.url);
-  urlScanner.search = new URLSearchParams({
-    l: localidad,
-    t: tiendaId,
-    s: scanSesion,
-  }).toString();
-  const url = urlScanner.href;
+const urlScanner = new URL("./scanner_movil.html", import.meta.url);
+const u = new URLSearchParams({ l: localidad, t: tiendaId, s: scanSesion });
+const dep = new URLSearchParams(location.search).get("departamento")
+  || sessionStorage.getItem("departamento");
+const prov = new URLSearchParams(location.search).get("provincia")
+  || sessionStorage.getItem("provincia");
+if (dep) u.set("departamento", dep);
+if (prov) u.set("provincia", prov);
+urlScanner.search = u.toString();
+urlScanner.hash = "k=" + scanClave;
+const url = urlScanner.href;
   const QR = (await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm"))
     .default;
   const img = await QR.toDataURL(url, { width: 240, margin: 1 });
@@ -9562,6 +9597,7 @@ async function abrirEmparejar() {
     <div id="npPairEstado" class="np-pair-estado">⏳ Esperando al celular…</div>
     <button class="oc-btn ghost danger" style="width:100%;" id="npPairFin">Terminar sesión</button>`;
   document.getElementById("npPairFin").onclick = async () => {
+    scanDispositivos.clear();
     unsubCodigos?.();
     unsubCodigos = null;
     try {
@@ -13013,25 +13049,114 @@ document.getElementById("waFechaBtn").addEventListener("click", () => {
 });
 
 /* ── Escáner de pedidos ── */
+const wscStyle = document.createElement("style");
+wscStyle.textContent = `
+.wsc-box{
+  position:relative;width:min(380px,92vw);padding:22px 18px 18px;border-radius:28px;
+  background:linear-gradient(180deg,#181824,#0e0e15);
+  border:1px solid rgba(255,255,255,.09);box-shadow:0 30px 80px rgba(0,0,0,.6);
+  color:#fff;text-align:center;
+  opacity:0;transform:translateY(24px) scale(.95);
+  transition:transform .45s cubic-bezier(.22,1,.36,1),opacity .3s ease;
+}
+.dlv-ov.show .wsc-box{opacity:1;transform:none;}
+.wsc-x{
+  position:absolute;top:12px;right:12px;width:34px;height:34px;border:none;border-radius:50%;
+  background:rgba(255,255,255,.08);color:#fff;cursor:pointer;transition:background .15s;
+}
+.wsc-x:hover{background:rgba(255,255,255,.16);}
+.wsc-ico{
+  width:44px;height:44px;margin:0 auto 8px;border-radius:14px;font-size:22px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(124,92,255,.16);border:1px solid rgba(124,92,255,.35);
+}
+.wsc-title{font-size:17px;font-weight:800;letter-spacing:-.01em;}
+.wsc-sub{font-size:12.5px;color:var(--ink-dim);margin:3px 0 14px;}
+.wsc-cam{
+  position:relative;aspect-ratio:1/1;border-radius:22px;overflow:hidden;background:#000;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08);
+}
+.wsc-cam video{width:100%;height:100%;object-fit:cover;}
+.wsc-cam::after{ /* oscurece los bordes para resaltar el recuadro */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at center,transparent 52%,rgba(0,0,0,.45) 100%);
+}
+.wsc-c{position:absolute;width:34px;height:34px;border:3px solid #a78bfa;z-index:2;filter:drop-shadow(0 0 6px rgba(124,92,255,.7));}
+.wsc-c.tl{top:18px;left:18px;border-right:0;border-bottom:0;border-top-left-radius:14px;}
+.wsc-c.tr{top:18px;right:18px;border-left:0;border-bottom:0;border-top-right-radius:14px;}
+.wsc-c.bl{bottom:18px;left:18px;border-right:0;border-top:0;border-bottom-left-radius:14px;}
+.wsc-c.br{bottom:18px;right:18px;border-left:0;border-top:0;border-bottom-right-radius:14px;}
+.wsc-line{
+  position:absolute;left:14%;right:14%;top:50%;height:2px;z-index:2;border-radius:2px;
+  background:linear-gradient(90deg,transparent,#a78bfa,transparent);
+  box-shadow:0 0 14px #7c5cff;animation:wsc-scan 1.8s ease-in-out infinite;
+}
+@keyframes wsc-scan{0%,100%{transform:translateY(-70px)}50%{transform:translateY(70px)}}
+.wsc-status{
+  margin:12px 0 4px;min-height:36px;padding:9px 12px;border-radius:12px;font-size:12.5px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  background:rgba(255,255,255,.05);color:var(--ink-dim);transition:background .2s,color .2s;
+}
+.wsc-status.err{background:rgba(248,113,113,.14);color:#fca5a5;animation:wsc-shake .4s;}
+@keyframes wsc-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.wsc-or{display:flex;align-items:center;gap:10px;margin:12px 0 10px;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;}
+.wsc-or::before,.wsc-or::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1);}
+.wsc-input{display:flex;gap:8px;}
+.wsc-input input{
+  flex:1;min-width:0;height:46px;padding:0 14px;border-radius:14px;font-size:16px;color:#fff;
+  background:#0a0a0f;border:1.5px solid rgba(255,255,255,.1);outline:none;color-scheme:dark;
+  text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+}
+.wsc-input input::placeholder{text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink-faint);}
+.wsc-input input:focus{border-color:#7c5cff;box-shadow:0 0 0 4px rgba(124,92,255,.15);}
+.wsc-input button{
+  height:46px;padding:0 18px;border:none;border-radius:14px;cursor:pointer;font-weight:800;font-size:13px;color:#fff;
+  background:linear-gradient(135deg,#9a6bff,#7a45f0);transition:transform .12s;
+}
+.wsc-input button:active{transform:scale(.95);}
+@media (prefers-reduced-motion:reduce){.wsc-line,.wsc-status.err{animation:none;}}
+`;
+document.head.appendChild(wscStyle);
+
 const waScanOv = document.createElement("div");
-waScanOv.className = "np-opt-overlay";
+waScanOv.className = "dlv-ov";
 waScanOv.innerHTML = `
-  <div class="np-opt-modal np-cam-box">
-    <div class="np-opt-head"><span>🔎 Buscar pedido</span><button id="waScanX">✕</button></div>
-    <div class="np-cam-wrap"><video id="waScanVideo" playsinline muted></video><div class="np-cam-line"></div></div>
-    <p class="np-cam-hint">Apunta al QR del pedido o escribe el código.</p>
-    <div class="pe-search" style="margin-top:8px;">
-      <input type="text" id="waScanCode" placeholder="Código (ej: A1B2C3)" autocomplete="off">
-      <button type="button" class="oc-btn ghost" id="waScanGo">Buscar</button>
+  <div class="wsc-box">
+    <button type="button" class="wsc-x" id="waScanX" aria-label="Cerrar">✕</button>
+    <div class="wsc-ico">🔎</div>
+    <div class="wsc-title">Buscar pedido</div>
+    <div class="wsc-sub">Apunta al QR del pedido</div>
+    <div class="wsc-cam">
+      <video id="waScanVideo" playsinline muted></video>
+      <span class="wsc-c tl"></span><span class="wsc-c tr"></span>
+      <span class="wsc-c bl"></span><span class="wsc-c br"></span>
+      <div class="wsc-line"></div>
+    </div>
+    <div class="wsc-status" id="waScanStatus">📷 Escaneando…</div>
+    <div class="wsc-or">o escribe el código</div>
+    <div class="wsc-input">
+      <input type="text" id="waScanCode" placeholder="Ej: A1B2C3" autocomplete="off" autocapitalize="characters">
+      <button type="button" id="waScanGo">Buscar</button>
     </div>
   </div>`;
 document.body.appendChild(waScanOv);
 
 let waPararCam = null,
   waBuscando = false,
-  waClearT;
+  waClearT,
+  waAbierto = false,
+  waUltimoFallo = { c: "", t: 0 };
 
+function waEstado(txt, error = false) {
+  const el = document.getElementById("waScanStatus");
+  if (!el) return;
+  el.textContent = txt;
+  el.classList.remove("err");
+  void el.offsetWidth; // reinicia la animación del aviso
+  el.classList.toggle("err", error);
+}
 function waCerrarScan() {
+  waAbierto = false;
   waPararCam?.();
   waPararCam = null;
   waScanOv.classList.remove("show");
@@ -13071,13 +13196,19 @@ function waMostrar(id) {
   return true;
 }
 async function waProcesar(raw) {
-  if (waBuscando) return false;
+  if (waBuscando || !waAbierto) return false;
+  const clave = String(raw || "")
+    .trim()
+    .toUpperCase();
+  // mismo código que ya falló hace poco: se ignora (la cámara lo lee mil veces)
+  if (clave === waUltimoFallo.c && Date.now() - waUltimoFallo.t < 3000)
+    return false;
   waBuscando = true;
   try {
     const id = waBuscarLocal(raw);
     if (id) {
       npBeep(true);
-      waCerrarScan();
+      waCerrarScan(); // ✅ encontrado: se apaga la cámara y se cierra
       return waMostrar(id);
     }
     // no está en el día visible: se busca por ID completo y se salta a su fecha
@@ -13094,28 +13225,36 @@ async function waProcesar(raw) {
         return true;
       }
     }
+    // ❌ no encontrado: la cámara sigue abierta, solo se avisa
+    waUltimoFallo = { c: clave, t: Date.now() };
     npBeep(false);
-    showToast(
-      "❌ No encontré ese pedido en esta fecha. Cambia el día 📅",
+    waEstado(
+      "❌ No encontré ese pedido en esta fecha. Prueba otro día 📅",
       true,
     );
     return false;
   } finally {
-    setTimeout(() => (waBuscando = false), 800);
+    setTimeout(() => (waBuscando = false), 600);
   }
 }
 
 document.getElementById("waScanBtn").addEventListener("click", async () => {
+  waAbierto = true;
+  waUltimoFallo = { c: "", t: 0 };
   waScanOv.classList.add("show");
   document.getElementById("waScanCode").value = "";
+  waEstado("📷 Escaneando…");
   try {
-    waPararCam = await iniciarCamara(
+    const parar = await iniciarCamara(
       document.getElementById("waScanVideo"),
       (c) => waProcesar(c),
     );
+    // si ya se cerró mientras la cámara arrancaba, se apaga de inmediato
+    if (!waAbierto) parar?.();
+    else waPararCam = parar;
   } catch (e) {
     console.warn(e);
-    showToast("No se pudo abrir la cámara, escribe el código", true);
+    waEstado("No se pudo abrir la cámara, escribe el código", true);
   }
 });
 document.getElementById("waScanX").onclick = waCerrarScan;
@@ -13129,7 +13268,6 @@ document.getElementById("waScanGo").addEventListener("click", () => {
 document.getElementById("waScanCode").addEventListener("keydown", (e) => {
   if (e.key === "Enter") document.getElementById("waScanGo").click();
 });
-
 const mobStyle = document.createElement("style");
 mobStyle.textContent = `
 @media (max-width:820px){
@@ -13806,7 +13944,6 @@ document.head.appendChild(dlgFix);
   });
 })();
 
-
 /* ══════ Celular: Nuevo pedido entra completo en la pantalla ══════ */
 (function () {
   const abierto = ":has(#nuevoPedidoWrap:not(.vista-oculta))";
@@ -13831,7 +13968,10 @@ document.head.appendChild(dlgFix);
     if (padre.innerWidth > 820) return marco.style.removeProperty("height");
     const vista = padre.visualViewport;
     const visible = vista ? vista.height * vista.scale : padre.innerHeight;
-    const arriba = Math.max(0, marco.getBoundingClientRect().top + padre.scrollY);
+    const arriba = Math.max(
+      0,
+      marco.getBoundingClientRect().top + padre.scrollY,
+    );
     const alto = Math.floor(visible - arriba);
     if (alto > 300) marco.style.setProperty("height", `${alto}px`, "important");
   }

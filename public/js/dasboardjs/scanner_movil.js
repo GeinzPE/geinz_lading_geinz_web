@@ -7,7 +7,9 @@ import { tiendaSubCol, tiendaSubDoc } from "../rutas/rutas.js";
 import { iniciarCamara } from "./scan_camara.js";
 
 const q = new URLSearchParams(location.search);
-const L = q.get("l"), T = q.get("t"), S = q.get("s");
+const L = q.get("l"),
+  T = q.get("t"),
+  S = q.get("s");
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let clave = "";
@@ -16,10 +18,23 @@ let pararCamara = null;
 let unsubSesion = null;
 let sesionTerminada = false;
 
-const enviar = (codigo, tipo = "scan") =>
-  addDoc(tiendaSubCol(L, "tiendas", T, "scan_sesiones", S, "codigos"),
-    { codigo, tipo, clave, ts: serverTimestamp() });
+const deviceId = (() => {
+  let d = localStorage.getItem("geinz_dev");
+  if (!d) {
+    d = crypto.randomUUID();
+    localStorage.setItem("geinz_dev", d);
+  }
+  return d;
+})();
 
+const enviar = (codigo, tipo = "scan") =>
+  addDoc(tiendaSubCol(L, "tiendas", T, "scan_sesiones", S, "codigos"), {
+    codigo,
+    tipo,
+    clave,
+    dev: deviceId,
+    ts: serverTimestamp(),
+  });
 /* ══════ Pasos: 0 carga · 1 clave · 2 escáner · 3 terminada ══════ */
 function mostrar(paso) {
   $("paso1").hidden = paso !== 1;
@@ -39,14 +54,25 @@ async function terminarSesion() {
   if (sesionTerminada) return;
   sesionTerminada = true;
 
-  try { unsubSesion?.(); } catch {}
+  try {
+    unsubSesion?.();
+  } catch {}
   unsubSesion = null;
 
   // apaga la linterna y la cámara por completo
-  try { if (linternaOn) await track?.applyConstraints({ advanced: [{ torch: false }] }); } catch {}
-  try { pararCamara?.(); } catch {}
+  try {
+    if (linternaOn)
+      await track?.applyConstraints({ advanced: [{ torch: false }] });
+  } catch {}
+  try {
+    pararCamara?.();
+  } catch {}
   pararCamara = null;
-  try { $("v").srcObject?.getTracks().forEach((t) => t.stop()); } catch {}
+  try {
+    $("v")
+      .srcObject?.getTracks()
+      .forEach((t) => t.stop());
+  } catch {}
   $("v").srcObject = null;
   $("flash").hidden = true;
 
@@ -58,21 +84,21 @@ async function terminarSesion() {
   mostrar(3);
 }
 
-/* Escucha la sesión: si el dashboard la borra, el celular se entera al instante */
 function vigilarSesion() {
   let vistaUnaVez = false;
   unsubSesion = onSnapshot(
     tiendaSubDoc(L, "tiendas", T, "scan_sesiones", S),
     (snap) => {
-      if (snap.exists()) { vistaUnaVez = true; return; }
-      // El doc ya no existe: el dashboard cerró la sesión
-      if (vistaUnaVez || !snap.metadata.fromCache) terminarSesion();
+      if (snap.exists()) {
+        vistaUnaVez = true;
+        if ((snap.data().rechazados || []).includes(deviceId)) {
+          terminarSesion("Ya hay 5 dispositivos conectados.");
+        }
+        return;
+      }
+      if (vistaUnaVez && !snap.metadata.fromCache) terminarSesion();
     },
-    (err) => {
-      // Sin permiso de lectura en las reglas: no se puede vigilar, pero
-      // el envío fallido de un código igual detectará el cierre.
-      console.warn("No se pudo vigilar la sesión:", err?.code || err);
-    },
+    (err) => console.warn("No se pudo vigilar la sesión:", err?.code || err),
   );
 }
 
@@ -87,20 +113,32 @@ async function alEscanear(code) {
     $("lastCode").textContent = code;
     $("last").classList.add("show");
     $("histN").textContent = total;
-    const hora = new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    $("hist").insertAdjacentHTML("afterbegin", `<div>✔ ${code}<span>${hora}</span></div>`);
+    const hora = new Date().toLocaleTimeString("es-PE", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    $("hist").insertAdjacentHTML(
+      "afterbegin",
+      `<div>✔ ${code}<span>${hora}</span></div>`,
+    );
     const f = $("frame");
     f.classList.add("ok");
     setTimeout(() => f.classList.remove("ok"), 600);
-  } catch {
-    terminarSesion(); // si no se puede enviar, la sesión ya no existe
-  }
+ } catch (e) {
+  console.error("Fallo al enviar:", e?.code, e?.message);
+  $("err").textContent = e?.code || "";
+  terminarSesion();
+}
 }
 
 /* ══════ Cámara confiable ══════ */
 async function pedirPermisoCamara() {
   if (!navigator.mediaDevices?.getUserMedia)
-    throw { tipo: "cam", msg: "Tu navegador no permite usar la cámara (se necesita HTTPS)." };
+    throw {
+      tipo: "cam",
+      msg: "Tu navegador no permite usar la cámara (se necesita HTTPS).",
+    };
   try {
     const s = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } },
@@ -131,7 +169,9 @@ async function esperarVideoListo(timeout = 4000) {
 }
 
 async function abrirCamara() {
-  try { pararCamara?.(); } catch {}
+  try {
+    pararCamara?.();
+  } catch {}
   pararCamara = null;
   for (let i = 0; i < 3; i++) {
     try {
@@ -140,12 +180,17 @@ async function abrirCamara() {
       throw new Error("video sin imagen");
     } catch (e) {
       console.warn(`Intento de cámara ${i + 1} falló`, e);
-      try { pararCamara?.(); } catch {}
+      try {
+        pararCamara?.();
+      } catch {}
       pararCamara = null;
       await sleep(400 * (i + 1));
     }
   }
-  throw { tipo: "cam", msg: "La cámara no arrancó. Toca Conectar para reintentar." };
+  throw {
+    tipo: "cam",
+    msg: "La cámara no arrancó. Toca Conectar para reintentar.",
+  };
 }
 
 document.addEventListener("visibilitychange", async () => {
@@ -154,14 +199,21 @@ document.addEventListener("visibilitychange", async () => {
   const v = $("v");
   const tk = v.srcObject?.getVideoTracks?.()[0];
   if (v.paused || !tk || tk.readyState === "ended") {
-    try { await abrirCamara(); prepararLinterna(); } catch {}
+    try {
+      await abrirCamara();
+      prepararLinterna();
+    } catch {}
   }
 });
 
 // Al cerrar la pestaña del celular, apaga la cámara
 window.addEventListener("pagehide", () => {
-  try { pararCamara?.(); } catch {}
-  try { unsubSesion?.(); } catch {}
+  try {
+    pararCamara?.();
+  } catch {}
+  try {
+    unsubSesion?.();
+  } catch {}
 });
 
 /* ══════ Linterna ══════ */
@@ -185,7 +237,8 @@ async function prepararLinterna() {
     $("flash").hidden = false;
   } else {
     $("flash").hidden = true;
-    $("hintFlash").textContent = "Este celular/navegador no permite controlar la linterna desde la web";
+    $("hintFlash").textContent =
+      "Este celular/navegador no permite controlar la linterna desde la web";
   }
 }
 async function alternarLinterna() {
@@ -194,7 +247,9 @@ async function alternarLinterna() {
     linternaOn = !linternaOn;
     await track.applyConstraints({ advanced: [{ torch: linternaOn }] });
     $("flash").classList.toggle("on", linternaOn);
-    $("hintFlash").textContent = linternaOn ? "Linterna encendida" : "Si hay poca luz, toca 🔦 para encender el flash";
+    $("hintFlash").textContent = linternaOn
+      ? "Linterna encendida"
+      : "Si hay poca luz, toca 🔦 para encender el flash";
   } catch (e) {
     console.warn(e);
     linternaOn = false;
@@ -208,7 +263,8 @@ $("conectar").onclick = async () => {
   clave = $("pin").value.trim();
   $("err").textContent = "";
   if (!L || !T || !S) return ($("err").textContent = "QR inválido");
-  if (clave.length !== 6) return ($("err").textContent = "La clave tiene 6 dígitos");
+  if (clave.length !== 6)
+    return ($("err").textContent = "La clave tiene 6 dígitos");
 
   $("conectar").disabled = true;
   sesionTerminada = false;
@@ -256,10 +312,24 @@ $("conectar").onclick = async () => {
   }
 };
 
-$("pin").addEventListener("keydown", (e) => { if (e.key === "Enter") $("conectar").click(); });
+$("pin").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("conectar").click();
+});
 
 $("enviarManual").onclick = () => {
   const c = $("manual").value.trim();
-  if (c) { alEscanear(c); $("manual").value = ""; }
+  if (c) {
+    alEscanear(c);
+    $("manual").value = "";
+  }
 };
-$("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("enviarManual").click(); });
+$("manual").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("enviarManual").click();
+});
+
+const kHash = new URLSearchParams(location.hash.slice(1)).get("k");
+if (kHash && /^\d{6}$/.test(kHash)) {
+  $("pin").value = kHash;
+  history.replaceState(null, "", location.pathname + location.search); // borra la clave de la URL
+  $("conectar").click();
+}

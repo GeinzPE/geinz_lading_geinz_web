@@ -124,14 +124,24 @@
 
     #btnRefresh {
       background: var(--w-surface-2) !important;
-      border: 1px solid var(--w-line) !important;
+      border: 1px solid rgba(136, 85, 255, .35) !important;
+      color: #b9a2ff;
       border-radius: 14px !important;
-      transition: background .15s, border-color .15s, transform .1s;
+      transition: background .15s, border-color .15s, color .15s, transform .1s;
     }
 
     #btnRefresh:hover {
       background: #1b1b22 !important;
-      border-color: var(--w-line-strong) !important;
+      border-color: rgba(136, 85, 255, .7) !important;
+      color: #fff;
+    }
+
+    #btnRefresh svg {
+      display: block;
+    }
+
+    #connDot {
+      box-shadow: 0 0 0 3px rgba(136, 85, 255, .18);
     }
 
     #btnAddWorker {
@@ -141,8 +151,61 @@
       box-shadow: 0 8px 22px -8px rgba(136, 85, 255, .7) !important;
     }
 
-    #connDot {
-      box-shadow: 0 0 0 3px rgba(136, 85, 255, .18);
+    /* ============ BOTÓN "?" DE AYUDA (explica para qué sirve cada cosa) ============ */
+    .qm {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      margin-left: 6px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(136, 85, 255, .6);
+      background: rgba(136, 85, 255, .12);
+      color: #b9a2ff;
+      font: 700 11px/1 'Inter', system-ui, sans-serif;
+      text-transform: none;
+      letter-spacing: 0;
+      cursor: pointer;
+      vertical-align: middle;
+      flex-shrink: 0;
+      transition: background .15s, color .15s;
+    }
+
+    .qm:hover,
+    .qm:focus-visible {
+      background: rgba(136, 85, 255, .35);
+      color: #fff;
+      outline: none;
+    }
+
+    .ayuda-pop {
+      position: fixed;
+      z-index: 1000;
+      max-width: min(280px, calc(100vw - 16px));
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #15101f;
+      border: 1px solid rgba(136, 85, 255, .5);
+      color: #e6dcff;
+      font: 500 13px/1.4 'Inter', system-ui, sans-serif;
+      text-transform: none;
+      letter-spacing: 0;
+      text-align: left;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .7);
+    }
+
+    .ayuda-pop[hidden] {
+      display: none;
+    }
+
+    @media (max-width: 700px) {
+      .qm {
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+      }
     }
 
     /* ============ TARJETAS ============ */
@@ -1295,9 +1358,17 @@
         </p>
       </div>
       <div class="flex items-center gap-2 sm:gap-3">
-        <button id="btnRefresh" title="Actualizar ventas"
+        <button id="btnRefresh" title="Actualizar ventas" aria-label="Actualizar ventas"
           class="bg-panel2 border border-line text-white text-sm w-10 h-10 rounded-xl hover:border-primary active:scale-95 transition flex items-center justify-center">
-          <span id="refreshIcon" class="inline-block transition-transform duration-500">🔄</span>
+          <span id="refreshIcon" class="inline-block transition-transform duration-500" style="line-height:0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
+            </svg>
+          </span>
         </button>
         <button id="btnAddWorker"
           class="flex items-center gap-2 bg-primary text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">
@@ -1315,7 +1386,9 @@
     <!-- ======================= RANGO ======================= -->
     <section class="bg-panel border border-line rounded-2xl p-4">
       <div class="flex flex-wrap items-center gap-2" id="dateChips">
-        <span class="text-[11px] text-inkfaint font-semibold mr-1">Rango</span>
+        <span class="text-[11px] text-inkfaint font-semibold mr-1">Rango<button type="button" class="qm"
+            aria-label="¿Para qué sirve?"
+            data-ayuda="Elige de qué fechas quieres ver las ventas y los sueldos: hoy, esta semana, este mes, el mes pasado o un rango que tú escojas. Todos los números de abajo se calculan con este rango.">?</button></span>
         <button data-range="hoy" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Hoy</button>
         <button data-range="semana" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Esta semana</button>
         <button data-range="mes" class="chip active px-3 py-1.5 rounded-full text-sm font-medium">Este mes</button>
@@ -1354,24 +1427,32 @@
       <section>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div class="bg-panel border border-line rounded-2xl p-4">
-            <p class="text-[11px] text-inkdim font-semibold mb-1">Lo que vendiste</p>
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Lo que vendiste<button type="button" class="qm"
+                aria-label="¿Para qué sirve?"
+                data-ayuda="El total de los pedidos entregados en el rango que elegiste. Los pedidos que no se entregaron no cuentan.">?</button></p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiVentas">S/ 0.00</p>
             <p class="text-[11px] text-inkfaint mt-1"><span id="kpiPedidos">0</span> pedidos entregados</p>
           </div>
           <div class="bg-panel border border-line rounded-2xl p-4">
-            <p class="text-[11px] text-inkdim font-semibold mb-1">Sueldos que se ganaron</p>
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Sueldos que se ganaron<button type="button"
+                class="qm" aria-label="¿Para qué sirve?"
+                data-ayuda="Lo que tus trabajadores ganaron en este rango por los días que trabajaron (más bonos, menos descuentos). Es lo que cuesta tu planilla, aunque todavía no se haya pagado.">?</button></p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiPlanilla">S/ 0.00</p>
             <p class="text-[11px] text-inkfaint mt-1" id="kpiPlanillaPct">0% de las ventas</p>
           </div>
           <div class="bg-panel border border-line rounded-2xl p-4">
-            <p class="text-[11px] text-inkdim font-semibold mb-1">Falta pagar a tus trabajadores</p>
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Falta pagar a tus trabajadores<button type="button"
+                class="qm" aria-label="¿Para qué sirve?"
+                data-ayuda="La suma de lo que le debes a todos tus trabajadores hasta hoy. Es la plata que debes tener lista para pagarles. Abajo, “ya les pagaste” es lo que ya entregaste en este rango.">?</button></p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiPendiente">S/ 0.00</p>
             <p class="text-[11px] text-inkfaint mt-1">ya les pagaste: <span id="kpiPagado" class="font-mono">S/
                 0.00</span></p>
           </div>
           <div
             class="bg-panel border border-primary/40 rounded-2xl p-4 relative overflow-hidden shadow-lg shadow-primary/5">
-            <p class="text-[11px] text-primary font-bold mb-1">Lo que te queda a ti</p>
+            <p class="text-[11px] text-primary font-bold mb-1">Lo que te queda a ti<button type="button" class="qm"
+                aria-label="¿Para qué sirve?"
+                data-ayuda="Tu ganancia estimada: lo que vendiste menos el costo de los productos, los gastos operativos y los sueldos. Los porcentajes de costo salen de la configuración de Historial de ventas.">?</button></p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiUtilidad">S/ 0.00</p>
             <p class="text-[11px] text-inkfaint mt-1" id="kpiUtilidadPct">0% de las ventas</p>
           </div>
@@ -1382,7 +1463,10 @@
       <section class="grid lg:grid-cols-5 gap-3">
         <div class="lg:col-span-3 bg-panel border border-line rounded-2xl p-4">
           <div class="flex items-center justify-between mb-3">
-            <h2 class="font-display font-bold text-lg text-white">Cuánto te queda</h2>
+            <h2 class="font-display font-bold text-lg text-white">Cuánto te queda<button type="button" class="qm"
+                aria-label="¿Para qué sirve?"
+                data-ayuda="Te muestra paso a paso cómo se reparte lo que vendiste: primero lo que cuesta el producto, luego los gastos, luego los sueldos, y al final lo que queda para ti. Cada barra es el porcentaje de las ventas.">?</button>
+            </h2>
             <span class="text-[11px] font-mono text-inkfaint">de las ventas a tu bolsillo</span>
           </div>
           <div class="space-y-3" id="waterfall"></div>
@@ -1390,7 +1474,10 @@
         </div>
 
         <div class="lg:col-span-2 bg-panel border border-line rounded-2xl p-4">
-          <h2 class="font-display font-bold text-lg text-white mb-3">A dónde va cada sol</h2>
+          <h2 class="font-display font-bold text-lg text-white mb-3">A dónde va cada sol<button type="button"
+              class="qm" aria-label="¿Para qué sirve?"
+              data-ayuda="El círculo muestra en qué se va lo que vendiste: productos, gastos, sueldos y lo que te queda a ti. El porcentaje del centro es tu parte.">?</button>
+          </h2>
           <div class="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-center gap-4">
             <div class="relative w-40 h-40 shrink-0">
               <svg viewBox="0 0 140 140" class="w-full h-full -rotate-90" id="donut"></svg>
@@ -1408,7 +1495,10 @@
       <section class="grid lg:grid-cols-5 gap-3">
         <div class="lg:col-span-3 bg-panel border border-line rounded-2xl p-4">
           <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-            <h2 class="font-display font-bold text-lg text-white">Ventas vs. sueldos por día</h2>
+            <h2 class="font-display font-bold text-lg text-white">Ventas vs. sueldos por día<button type="button"
+                class="qm" aria-label="¿Para qué sirve?"
+                data-ayuda="Compara día por día lo que vendiste (barra morada) con lo que cuestan los sueldos de ese día (barra blanca). Sirve para ver si tus días de poca venta tienen demasiado personal.">?</button>
+            </h2>
             <div class="flex items-center gap-3 text-[11px] text-inkdim">
               <span class="flex items-center gap-1.5"><i
                   class="w-2.5 h-2.5 rounded-sm bg-primary inline-block"></i>Ventas</span>
@@ -1423,7 +1513,10 @@
         </div>
 
         <div class="lg:col-span-2 bg-panel border border-line rounded-2xl p-4">
-          <h2 class="font-display font-bold text-lg text-white mb-3">Sueldo por trabajador</h2>
+          <h2 class="font-display font-bold text-lg text-white mb-3">Sueldo por trabajador<button type="button"
+              class="qm" aria-label="¿Para qué sirve?"
+              data-ayuda="Cuánto ganó cada trabajador en este rango. La parte fuerte de la barra es lo que ya le pagaste y la parte suave es lo que falta pagarle.">?</button>
+          </h2>
           <div class="space-y-3 max-h-64 overflow-y-auto pr-1" id="workerBars"></div>
         </div>
       </section>
@@ -1432,7 +1525,10 @@
     <!-- ======================= PRÓXIMOS PAGOS ======================= -->
     <section id="paySection" class="hidden bg-panel border border-line rounded-2xl p-4">
       <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <h2 class="font-display font-bold text-lg text-white">Próximos pagos</h2>
+        <h2 class="font-display font-bold text-lg text-white">Próximos pagos<button type="button" class="qm"
+            aria-label="¿Para qué sirve?"
+            data-ayuda="La lista de trabajadores a los que les debes plata, ordenada por quién cobra primero. “Ten listo en 7 días” es lo que necesitas tener a mano esta semana.">?</button>
+        </h2>
         <span class="text-[11px] font-mono text-primary" id="payTotal"></span>
       </div>
       <p class="help mb-3">Aquí ves a quién hay que pagar, cuándo y cuánto. Así sabes cuánta plata tener lista.</p>
@@ -1443,7 +1539,10 @@
     <section>
       <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <h2 class="font-display font-bold text-xl text-white">Trabajadores <span id="workerCount"
-            class="text-inkfaint font-body font-normal text-base"></span></h2>
+            class="text-inkfaint font-body font-normal text-base"></span><button type="button" class="qm"
+            aria-label="¿Para qué sirve?"
+            data-ayuda="Aquí está la tarjeta de cada trabajador: cuánto le debes, cuándo le toca cobrar y los botones para marcar sus días, pagarle, editarlo o eliminarlo. Puedes buscar por nombre o DNI.">?</button>
+        </h2>
         <div class="relative w-full sm:w-64">
           <input id="searchWorker" type="text" placeholder="Buscar nombre o DNI…" class="field !pl-8 !py-1.5">
           <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-inkfaint text-sm">🔍</span>
@@ -1529,6 +1628,46 @@
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const fmtDia = (d) => d.toLocaleDateString("es-PE", { day: "2-digit", month: "short" });
     const fmtDiaLargo = (d) => d.toLocaleDateString("es-PE", { weekday: "short", day: "2-digit", month: "short" });
+
+    /* ---------------- Ayuda: botón "?" que explica para qué sirve cada cosa ---------------- */
+    const ayuda = (txt) =>
+      `<button type="button" class="qm" aria-label="¿Para qué sirve?" data-ayuda="${esc(txt)}">?</button>`;
+    const popAyuda = document.createElement("div");
+    popAyuda.className = "ayuda-pop";
+    popAyuda.hidden = true;
+    popAyuda.setAttribute("role", "tooltip");
+    document.body.appendChild(popAyuda);
+    let popBtn = null;
+    function cerrarAyuda() {
+      popAyuda.hidden = true;
+      popBtn = null;
+    }
+    function abrirAyuda(btn) {
+      popBtn = btn;
+      popAyuda.textContent = btn.dataset.ayuda;
+      popAyuda.hidden = false;
+      const r = btn.getBoundingClientRect();
+      const w = popAyuda.offsetWidth;
+      const h = popAyuda.offsetHeight;
+      const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+      let top = r.bottom + 8;
+      if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+      popAyuda.style.left = left + "px";
+      popAyuda.style.top = top + "px";
+    }
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest ? e.target.closest("[data-ayuda]") : null;
+      if (b) {
+        e.preventDefault();
+        if (popBtn === b) cerrarAyuda();
+        else abrirAyuda(b);
+        return;
+      }
+      if (!e.target.closest(".ayuda-pop")) cerrarAyuda();
+    });
+    window.addEventListener("scroll", cerrarAyuda, true);
+    window.addEventListener("resize", cerrarAyuda);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarAyuda(); });
 
     function fmtMoney(n) {
       return "S/ " + (Number(n) || 0).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2145,7 +2284,7 @@
                 <p class="text-xs text-inkfaint truncate">${w.cargo ? esc(w.cargo) + " · " : ""}${w.tipoDoc === "CE" ? "C.E." : "DNI"} ${esc(w.dni)}</p>
               </div>
             </div>
-            <span class="${est.cls}">${est.txt}</span>
+            <span class="shrink-0"><span class="${est.cls}">${est.txt}</span>${ayuda("Te dice cómo está su pago: “Al día” = no le debes nada. “Aún no toca” = le debes, pero todavía no es su fecha de cobro. “Pagar hoy” = le toca cobrar hoy. “Pago atrasado” = ya pasó su fecha y no se le pagó.")}</span>
           </div>
 
           <div class="flex flex-wrap gap-1.5 mb-3">
@@ -2156,27 +2295,27 @@
           </div>
 
           <div class="debt">
-            <p class="text-[11px] text-inkfaint" style="margin-bottom:.15rem">${saldo < -0.5 ? "Ya recibió de más" : "Le debes"}</p>
+            <p class="text-[11px] text-inkfaint" style="margin-bottom:.15rem">${saldo < -0.5 ? "Ya recibió de más" : "Le debes"}${ayuda("Es lo que este trabajador ya ganó por los días que trabajó y todavía no se le paga. Se calcula con todos sus días marcados, menos los pagos y adelantos que ya le diste.")}</p>
             <p class="debt-n ${saldo < -0.5 ? "text-red-400" : saldo > 0.5 ? "text-white" : "text-inkfaint"}">${fmtMoney(Math.abs(saldo) < 0.5 ? 0 : Math.abs(saldo))}</p>
             <p class="help" style="margin-top:.35rem">${saldo > 0.5 ? "Es lo que ya trabajó y todavía no le pagas." : saldo < -0.5 ? "Le diste más de lo que ganó. Se resta de su próximo pago." : "No le debes nada por ahora."}</p>
           </div>
 
           <div class="bg-panel2 border border-line rounded-xl px-3 py-2 mb-3 text-xs space-y-1.5">
             <div class="flex items-center justify-between gap-2">
-              <span class="text-inkfaint">📆 Próximo pago</span>
+              <span class="text-inkfaint">📆 Próximo pago${ayuda("La fecha en que le toca cobrar. Corre sola según cada cuánto le pagas (diario, semanal, quincenal o mensual), aunque le pagues tarde.")}</span>
               <span class="${pp.cls} text-right">${pp.txt}</span>
             </div>
             <div class="flex items-center justify-between gap-2">
-              <span class="text-inkfaint">✅ Último pago</span>
+              <span class="text-inkfaint">✅ Último pago${ayuda("El último pago o adelanto que le diste, con la fecha y el monto.")}</span>
               <span class="text-inkdim text-right">${ult ? `${fmtDia(parseIso(ult.fecha))} · ${fmtMoney(ult.monto)}${ult.tipo === "adelanto" ? " (adelanto)" : ""}` : "Aún no le has pagado"}</span>
             </div>
           </div>
 
           <div class="grid grid-cols-4 gap-2">
-            <button data-act="asistencia" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-white text-sm font-semibold py-2 rounded-xl hover:border-primary active:scale-95 transition">📅 Marcar días</button>
-            <button data-act="pagos" data-id="${w.id}" class="col-span-2 bg-primary text-white text-sm font-semibold py-2 rounded-xl hover:brightness-110 active:scale-95 transition">💸 Pagar / adelanto</button>
-            <button data-act="editar" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-inkdim text-xs font-semibold py-1.5 rounded-lg hover:text-white hover:border-primary active:scale-95 transition">✏️ Editar</button>
-            <button data-act="borrar" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-inkdim text-xs font-semibold py-1.5 rounded-lg hover:text-red-400 hover:border-red-500/50 active:scale-95 transition">🗑 Eliminar</button>
+            <button data-act="asistencia" data-id="${w.id}" title="Marca si vino, faltó o descansó cada día" class="col-span-2 bg-panel2 border border-line text-white text-sm font-semibold py-2 rounded-xl hover:border-primary active:scale-95 transition">📅 Marcar días</button>
+            <button data-act="pagos" data-id="${w.id}" title="Págale su sueldo, dale un adelanto, un descuento o un bono" class="col-span-2 bg-primary text-white text-sm font-semibold py-2 rounded-xl hover:brightness-110 active:scale-95 transition">💸 Pagar / adelanto</button>
+            <button data-act="editar" data-id="${w.id}" title="Cambia sus datos, su sueldo o sus días de trabajo" class="col-span-2 bg-panel2 border border-line text-inkdim text-xs font-semibold py-1.5 rounded-lg hover:text-white hover:border-primary active:scale-95 transition">✏️ Editar</button>
+            <button data-act="borrar" data-id="${w.id}" title="Borra al trabajador con su asistencia y pagos" class="col-span-2 bg-panel2 border border-line text-inkdim text-xs font-semibold py-1.5 rounded-lg hover:text-red-400 hover:border-red-500/50 active:scale-95 transition">🗑 Eliminar</button>
           </div>
         </div>`;
       }).join("");
@@ -2216,7 +2355,7 @@
         ? (w.rolId ? `<p class="help">🔗 Vinculado a una cuenta del panel.</p>` : "")
         : (rolesOk.length ? `
           <div>
-            <label class="lbl">¿Quién es?</label>
+            <label class="lbl">¿Quién es?${ayuda("Si esta persona ya tiene una cuenta en el panel (por ejemplo un mozo o administrador), elígela y se llenan sus datos solos. Si no, elige “Otra persona” y escribe el nombre.")}</label>
             <div class="rol-list">
               <label class="rol-row"><input type="radio" name="fRol" value="" checked><span class="rol-av">✍️</span><span class="rol-tx"><b>Otra persona</b><small>Escribo el nombre yo mismo</small></span></label>
               ${rolesOk.map((r) => { const u = usados.has(r.id); return `<label class="rol-row ${u ? "off" : ""}"><input type="radio" name="fRol" value="${esc(r.id)}" ${u ? "disabled" : ""}><span class="rol-av">${esc((r.nombre || "?").charAt(0).toUpperCase())}</span><span class="rol-tx"><b>${esc(r.nombre)}</b><small>@${esc(r.usuario)} · ${r.esAdmin ? "Administrador" : "Rol del panel"}${u ? " · ya es trabajador" : ""}</small></span></label>`; }).join("")}
@@ -2248,24 +2387,24 @@
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div><label class="lbl">Celular (opcional)</label><input id="fTel" class="field font-mono" inputmode="tel" value="${esc(v.telefono)}" placeholder="9XXXXXXXX"></div>
-            <div><label class="lbl">Fecha de ingreso</label><input id="fIngreso" type="date" class="field font-mono" value="${esc(v.fechaIngreso)}"></div>
+            <div><label class="lbl">Fecha de ingreso${ayuda("El día que empezó a trabajar. Desde esta fecha se cuenta su primer ciclo de pago.")}</label><input id="fIngreso" type="date" class="field font-mono" value="${esc(v.fechaIngreso)}"></div>
           </div>
 
           <div class="border-t border-line pt-4">
-            <label class="lbl">¿Cómo le pagas?</label>
+            <label class="lbl">¿Cómo le pagas?${ayuda("La forma en que le entregas su plata (efectivo, Yape, Plin o transferencia). Es solo para tu control, no cambia el cálculo.")}</label>
             <div class="g2">${Object.entries(METODOS).map(([k, ico]) => `<label class="pick"><input type="radio" name="fMetodo" value="${k}" ${(v.metodoPago || "Efectivo") === k ? "checked" : ""}><span class="pi">${ico}</span><span>${k}</span></label>`).join("")}</div>
           </div>
           <div>
-            <label class="lbl">¿Cada cuánto le pagas?</label>
+            <label class="lbl">¿Cada cuánto le pagas?${ayuda("Cada cuánto tiempo le toca cobrar: todos los días, cada semana, cada quincena o cada mes. De aquí sale su fecha de próximo pago.")}</label>
             <div class="g4">${["diario", "semanal", "quincenal", "mensual"].map((f) => `<label class="pick sm"><input type="radio" name="fFrec" value="${f}" ${v.frecuencia === f ? "checked" : ""}><span>${f[0].toUpperCase() + f.slice(1)}</span></label>`).join("")}</div>
           </div>
           <div>
-            <label class="lbl">¿Cuánto le vas a pagar cada vez?</label>
+            <label class="lbl">¿Cuánto le vas a pagar cada vez?${ayuda("El sueldo completo de cada pago. Por ejemplo, si le pagas S/ 300 cada semana, escribe 300. El sistema calcula cuánto gana por cada día trabajado.")}</label>
             <div class="money"><span>S/</span><input id="fMonto" type="number" inputmode="decimal" min="0" step="0.5" class="field font-mono" value="${v.monto ?? ""}" placeholder="0.00"></div>
           </div>
 
           <div>
-            <label class="lbl">¿Qué días trabaja? (los que no marques son su descanso)</label>
+            <label class="lbl">¿Qué días trabaja? (los que no marques son su descanso)${ayuda("Marca los días de la semana que trabaja normalmente. Los que dejes sin marcar son su día de descanso y no se le pagan.")}</label>
             <div class="grid grid-cols-7 gap-1.5">
               ${ORDEN_SEMANA.map((d) => `<label class="opt !flex-col !gap-1 !px-0 !py-2 justify-center text-center text-xs"><input type="checkbox" class="fDia" value="${d}" ${diasSel.includes(d) ? "checked" : ""}><span>${DIA_CORTO[d]}</span></label>`).join("")}
             </div>
@@ -2273,7 +2412,7 @@
           </div>
 
           <div>
-            <label class="lbl">¿Cuántos días cubre ese pago?</label>
+            <label class="lbl">¿Cuántos días cubre ese pago?${ayuda("Sirve para saber cuánto vale un día de trabajo (sueldo ÷ días). “Automático” lo calcula con sus días de trabajo. Usa “Manual” solo si quieres un número distinto.")}</label>
             <div class="space-y-2">
               <label class="opt"><input type="radio" name="fModo" value="auto" ${modo === "auto" ? "checked" : ""}> <span>Automático <span class="text-inkfaint" id="fAutoTxt"></span></span></label>
               <label class="opt"><input type="radio" name="fModo" value="manual" ${modo === "manual" ? "checked" : ""}> <span class="shrink-0">Manual</span>
@@ -2417,7 +2556,7 @@
       const html = `
         <div class="flex justify-between items-start mb-4 gap-3">
           <div class="min-w-0">
-            <p class="text-xs text-primary font-semibold mb-0.5">Asistencia</p>
+            <p class="text-xs text-primary font-semibold mb-0.5">Asistencia${ayuda("Aquí marcas qué pasó cada día con este trabajador: si vino, medio día, vacaciones, faltó o descansó. Solo se le pagan los días que vino, medio día y vacaciones.")}</p>
             <h3 class="font-display font-bold text-xl text-white truncate">${esc(w.nombre)}</h3>
             <p class="text-xs text-inkfaint mt-1">1) Elige qué pasó (Trabajó, Faltó…) · 2) Toca los días en el calendario</p>
           </div>
@@ -2476,8 +2615,8 @@
         <div class="grid grid-cols-7 gap-1.5 mb-4">${celdas}</div>
 
         <div class="grid grid-cols-2 gap-2 mb-4">
-          <button data-fill class="bg-panel2 border border-line text-white text-xs font-semibold py-2.5 rounded-xl hover:border-primary active:scale-95 transition">⚡ Completar hasta hoy</button>
-          <button data-clear class="bg-panel2 border border-line text-inkdim text-xs font-semibold py-2.5 rounded-xl hover:text-red-400 hover:border-red-500/50 active:scale-95 transition">🧹 Limpiar mes</button>
+          <button data-fill title="Marca como trabajado o descanso todos los días sin marcar, hasta hoy" class="bg-panel2 border border-line text-white text-xs font-semibold py-2.5 rounded-xl hover:border-primary active:scale-95 transition">⚡ Completar hasta hoy</button>
+          <button data-clear title="Borra todas las marcas de este mes" class="bg-panel2 border border-line text-inkdim text-xs font-semibold py-2.5 rounded-xl hover:text-red-400 hover:border-red-500/50 active:scale-95 transition">🧹 Limpiar mes</button>
         </div>
 
         <div class="bg-panel2 border border-line rounded-xl px-4 py-3">
@@ -2485,7 +2624,7 @@
           <div class="flex justify-between text-xs text-inkdim mb-1"><span>Medio día / vacaciones</span><span class="font-mono text-white">${c.conteo.medio} / ${c.conteo.vacaciones}</span></div>
           <div class="flex justify-between text-xs text-inkdim mb-2"><span>Faltas / descansos</span><span class="font-mono text-white">${c.conteo.falta} / ${c.conteo.descanso}</span></div>
           <div class="flex justify-between items-baseline pt-2 border-t border-line">
-            <span class="text-sm text-inkdim">Días trabajados este mes</span>
+            <span class="text-sm text-inkdim">Días trabajados este mes${ayuda("Cuánto ganó este mes por los días que marcaste. “Completar hasta hoy” marca como trabajado todos los días sin marcar (y como descanso los días libres) hasta hoy.")}</span>
             <span class="font-display font-extrabold text-xl text-white">${fmtMoney(c.base)}</span>
           </div>
           <p class="text-[11px] text-inkfaint mt-1">${c.diasPagados % 1 ? c.diasPagados.toFixed(1) : c.diasPagados} días pagados × ${fmtMoney(c.tarifa)}</p>
@@ -2545,7 +2684,7 @@
       const html = `
         <div class="flex justify-between items-start mb-4 gap-3">
           <div class="min-w-0">
-            <p class="text-xs text-primary font-semibold mb-0.5">Pagos</p>
+            <p class="text-xs text-primary font-semibold mb-0.5">Pagos${ayuda("Desde aquí le pagas su sueldo, le das un adelanto, le haces un descuento o le das un bono. También ves todo lo que ya registraste con este trabajador.")}</p>
             <h3 class="font-display font-bold text-xl text-white truncate">${esc(w.nombre)}</h3>
             <p class="text-xs text-inkfaint mt-1">${METODOS[w.metodoPago] || ""} ${esc(w.metodoPago)} · ${fmtMoney(w.monto)} ${FREC_LABEL[w.frecuencia] || ""}</p>
           </div>
@@ -2595,19 +2734,19 @@
 
       el.innerHTML = `
         <div class="pay-hero">
-          <p class="help" style="margin-bottom:.25rem">${adelantado ? "Ya recibió de más" : "Ahora mismo le debes"}</p>
+          <p class="help" style="margin-bottom:.25rem">${adelantado ? "Ya recibió de más" : "Ahora mismo le debes"}${ayuda("Es lo que este trabajador ya ganó y todavía no cobra. Si es rojo, significa que ya recibió más de lo que ganó y esa diferencia se resta de su próximo pago.")}</p>
           <p class="big-num ${adelantado ? "text-red-400" : "text-white"}">${fmtMoney(absSaldo)}</p>
           <p class="help" style="margin-top:.5rem">${L.saldo > 0.5 ? "Es lo que ya trabajó y todavía no le pagas." : adelantado ? "Le diste más de lo que ganó. Esa diferencia se resta de su próximo pago." : "No le debes nada por ahora."}</p>
           <p class="text-[11px] ${pp.cls}" style="margin-top:.6rem">📆 ${pp.txt}</p>
         </div>
 
-        <p class="step" style="margin-top:0">PASO 1 · ¿QUÉ QUIERES HACER?</p>
+        <p class="step" style="margin-top:0">PASO 1 · ¿QUÉ QUIERES HACER?${ayuda("Elige el tipo de movimiento: pagarle su sueldo, darle un adelanto (plata antes de tiempo), descontarle (quitarle plata por algo) o darle un bono (plata extra).")}</p>
         <div class="pay-opts">
           ${Object.entries(TIPOS_MOV).map(([k, t]) => `<button data-tipo="${k}" class="pay-opt ${k === movTipo ? "active" : ""}"><span class="pay-ico">${t.ico}</span><span>${t.btn}</span></button>`).join("")}
         </div>
         <p class="help">${T.ayuda}</p>
 
-        <p class="step">PASO 2 · ¿CUÁNTO?</p>
+        <p class="step">PASO 2 · ¿CUÁNTO?${ayuda("Escribe la fecha y el monto. En un pago de sueldo ya viene lo que le debes; si le das menos, cambia el monto y quedará como pago incompleto. Abajo verás qué pasará antes de confirmar.")}</p>
         <div class="space-y-3 mb-5">
           <div class="grid grid-cols-2 gap-3">
             <div><label class="lbl">${fechaLbl}</label><input id="pFecha" type="date" class="field font-mono" value="${prev?.fecha || iso(new Date())}"></div>
@@ -2620,7 +2759,7 @@
         </div>
 
         <details class="guide" style="margin-bottom:1.25rem">
-          <summary>🧮 ¿Cómo se calculó lo que le debes?</summary>
+          <summary>🧮 ¿Cómo se calculó lo que le debes?${ayuda("Muestra la cuenta completa: lo que ganó por sus días trabajados, más los bonos, menos los descuentos, y luego se restan los sueldos y adelantos que ya le diste.")}</summary>
           <div style="margin-top:.7rem">
             <div class="calc-row"><span>Días que trabajó (${dias} × ${fmtMoney(L.tarifa)} por día)</span><b>${fmtMoney(L.base)}</b></div>
             ${L.bonos > 0 ? `<div class="calc-row"><span>➕ Bonos que se le sumaron</span><b>+ ${fmtMoney(L.bonos)}</b></div>` : ""}
@@ -2633,7 +2772,7 @@
           <p class="help" style="margin-top:.7rem">Su ciclo actual va del ${fmtDia(c.inicio)} al ${fmtDia(c.fin)}. Los días se marcan en «📅 Marcar días».</p>
         </details>
 
-        <p class="step" style="margin-top:0">LO QUE YA REGISTRASTE</p>
+        <p class="step" style="margin-top:0">LO QUE YA REGISTRASTE${ayuda("La lista de todos los pagos, adelantos, descuentos y bonos de este trabajador. Si te equivocaste en alguno, bórralo con el 🗑 y el saldo se recalcula solo.")}</p>
         <div class="space-y-2">
           ${movs.length ? movs.map((p) => {
         const tipo = p.tipo || "pago";
@@ -2773,6 +2912,7 @@
     });
 
     $("overlay").addEventListener("click", (e) => {
+      if (e.target.closest("[data-ayuda]")) return; // el botón "?" solo muestra su ayuda
       if (e.target.id === "overlay" || e.target.closest("[data-close]")) return cerrarPanel();
       const t = e.target;
       const save = t.closest("#btnSaveWorker"); if (save) return guardarTrabajador(save.dataset.id || null);
